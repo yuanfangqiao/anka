@@ -1,0 +1,53 @@
+# ===== Python (FastAPI 后端) =====
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.log
+
+# ===== Node / Vite 前端 =====
+node_modules/
+web/dist/
+web/.vite/
+web/dev-dist/
+# vite-plugin-pwa 生成的 Service Worker 产物
+web/sw.js
+web/sw.js.map
+web/workbox-*.js
+web/workbox-*.js.map
+web/*.local
+
+# 前端验证截图（playwright 产物，非源码）
+web/*.png
+
+# ===== 本地环境变量 =====
+.env
+.env.*
+!.env.example
+web/.env
+web/.env.*
+
+# ===== 运行日志与 PID =====
+logs/
+*.pid
+
+# ===== 工具产物 =====
+.playwright-cli/
+.codebuddy/
+
+# ===== 编辑器 / IDE =====
+.idea/
+.vscode/
+*.swp
+
+# ===== 操作系统 =====
+.DS_Store
+Thumbs.db

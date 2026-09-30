@@ -1,0 +1,109 @@
+- generic [ref=e4]:
+  - complementary "侧边栏" [ref=e5]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - generic [ref=e8]: A
+        - generic [ref=e9]:
+          - paragraph [ref=e10]: AgentOS
+          - paragraph [ref=e11]: 一切皆插件
+      - button "插件" [ref=e12] [cursor=pointer]
+      - button "任务" [ref=e17] [cursor=pointer]
+      - button "网络" [ref=e22] [cursor=pointer]
+      - button "工作区" [ref=e27] [cursor=pointer]
+    - button "设置" [ref=e34] [cursor=pointer]
+  - generic [ref=e39]:
+    - generic [ref=e40]:
+      - generic [ref=e41]:
+        - paragraph [ref=e46]: 插件
+        - generic [ref=e47]: PWA · 双布局壳
+      - main [ref=e48]:
+        - generic [ref=e50]:
+          - generic [ref=e51]:
+            - heading "插件" [level=1] [ref=e52]
+            - paragraph [ref=e53]: 一切皆插件——依赖自动拓扑排序，启停可级联
+          - generic [ref=e54]:
+            - generic [ref=e59]:
+              - generic [ref=e60]: 总数 6
+              - generic [ref=e61]: 活跃 6
+              - generic [ref=e62]: 失败 0
+            - generic [ref=e63]: 已连接内核
+          - generic [ref=e64]:
+            - generic [ref=e65]:
+              - generic [ref=e66]:
+                - generic [ref=e72]:
+                  - generic [ref=e73]:
+                    - heading "llm-runtime" [level=3] [ref=e74]
+                    - generic [ref=e75]: 运行中
+                  - paragraph [ref=e77]: Service 类插件 · 副作用 1
+                - switch [checked] [ref=e78] [cursor=pointer]
+              - generic [ref=e80]:
+                - generic [ref=e81]: provide
+                - generic [ref=e82]: llm
+            - generic [ref=e83]:
+              - generic [ref=e84]:
+                - generic [ref=e90]:
+                  - generic [ref=e91]:
+                    - heading "tools-runtime" [level=3] [ref=e92]
+                    - generic [ref=e93]: 运行中
+                  - paragraph [ref=e95]: Service 类插件 · 副作用 1
+                - switch [checked] [ref=e96] [cursor=pointer]
+              - generic [ref=e98]:
+                - generic [ref=e99]: provide
+                - generic [ref=e100]: tools
+            - generic [ref=e101]:
+              - generic [ref=e102]:
+                - generic [ref=e108]:
+                  - generic [ref=e109]:
+                    - heading "llm-echo" [level=3] [ref=e110]
+                    - generic [ref=e111]: 运行中
+                  - paragraph [ref=e113]: 函数插件 · 副作用 1
+                - switch [checked] [ref=e114] [cursor=pointer]
+              - generic [ref=e116]:
+                - generic [ref=e117]: inject
+                - generic [ref=e118]: llm
+            - generic [ref=e121]:
+              - generic [ref=e122]:
+                - generic [ref=e128]:
+                  - generic [ref=e129]:
+                    - heading "llm-logger" [level=3] [ref=e130]
+                    - generic [ref=e131]: 运行中
+                  - paragraph [ref=e133]: 函数插件 · 副作用 1
+                - switch [checked] [ref=e134] [cursor=pointer]
+              - generic [ref=e136]:
+                - generic [ref=e137]: inject
+                - generic [ref=e138]: llm
+            - generic [ref=e141]:
+              - generic [ref=e142]:
+                - generic [ref=e148]:
+                  - generic [ref=e149]:
+                    - heading "agent-loop" [level=3] [ref=e150]
+                    - generic [ref=e151]: 运行中
+                  - paragraph [ref=e153]: Service 类插件 · 副作用 1
+                - switch [checked] [ref=e154] [cursor=pointer]
+              - generic [ref=e156]:
+                - generic [ref=e157]: inject
+                - generic [ref=e158]: llm
+                - generic [ref=e159]: tools
+                - generic [ref=e162]: provide
+                - generic [ref=e163]: agents
+            - generic [ref=e164]:
+              - generic [ref=e165]:
+                - generic [ref=e171]:
+                  - generic [ref=e172]:
+                    - heading "tool-bash" [level=3] [ref=e173]
+                    - generic [ref=e174]: 运行中
+                  - paragraph [ref=e176]: 函数插件 · 副作用 1
+                - switch [checked] [ref=e177] [cursor=pointer]
+              - generic [ref=e179]:
+                - generic [ref=e180]: inject
+                - generic [ref=e181]: tools
+          - generic [ref=e184]:
+            - text: 试试禁用
+            - code [ref=e185]: llm-runtime
+            - text: ：所有 inject 了
+            - code [ref=e186]: llm
+            - text: 的插件（llm-echo、agent-loop、llm-logger）会被级联卸载，teardown 逆序执行——这就是「注册即可逆副作用」。
+    - navigation "应用 Dock" [ref=e188]:
+      - button "笔记" [ref=e189] [cursor=pointer]
+      - button "对话" [ref=e195] [cursor=pointer]
+      - button "探索" [ref=e200] [cursor=pointer]

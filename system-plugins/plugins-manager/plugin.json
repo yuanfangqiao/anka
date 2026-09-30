@@ -1,0 +1,10 @@
+{
+  "id": "plugins-manager",
+  "name": "插件管理",
+  "icon": "blocks",
+  "version": "0.1.0",
+  "system": true,
+  "description": "插件的插件：查看依赖、热启停、安装与卸载（self-hosting，UI 静态捆入内核）",
+  "backend": null,
+  "ui": { "entry": null, "bundled": "web/src/system/plugins-manager", "dock": null, "sidebar": true, "route": "/plugins-manager" }
+}

@@ -1,0 +1,10 @@
+{
+  "id": "settings",
+  "name": "设置",
+  "icon": "settings",
+  "version": "0.1.0",
+  "system": true,
+  "description": "主题、安装状态与关于（系统插件，UI 静态捆入内核 web/src/system/settings）",
+  "backend": null,
+  "ui": { "entry": null, "bundled": "web/src/system/settings", "dock": null, "sidebar": false, "route": "/settings" }
+}

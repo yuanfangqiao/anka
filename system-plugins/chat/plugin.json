@@ -1,0 +1,10 @@
+{
+  "id": "chat",
+  "name": "对话",
+  "icon": "message-square",
+  "version": "0.1.0",
+  "system": true,
+  "description": "与插件化 Agent 对话（系统插件，UI 静态捆入内核 web/src/system/chat）",
+  "backend": null,
+  "ui": { "entry": null, "bundled": "web/src/system/chat", "dock": { "order": 0 }, "sidebar": true, "route": "/chat" }
+}

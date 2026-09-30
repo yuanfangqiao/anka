@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  html,
+  body,
+  #app {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    overscroll-behavior: none;
+  }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    border-radius: 8px;
+    background: var(--line);
+  }
+  ::selection {
+    background: rgb(91 140 255 / 0.35);
+  }
+}
+
+@layer components {
+  .glass-panel {
+    background: var(--glass);
+    border: 1px solid var(--line);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  .text-gradient {
+    background: linear-gradient(120deg, var(--primary), var(--cyan));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}
+
+.page-enter-active,
+.page-leave-active {
+  transition:
+    opacity 200ms ease,
+    transform 200ms ease;
+}
+/* 默认模式（进出同时进行）：leave 元素绝对定位，避免过渡期间两页堆叠造成跳动 */
+.page-leave-active {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(8px) scale(0.99);
+}
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.99);
+}
+
+.stagger > * {
+  animation: fade-up 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.stagger > *:nth-child(2) {
+  animation-delay: 40ms;
+}
+.stagger > *:nth-child(3) {
+  animation-delay: 80ms;
+}
+.stagger > *:nth-child(4) {
+  animation-delay: 120ms;
+}
+.stagger > *:nth-child(5) {
+  animation-delay: 160ms;
+}
+.stagger > *:nth-child(6) {
+  animation-delay: 200ms;
+}

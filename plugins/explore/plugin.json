@@ -1,0 +1,10 @@
+{
+  "id": "explore",
+  "name": "探索",
+  "icon": "compass",
+  "version": "0.1.0",
+  "system": false,
+  "description": "Agent 内部动态流：插件加载、工具调用、事件分发的时间线",
+  "backend": { "entry": "server/main.py" },
+  "ui": { "entry": "web/index.js", "dock": { "order": 20 }, "sidebar": true, "route": "/explore" }
+}
