@@ -1,0 +1,68 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - main [ref=e5]:
+      - generic [ref=e7]:
+        - complementary [ref=e8]:
+          - generic [ref=e9]:
+            - paragraph [ref=e10]: 会话
+            - generic [ref=e12]:
+              - button "新建会话" [ref=e13] [cursor=pointer]
+              - paragraph [ref=e15]: 会话
+              - button "当前会话 现在" [ref=e16] [cursor=pointer]:
+                - generic [ref=e19]: 当前会话
+                - generic [ref=e20]: 现在
+              - button "Agent 架构讨论 昨天" [ref=e21] [cursor=pointer]:
+                - generic [ref=e24]: Agent 架构讨论
+                - generic [ref=e25]: 昨天
+              - button "PWA 安装清单确认 周一" [ref=e26] [cursor=pointer]:
+                - generic [ref=e29]: PWA 安装清单确认
+                - generic [ref=e30]: 周一
+        - generic [ref=e31]:
+          - generic [ref=e32]:
+            - generic [ref=e37]:
+              - paragraph [ref=e38]: agent-loop 运行中
+              - paragraph [ref=e39]: "inject: llm, tools · provide: agents"
+            - generic [ref=e40]: Echo Adapter
+          - generic [ref=e42]:
+            - generic [ref=e43]: 你好，我是由 6 个插件组装出来的 Agent。我的 LLM 是 llm-echo 提供的 Echo Adapter，工具来自 tools-runtime。试着问我「目录里有什么」。
+            - generic [ref=e50]: 当前目录里有什么？
+            - generic [ref=e62]:
+              - generic [ref=e63]: 我调用了 bash 工具看了一下：
+              - generic [ref=e64]:
+                - paragraph [ref=e65]: 工具调用 · tool-bash
+                - paragraph [ref=e68]: $ ls server/app
+                - paragraph [ref=e72]: cordis plugins api main.py settings.py
+            - generic [ref=e73]: 目录包含 cordis（插件内核）、plugins（六个插件）和 api（FastAPI 路由）。这条回复经过 llm-logger 的 waterfall 包裹，耗时 12ms。
+          - generic [ref=e80]:
+            - textbox "给 Agent 发条消息…" [ref=e81]
+            - button "发送" [disabled] [ref=e82]
+    - navigation "应用 Dock" [ref=e87]:
+      - generic [ref=e88]:
+        - generic [ref=e89]:
+          - generic: 设置
+          - button "设置" [ref=e90] [cursor=pointer]
+        - generic [ref=e95]:
+          - generic: 对话
+          - button "对话" [ref=e96] [cursor=pointer]
+        - generic [ref=e100]:
+          - generic: 笔记
+          - button "笔记" [ref=e101] [cursor=pointer]
+        - generic [ref=e106]:
+          - generic: 探索
+          - button "探索" [ref=e107] [cursor=pointer]
+        - generic [ref=e112]:
+          - generic: 示例
+          - button "示例" [ref=e113] [cursor=pointer]
+  - generic [ref=e119]:
+    - generic [ref=e120]: "[plugin:vite:vue] Attribute name cannot contain U+0022 (\"), U+0027 ('), and U+003C (<)."
+    - generic [ref=e121]: /Users/vitcou/workplace/pwa-demo/plugins/calculator/web/Calc.vue:89:82
+    - generic [ref=e122]: "87 | class=\"h-12 rounded-xl text-lg font-medium transition-all duration-micro active:scale-90 cursor-pointer\" 88 | :class=\"k === '='\" 89 | ? 'bg-gradient-to-r from-brand to-brand-cyan text-white shadow-glow' | ^ 90 | : /^[0-9.]$/.test(k) 91 | ? 'bg-glass text-ink-0 border border-line'"
+    - generic [ref=e123]: at createCompilerError (/Users/vitcou/workplace/pwa-demo/web/node_modules/@vue/compiler-core/dist/compiler-core.cjs.js:1378:17) at Object.emitError [as onerr] (/Users/vitcou/workplace/pwa-demo/web/node_modules/@vue/compiler-core/dist/compiler-core.cjs.js:3035:5) at Tokenizer.stateInAttrName (/Users/vitcou/workplace/pwa-demo/web/node_modules/@vue/compiler-core/dist/compiler-core.cjs.js:868:16) at Tokenizer.parse (/Users/vitcou/workplace/pwa-demo/web/node_modules/@vue/compiler-core/dist/compiler-core.cjs.js:1117:16) at Object.baseParse (/Users/vitcou/workplace/pwa-demo/web/node_modules/@vue/compiler-core/dist/compiler-core.cjs.js:3074:13) at Object.parse (/Users/vitcou/workplace/pwa-demo/web/node_modules/@vue/compiler-dom/dist/compiler-dom.cjs.js:913:23) at Object.parse$1 [as parse] (/Users/vitcou/workplace/pwa-demo/web/node_modules/@vue/compiler-sfc/dist/compiler-sfc.cjs.js:1918:24) at createDescriptor (file:///Users/vitcou/workplace/pwa-demo/web/node_modules/@vitejs/plugin-vue/dist/index.mjs:71:43) at transformMain (file:///Users/vitcou/workplace/pwa-demo/web/node_modules/@vitejs/plugin-vue/dist/index.mjs:2421:34) at TransformPluginContext.transform (file:///Users/vitcou/workplace/pwa-demo/web/node_modules/@vitejs/plugin-vue/dist/index.mjs:3053:16
+    - generic [ref=e124]:
+      - text: Click outside, press Esc key, or fix the code to dismiss.You can also disable this overlay by setting
+      - code [ref=e125]: server.hmr.overlay
+      - text: to
+      - code [ref=e126]: "false"
+      - text: in
+      - code [ref=e127]: vite.config.ts
+      - text: .

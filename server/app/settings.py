@@ -31,3 +31,10 @@ APP_PLUGINS_DIR = PROJECT_ROOT / 'plugins'            # 应用插件（前后端
 SYSTEM_PLUGINS_DIR = PROJECT_ROOT / 'system-plugins'  # 系统插件标记（UI 静态捆入内核）
 INSTALLED_FILE = PROJECT_ROOT / 'server' / 'data' / 'installed.json'
 DEFAULT_INSTALLED = ['notes', 'explore']              # 首次运行的默认安装集
+
+# 插件前端管线（M9）
+WEB_DIR = PROJECT_ROOT / 'web'
+PLUGIN_DIST_DIR = PROJECT_ROOT / '.plugin-dist'       # 插件「安装时编译」产物缓存
+# 开发标记：run_dev.py（非 --prod）置 AGENTOS_DEV=1 ——
+# dev 下插件源码由 vite 中间件按需编译，不做安装时构建
+AGENT_DEV = os.environ.get('AGENTOS_DEV', '') == '1'

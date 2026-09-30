@@ -2,6 +2,66 @@
 
 记录每次核心修改。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，最新在上。
 
+## [M10.2] 手机端 dock 定位修复 · 2026-09-30
+
+### 修复
+- **手机 dock 布局失效**：`DockBar` 静态类写了 `relative`，移动分支动态类又给 `fixed`——同优先级的 Tailwind 工具类按生成顺序 `relative` 恒胜 `fixed`，导致手机端 dock 退化为文档流元素（`inset-x-4` 变成右移 16px、全宽溢出、失去悬浮）。修复：`relative` 移入 desktop 分支
+- 手机 dock 内容 `justify-around` 均匀分布（全宽胶囊内靠左难看）
+
+### 验证
+- 390×844：`position: fixed`、x=16、w=358、距底 10px；6 应用均匀分布、标签清晰、当前项高亮（playwright 截图）
+- 1024×800（桌面/iPad 分支）：`relative` 保留、胶囊居中（268px 宽居中误差 <2px），tooltip 定位前提未破坏
+
+## [M10.1] calculator 插件 + 通道健壮性 · 2026-09-30
+
+### 新增
+- **calculator 插件**（`plugins/calculator/`，第 4 个 App）：前端按键拼接表达式，「=」经 `callApp` 发后端求值；后端 `safe_eval` 用 **AST 白名单**求值（仅数字与 `+ - * / // % **` 括号，拒绝 `eval`/任意代码），保留最近 10 条历史（`snapshot`/`calc`/`clear`）；已加入默认安装集
+- Tailwind `content` 纳入 `../plugins/**/*.{vue,ts,js}`——此前插件 UI 类不生成 CSS（按键网格塌成一行即此因）
+
+### 修复（通用通道，惠及所有插件）
+- `api/apps.py app_call`：插件抛出的 `ValueError` → **400 + detail.message**（此前 500）
+- `api.ts request`：错误优先透出后端 `detail.message`（插件可显示「表达式语法错误」等业务提示）
+
+### 途中发现并修复
+- Calc.vue 模板内跨行三元 `:class` 的 `'='` 字符串提前闭合属性引号（Vue Tokenizer `U+0027` 报错）→ 改为 `keyClass(k)` 函数绑定
+- `toPy` 原为按键级查表，误用于整串表达式（`7×8` 未转换）→ 改全局替换；插件后端补 `SyntaxError → ValueError`
+- 注意：`uvicorn --reload` 只监视 `server/app/`，改 `plugins/*/server/main.py` 需手动重启后端
+
+### 验证
+- curl：`1+2*3=7`、`(2+8)/4=2.5`、`2**10=1024`、`__import__("os")` 被 AST 白名单拒绝（400）
+- playwright：`7 × 8 =` 全链路 → 显示屏 56、历史 `7*8=56`、dock 第 6 个应用、控制台 0 报错
+
+## [M9] 插件前端生产管线（安装时编译）· 2026-09-30
+
+### 新增
+- **安装时编译**：`plugin_builder.py` 调 `web/scripts/build-plugin.mjs`（vite 程序化构建，内部 esbuild）把插件 `web/`（.vue/.ts/.js）编译为单文件 ESM，缓存 `.plugin-dist/<id>/index.js`；FastAPI mount `/plugin-dist` 伺服；`install()` 触发构建，`bootstrap()` 补齐缺失产物，`uninstall()` 同步清理
+- **单 Vue 实例保证**：宿主 `vite build` external vue + `web/shared/vue.ts` 构建为 `dist/shared/vue.js`（`build` 前置 `build-shared.mjs`，含 `process.env.NODE_ENV` 与特性开关 define）+ `index.html` import map `"vue": "/shared/vue.js"`——宿主与插件的裸 import 解析到同一模块
+- `run_dev.py` 非 `--prod` 时置 `AGENTOS_DEV=1`：开发态 entry 保持源码 URL（vite 中间件即时编译 + HMR），不做安装时构建；生产态 entry 优先 `/plugin-dist/`
+- workbox：`/plugin-dist/` NetworkFirst（不预缓存）；`/shared/vue.js` 随主构建预缓存
+
+### 移除
+- M8 的 `postbuild: copy-plugin-web.mjs`（源码拷贝方案，无法处理 .vue/.ts）——删除脚本
+
+### 修复
+- 共享 Vue 首版构建缺 `process.env.NODE_ENV` define，浏览器报 `process is not defined`——已补并重建
+
+### 验证
+- 生产形态（`run_dev.py --prod`，:8001）：bootstrap 自动构建 3 插件；`/api/apps` entries 全部指向 `/plugin-dist/`；demo bundle 含裸 `import ... from "vue"`；浏览器加载 `/demo` 渲染正常、控制台 0 报错（playwright）
+- 开发形态（:5173）：entry 保持源码 URL，demo 经 vite 即时编译渲染正常、0 报错
+
+## [M8.2] 插件前端技术栈升级（Vue SFC + TS）· 2026-09-30
+
+### 变更
+- 插件前端从「纯 JS + h()」升级为 **Vue SFC + TypeScript**：入口 `web/index.ts`，界面 `.vue`（`<script setup lang="ts">`）。demo 插件为首例，新增 `types.ts`（uiCtx 结构类型）与 `shims-vue.d.ts`
+- vite 中间件修复：`transformRequest` 改用**绝对文件路径** + **保留 SFC 子块 query**（`?vue&type=…`），`.vue/.ts` 即时编译真正可用；新增 `resolve.alias.vue`（插件与内核共享同一 Vue 实例）与 `server.fs.allow`（放行项目根）
+- `plugin.json` 的 `ui.entry` 指向 `.ts`（scanner 对 `.ts` 入口的存在性校验不变）
+
+### 决策（拍板写入 IDEA.md §3.10）
+- 生产态采用**安装时编译**：install hook esbuild 构建插件 `web/` → 缓存产物 + FastAPI mount `/plugins`；弃浏览器运行时编译与作者预编译 dist。排期 **M9**；GitHub URL 安装（clone + 复用 install）排期 **M10**
+
+### 验证
+- `GET /plugins/demo/web/index.ts` 与 `Demo.vue` 均即时编译 200（Demo.vue 产物 import 宿主 `node_modules/.vite/deps/vue.js`，单实例）；`/api/apps/demo/state` 数据通道正常
+
 ## [M8.1] 切页白屏根因修复 · 2026-09-30
 
 ### 修复

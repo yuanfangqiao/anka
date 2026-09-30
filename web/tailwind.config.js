@@ -1,6 +1,11 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ['./index.html', './src/**/*.{vue,ts}'],
+  content: [
+    './index.html',
+    './src/**/*.{vue,ts}',
+    // 应用插件（plugins/）的 Vue/TS 源码同样参与类名扫描
+    '../plugins/**/*.{vue,ts,js}',
+  ],
   darkMode: ['class', '[data-theme="dark"]'],
   theme: {
     extend: {

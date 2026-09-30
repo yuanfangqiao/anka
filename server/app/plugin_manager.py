@@ -15,9 +15,10 @@ asyncio.Lock 串行化 + asyncio.to_thread 执行（见 AGENT.md 红线 #3）。
 
 import json
 import logging
+import shutil
 from pathlib import Path
 
-from . import folder_loader, settings
+from . import folder_loader, plugin_builder, settings
 from .cordis import FiberState, Loader, RootContext
 from .folder_scanner import FolderManifest, scan
 from .schemas import (AppInfo, AvailablePlugin, InstallResult,
@@ -86,6 +87,12 @@ class PluginManager:
                 self._install_loaded(app_id, self.discover()[app_id])
             except Exception as e:
                 log.error('安装 app 插件 %s 失败: %s', app_id, e)
+        if not settings.AGENT_DEV:
+            # 生产态：补齐缺失的插件前端构建产物（有缓存则跳过）
+            for app_id in list(self._installed):
+                m = self.discover().get(app_id)
+                if m and m.ok and m.ui_entry and not plugin_builder.has_dist(app_id):
+                    plugin_builder.build_web(app_id)
         log.info('bootstrap: %s', ', '.join(
             f'{i.name}={i.state}' for i in self.list_plugins()))
 
@@ -130,9 +137,15 @@ class PluginManager:
             f = self._latest_fibers().get(app_id)
             if f and f.state != FiberState.ACTIVE:
                 continue                # 被禁用的 app 不出现在 dock
+            # M9：生产态优先用安装时编译产物；开发态用 vite 即时编译的源码
+            entry = (
+                f'/plugin-dist/{m.id}/index.js'
+                if not settings.AGENT_DEV and plugin_builder.has_dist(m.id)
+                else f'/plugins/{m.id}/{m.ui_entry}'
+            )
             result.append(AppInfo(
                 id=m.id, title=m.name, icon=m.icon, route=m.route,
-                entry=f'/plugins/{m.id}/{m.ui_entry}',
+                entry=entry,
                 dock_order=m.dock_order, has_sidebar=m.has_sidebar))
         result.sort(key=lambda a: a.dock_order)
         return result
@@ -174,6 +187,10 @@ class PluginManager:
             return InstallResult(name=name, ok=False,
                                  state=FiberState.FAILED.name, message=str(e))
 
+        # M9：生产态安装即编译插件前端（产物缓存 .plugin-dist/<id>/）
+        if not settings.AGENT_DEV:
+            plugin_builder.build_web(name)
+
         self._installed.append(name)
         self._write_installed()
         self._invalidate_scan()
@@ -197,6 +214,9 @@ class PluginManager:
         self._installed.remove(name)
         self._write_installed()
         self._invalidate_scan()
+        dist = settings.PLUGIN_DIST_DIR / name      # M9：清掉前端构建产物
+        if dist.is_dir():
+            shutil.rmtree(dist, ignore_errors=True)
         log.info('uninstall %s, cascaded=%s', name, res.cascaded)
         return PluginActionResult(
             name=name, ok=True, state='UNINSTALLED', cascaded=res.cascaded,

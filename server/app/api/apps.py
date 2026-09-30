@@ -59,4 +59,8 @@ async def app_call(app_id: str, req: AppCallRequest):
         raise HTTPException(
             status_code=400,
             detail={'error': 'bad_args', 'message': str(e)})
+    except ValueError as e:          # 插件业务校验（如表达式非法）→ 400
+        raise HTTPException(
+            status_code=400,
+            detail={'error': 'bad_request', 'message': str(e)})
     return {'ok': True, 'result': result}

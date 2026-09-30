@@ -74,7 +74,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (!res.ok) {
     console.error('api http error', res.status)
-    throw new ApiError(`请求失败（HTTP ${res.status}）`, res.status)
+    // 优先透出后端 detail.message（插件业务校验信息）
+    let detail = ''
+    try {
+      const body = await res.json()
+      detail = body?.detail?.message ?? ''
+    } catch { /* 非 JSON 响应 */ }
+    throw new ApiError(detail || `请求失败（HTTP ${res.status}）`, res.status)
   }
   return (await res.json()) as T
 }

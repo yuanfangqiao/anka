@@ -98,13 +98,28 @@
 
 设计要点：
 - **三层架构**：内核（不可卸载）→ system-plugins → `plugins/` 应用插件（可装卸）
-- **插件包**：`plugins/<name>/` 含 `plugin.json` + `server/`（apply(ctx)，复用 cordis）+ `web/index.js`（ESM `setup(uiCtx)` 注册路由/dock/工作栏）+ `assets/`
+- **插件包**：`plugins/<name>/` 含 `plugin.json` + `server/`（Python Service，复用 cordis）+ `web/index.ts`（TS 入口 + Vue SFC 界面，`setup(uiCtx)` 注册路由/dock）+ `assets/`（技术栈细节见 §3.10）
 - **dock = 已安装的应用**（双端共用，手机贴底、桌面底部居中不变）
 - **桌面左栏 = 当前 App 自己的工作栏**（顶部 App 图标+名称，切换 200ms 过渡；无声明 → 左栏隐藏、主窗口变宽）
 - **插件页三分区**：运行中 / 可安装（扫描 `plugins/` 目录发现）/ 系统（锁标识）
 - **卸载**：确认弹窗列出将停止的服务与级联影响；dock 图标即时消失；刷新后彻底干净
-- **信任模型**：仅从本地 `plugins/` 目录安装，不做远程市场
+- **信任模型**：本地 `plugins/` 目录安装（M6 已实现）；后续支持 GitHub 仓库 URL 安装（= clone 进目录 + 复用 install，见 §3.10，M10）
 - backlog：长按 dock 抖动编辑模式、边滑手势、系统插件禁用（M6 仅保证不可卸载）
+
+### 3.10 插件前端技术栈与编译策略（2026-09-30 拍板）
+
+**ComfyUI 式插件模型**：文件夹放进 `plugins/` 即被发现（manifest 校验），安装 = 文件到位 + install API；「GitHub 连接即安装」天然成立（M10 实现：clone 进目录 → 复用现有 install）。
+
+**技术栈**：前端 **Vue 3 SFC + TypeScript**（入口 `web/index.ts`，界面 `.vue`），后端 **Python** Service。插件**不 import 任何 npm 依赖**——vue/components/icons/api/toast/layout 全部经 `uiCtx` 注入；`vue` 经内核 vite alias 解析到同一份依赖，保证单实例。
+
+**两态编译**（关键决策）：
+
+| 形态 | 方案 | 状态 |
+|------|------|------|
+| 开发态 | vite 中间件 `transformRequest` 按需编译 `.vue/.ts`（绝对路径 + 保留 SFC query），带 HMR | ✅ 已实现（demo 插件验证通过） |
+| 生产态 | **安装时编译**：install hook 用 esbuild 构建插件 `web/` → 缓存产物；FastAPI mount `/plugins` 静态伺服；`import 'vue'` external 映射到宿主模块 URL，避免双 Vue 实例 | ✅ 已实现（M9，实际路径 `/plugin-dist/`，import map 共享 Vue） |
+
+弃选方案：浏览器运行时编译（带 compiler、包大、慢、缓存差）；要求作者预编译 dist（ComfyUI 前端实质做法，插件作者门槛高）。
 
 ---
 
@@ -122,7 +137,7 @@
 
 ## 五、暂不做（明确边界，避免想太多）
 
-- 本地插件文件动态安装（像 ComfyUI 装节点那样）——只做内置插件的启停
+- ~~本地插件文件动态安装（像 ComfyUI 装节点那样）~~ **已实现（M6）**：`plugins/` 目录扫描 + 动态装卸
 - 真实 LLM API 调用（M4 之后预留接口再接）
 - 多用户 / 鉴权 / 云数据库
 - 单元测试全覆盖（只保证关键机制有可跑的验证脚本）

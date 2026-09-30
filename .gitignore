@@ -39,6 +39,10 @@ web/.env.*
 logs/
 *.pid
 
+# ===== M9 插件前端构建产物（安装时编译缓存） =====
+.plugin-dist/
+web/public/shared/
+
 # ===== 工具产物 =====
 .playwright-cli/
 .codebuddy/

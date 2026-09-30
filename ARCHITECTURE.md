@@ -258,7 +258,7 @@ infra 扁平插件与 folder 插件是两类插件源，共存于同一个 `_plu
 ```
 
 - 后端加载：`importlib.util.spec_from_file_location(f'app_plugins.{id}', entry)`；`meta.name` 必须等于 `id`
-- 前端加载：`import('/plugins/<id>/web/index.js')`（`@vite-ignore`），开发态由 vite 中间件伺服项目根 `plugins/`，生产态 postbuild 拷入 `dist/plugins/`
+- 前端加载：`import(entry)`（`@vite-ignore`）——开发态 entry 为 `/plugins/<id>/web/index.ts`（vite 中间件即时编译）；生产态 entry 为 `/plugin-dist/<id>/index.js`（安装时编译产物，见 §8.8）
 - **uiCtx 依赖注入**：插件不 import 任何 npm 包，`setup(uiCtx)` 从 `uiCtx.vue`（h/ref/computed…）、`uiCtx.components`（BaseCard 等设计系统组件）、`uiCtx.api`、`uiCtx.toast` 取一切——这是无构建器插件 UI 的关键决策
 - **页面组件必须单一元素根**（Teleport 包进唯一根 div）；路由过渡禁用 `mode="out-in"`（详见 AGENT.md 红线 #8/#9 与 CHANGELOG M8.1）
 - 后端数据通道（通用契约，非插件私有路由）：Service 实现 `snapshot()` → `GET /api/apps/{id}/state`；`POST /api/apps/{id}/call {method,args}` → 调 Service 公开方法（`_` 开头拒绝）
@@ -300,8 +300,31 @@ main.ts → 静态注册系统插件（同一 uiCtx，dogfooding）
 
 ### 8.7 git 插件目录与设置项约定（M8）
 
-- **git 插件**：第三方插件是独立 git 仓库，clone 进 `plugins/<name>/`，内含 `server/`（python）+ `web/`（vue/ts 源码）；开发态中间件对 `.vue/.ts` 走 `server.transformRequest` 即时编译（bare import 由 vite 重写），生产态要求插件自带纯 ESM 构建产物 `web/index.js`；启动时按 `installed.json` 自动加载
+- **git 插件**：第三方插件是独立 git 仓库，clone 进 `plugins/<name>/`，内含 `server/`（python）+ `web/`（vue/ts 源码）；启动时按 `installed.json` 自动加载（生产管线见 §8.8）
 - **设置项归处**：全局设置集中在 dock「设置」应用；插件设置推荐以声明式 schema 注册进设置应用的插件分区（iOS 风格，后续实现），当前阶段放插件自己页面内
+
+### 8.8 插件前端生产管线（M9：安装时编译）
+
+**目标**：插件前端可写 Vue SFC + TypeScript，生产态无需插件作者预编译。
+
+```
+开发态（run_dev.py 默认，AGENTOS_DEV=1）
+  entry = /plugins/<id>/web/<entry>   ← vite 中间件 transformRequest 即时编译（含 HMR）
+
+生产态（run_dev.py --prod / uvicorn 直跑）
+  bootstrap/install → plugin_builder.build_web(id)
+    → node web/scripts/build-plugin.mjs <id>（vite 程序化构建，内部 esbuild）
+    → .plugin-dist/<id>/index.js（单文件 ESM，'vue' external）
+  entry = /plugin-dist/<id>/index.js   ← FastAPI mount /plugin-dist 伺服
+```
+
+**单 Vue 实例保证（微前端标准解法）**：
+- 宿主 `vite build` 对 `vue` 做 `rollupOptions.external`（chunk 保留裸 import）
+- `web/shared/vue.ts`（`export * from 'vue'`）构建为 `dist/shared/vue.js`（`build` 脚本前置 `build-shared.mjs`）
+- `index.html` 注入 import map：`{"imports":{"vue":"/shared/vue.js"}}` —— 宿主 chunk 与插件 bundle 的裸 `import 'vue'` 解析到同一模块
+- 弃选：浏览器运行时编译（带 compiler、慢）；要求作者预编译 dist（门槛高）
+
+**其他**：卸载时同步删除 `.plugin-dist/<id>/`；workbox 对 `/plugin-dist/` NetworkFirst（不预缓存，装卸后拿最新）；`/shared/vue.js` 随主构建预缓存（离线可用）。
 
 ## 7. 关键约束（写代码时必须遵守）
 

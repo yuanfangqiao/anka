@@ -15,13 +15,13 @@ function isActive(path: string) {
 
 <template>
   <nav
-    class="glass-panel relative z-40 rounded-[22px] shadow-card"
-    :class="desktop ? 'h-[58px] px-2.5 py-1.5' : 'fixed inset-x-4 bottom-2.5 h-[56px] safe-bottom px-2 py-1'"
+    class="glass-panel z-40 rounded-[22px] shadow-card"
+    :class="desktop ? 'relative h-[58px] px-2.5 py-1.5' : 'fixed inset-x-4 bottom-2.5 h-[56px] safe-bottom px-2 py-1'"
     aria-label="应用 Dock"
   >
     <div
       class="dock-scroll flex h-full items-end overflow-x-auto"
-      :class="desktop ? 'max-w-[460px] gap-1.5' : 'gap-1'"
+      :class="desktop ? 'max-w-[460px] gap-1.5' : 'justify-around gap-1'"
     >
       <div
         v-for="app in dockApps"

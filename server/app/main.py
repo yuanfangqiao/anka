@@ -46,6 +46,11 @@ _DIST = settings.DIST_DIR
 if (_DIST / 'assets').is_dir():
     app.mount('/assets', StaticFiles(directory=_DIST / 'assets'), name='assets')
 
+# M9：插件前端「安装时编译」产物（.plugin-dist/<id>/index.js）
+settings.PLUGIN_DIST_DIR.mkdir(parents=True, exist_ok=True)
+app.mount('/plugin-dist', StaticFiles(directory=settings.PLUGIN_DIST_DIR),
+          name='plugin-dist')
+
 
 @app.get('/{full_path:path}', include_in_schema=False)
 async def spa_fallback(full_path: str):

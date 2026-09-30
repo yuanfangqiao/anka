@@ -5,8 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "postbuild": "node scripts/copy-plugin-web.mjs",
+    "build": "node scripts/build-shared.mjs && vite build",
     "preview": "vite preview"
   },
   "dependencies": {

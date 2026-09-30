@@ -24,7 +24,8 @@ function serveAppPlugins(): Plugin {
     name: 'serve-app-plugins',
     configureServer(server) {
       server.middlewares.use('/plugins', async (req, res, next) => {
-        const raw = decodeURIComponent((req.url ?? '').split('?')[0])
+        const url = req.url ?? ''
+        const raw = decodeURIComponent(url.split('?')[0])
         const file = path.join(APP_PLUGINS_DIR, raw)
         if (!file.startsWith(APP_PLUGINS_DIR) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
           next()
@@ -33,7 +34,10 @@ function serveAppPlugins(): Plugin {
         const ext = path.extname(file)
         if (ext === '.vue' || ext === '.ts') {
           try {
-            const result = await server.transformRequest(`/plugins${raw}`)
+            // 用绝对文件路径走 vite 编译管线；保留 query（SFC 子块 ?vue&type=…）
+            // 产物的相对 import 会被改写为 /@fs/ 绝对 URL，交由 vite 自身管线处理
+            const query = url.includes('?') ? url.slice(url.indexOf('?')) : ''
+            const result = await server.transformRequest(file + query)
             if (result) {
               res.setHeader('Content-Type', 'text/javascript')
               res.end(result.code)
@@ -100,6 +104,16 @@ export default defineConfig({
               networkTimeoutSeconds: 5,
               expiration: { maxEntries: 30, maxAgeSeconds: 120 }
             }
+          },
+          {
+            // 插件构建产物（安装时编译，M9）：可装卸，不预缓存，网络优先
+            urlPattern: /\/plugin-dist\//i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'plugin-dist-cache',
+              networkTimeoutSeconds: 5,
+              expiration: { maxEntries: 30, maxAgeSeconds: 300 }
+            }
           }
         ]
       },
@@ -109,10 +123,26 @@ export default defineConfig({
       }
     })
   ],
+  build: {
+    rollupOptions: {
+      // vue 外置：宿主与插件共享同一实例（经 index.html 的 import map → /shared/vue.js）
+      external: ['vue'],
+    },
+  },
+  resolve: {
+    alias: {
+      // 应用插件（plugins/ 目录）import 'vue' 时解析到内核同一份依赖，保证同一 Vue 实例
+      vue: path.resolve(__dirname, 'node_modules/vue'),
+    },
+  },
   server: {
     host: '0.0.0.0',
     port: 5173,
     allowedHosts: true,
+    // 插件目录在项目根（web/ 之外），编译产物以 /@fs/ 绝对 URL 引用，需放行项目根
+    fs: {
+      allow: [path.resolve(__dirname, '..')],
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:8000',

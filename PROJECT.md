@@ -56,6 +56,9 @@ SSE 流式输出，AgengLoop 消费 `llm` + `tools` 两个服务
 | **M5+** | 已采纳：调用链可视化（对话页）、后台任务插件（任务页）、对话→笔记联动（笔记页）；backlog：网络 / 工作区、真实 LLM adapter、SQLite 持久化（均以 App 插件形态回归） | 各自独立验收 | ⬜ |
 | **M6** | **App 插件模型重构**：插件 = 前后端一体文件夹；主系统空壳化；动态安装/卸载；dock=已安装应用（手机 5 个可横滑）；桌面左栏=当前 App 工作栏；手机左侧抽屉 | 空系统空态可见；notes/explore 可装卸且 dock 随动；左栏随 App 切换；双视口验证无报错 | ✅ 完成 |
 | **M7** | **macOS 风格壳层重构**：dock 全面 macOS 化（波浪放大/运行点/tooltip）；主窗口布局权下放，各 App 自绘左右分栏或全屏；删除内核工作栏与手机抽屉 | 桌面/手机双视口 dock 与自绘布局正常；装卸链路 dock 随动；控制台无报错 | ✅ 完成 |
+| **M8** | **壳层精修与 PWA 修复**：移除主窗口标题条、设置进 dock、dock 缩小、git 插件目录约定、切页白屏修复 | 切页正常无白屏；已安装 PWA 从生产构建重装 | ✅ 完成 |
+| **M9** | **生产态插件管线**：install hook 用 esbuild 安装时编译插件 `web/` → 缓存产物；FastAPI mount `/plugins` 伺服；`import 'vue'` 映射宿主实例（防双 Vue）；插件前端 = Vue SFC + TS（dev 态即时编译已就绪） | 生产构建下安装/卸载 demo 插件可用且 dock 随动；插件内 vue 与宿主同实例；无控制台报错 | ✅ 完成（实际伺服路径为 `/plugin-dist/`，import map 共享 Vue） |
+| **M10** | **GitHub 一键安装**：插件页输入仓库 URL → clone 进 `plugins/` → 复用现有 install API；升级 = 拉取更新 + 重装（沿用「需重启」语义提示） | 输入公开 GitHub 仓库 URL 可完成安装并出现在 dock | ⬜ |
 
 > M2 与 M1 可并行：后端移植不依赖前端壳。
 
