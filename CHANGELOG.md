@@ -2,6 +2,73 @@
 
 记录每次核心修改。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，最新在上。
 
+## [M11] 任意文件夹即应用（page 降级形态）· 2026-10-01
+
+### 新增
+- **plugins/ 下无 plugin.json 的目录自动成为应用**：`FolderScanner` 降级探测 `index.html` / `dist/index.html` / `web/index.html` → page 类 manifest（id=name=目录名、icon=package、route=`/app/<目录名>`、order=100）；三种入口都没有则忽略
+- 内核通用组件 **`WebViewPage.vue`**：page 类应用无 `setup(uiCtx)`，`pluginHost` 按 `AppInfo.kind='page'` 直接注册 WebViewPage（同源 iframe + §8.7 sandbox 约定）指向静态入口
+- **同源红利**：page 页面可直接 `fetch('/api/...')` 调内核能力（clock 样例实测：显示「内核在线 · 插件 11/11 运行中」）
+- **不支持自动 npm build**（拍板）：要求自包含静态页或作者提交 dist；需要构建的项目作者自行 build 后放入
+- 样例：`plugins/clock`（单文件时钟）、`plugins/snake/dist`（分离资源贪吃蛇，演示 dist 形态）
+
+### 变更
+- `AppInfo` 增加 `kind: 'app' | 'page'`；`plugin_manager` 的 bootstrap/install/uninstall/enable/disable 增加 page 分支（page 无 fiber/meta：无启停语义、卸载即移出 installed）
+- prod 新增 `mount('/plugins')` 伺服插件目录静态文件——page 类 **dev/prod URL 一致**（`/plugins/<id>/...`），无需 `.plugin-dist`
+
+### 修复
+- vite 插件中间件 mime 表缺 `.html`（返回 octet-stream 导致 iframe 不渲染）→ 补 `.html/.htm/.webmanifest/.ico`
+
+### 验证
+- `/api/apps`：clock/snake `kind=page`、route=`/app/<name>`、entry=静态路径 ✅
+- dev（vite）+ prod（8001 --prod，FastAPI mount）双态渲染 clock（实时时间 + 内核 API 状态）与 snake（canvas+CSS 分离资源）✅；dock 图标默认 package ✅
+- 注意：生产验证若见双 dock/路由错乱，为测试 profile 的 SW 旧缓存污染（换新 profile 即正常），非代码问题
+
+## [M10.8] trendshift 防跳出（iframe sandbox 白名单）· 2026-10-01
+
+### 变更
+- trendshift iframe 加 `sandbox="allow-scripts allow-same-origin allow-forms"`——不给 `allow-popups`（拦截 target=_blank / window.open 新开页）、不给 `allow-top-navigation`（顶层 PWA 窗口永不可被导航走）
+- 保留 iframe 自导航：trendshift 站内详情（/repositories/xxx）作为「当前应用」在 iframe 内打开；需要外链时右键新标签或工具条「新窗口打开」
+
+### 验证（playwright）
+- 站点在 sandbox 下正常渲染（body 7.5KB）；GitHub 外链点击 NO_POPUP、顶层 URL 不变；站内详情 iframe 内打开且渲染 Repository Details 页 ✅
+- 实测备注：trendshift.io 页面内嵌 Google Ads/recaptcha 子 frame（站点自身行为）
+
+## [M10.7] baidu「纯净」默认模式（后端代理去热搜）· 2026-10-01
+
+### 新增
+- **baidu 插件补后端**（`server/main.py`，零依赖用 urllib）：请求预置 `Cookie: hide_hotsearch=1`（百度「关闭热搜」的服务端开关）→ 删全部 `<script>`（广告/弹层/统计靠 JS 渲染，搜索表单是纯 HTML 不受影响）→ 注入 `<base href>` + 兜底 CSS；首页缓存 10 分钟，经 `GET /api/apps/baidu/state` 下发
+- **改抓 m.baidu.com（手机版，iPhone UA）**：尺寸天然适配手机视口（390=390 无溢出）；百度对匿名请求时 SSR 时 CSR 渲染 feed，兜底 CSS 两种都盖住（`#wise-index-feed`/`[class*="index-banner"]`/`#s-hotsearch-wrapper`）
+- 前端按用户要求**删除全部工具条**，只剩满屏纯净搜索 iframe（后端不可用时显示提示与新窗口链接）
+- plugin.json 从「无后端」变为挂 backend——同名重装需重启后端（符合既有语义）
+
+### 验证
+- 后端 snapshot：626KB、`<script>` 0 个、base/CSS 已注入
+- 浏览器：默认纯净模式热搜 `display:none`、搜索框/导航/logo 正常；提交搜索后 iframe 成功跳转百度结果页（contentDocument 变 null 证明跨域导航）；控制台 0 报错
+
+### 安全说明
+- 删除 script 的另一个目的：srcdoc 与宿主同源，若保留百度 JS 会拿到宿主页面权限——删脚本既纯净又隔离
+
+## [M10.6] trendshift 插件 + 百度简洁模式 · 2026-10-01
+
+### 新增
+- **trendshift 插件**（`plugins/trendshift/`，第 7 个 App）：iframe 内嵌 TrendShift——GitHub 趋势/热榜聚合站（Live trending repositories，Daily/Weekly/Monthly/Yearly），实测允许内嵌（无 XFO/frame-ancestors）
+- **baidu 简洁模式**：加「简洁/完整」切换，简洁 = `m.baidu.com`（百度移动版，天然无热搜榜与大广告位，实测可嵌）
+
+### 边界说明
+- 跨域 iframe 受同源策略限制，**无法直接删除对方页面里的广告/热搜节点**；「简洁模式」是换用百度自己更干净的移动版。要逐条剔除需插件后端代理重写 HTML（后续增强，也正是插件后端的价值场景）
+
+### 验证
+- playwright：/trendshift 完整渲染趋势榜、/baidu 简洁模式渲染移动版首页，dock 7 个应用，控制台 0 报错
+
+## [M10.5] baidu 插件（iframe 内嵌 · 无后端插件首例）· 2026-10-01
+
+### 新增
+- **baidu 插件**：iframe 内嵌百度搜索（实测百度未设 `X-Frame-Options`/`frame-ancestors`，可嵌；其破框 JS 被跨域策略拦住）；工具条含「返回首页」（key 重建 iframe）/「新窗口打开」；**无 backend 字段**——验证纯前端插件也能走完整安装链
+- 内嵌可行性实测结论（真实浏览器 iframe 探针）：百度 ✅；小红书 ❌（空白/登录墙）；github.com 全部页面 ❌（`frame-ancestors 'none'`）；可嵌的 GitHub 趋势替代站：**hellogithub.com ✅**、trendshift.io ✅、github.org.cn ❌
+
+### 验证
+- playwright：/baidu 页 iframe 完整渲染百度首页（搜索框/热搜可用），dock 第 6 个图标 ✅
+
 ## [M10.4] 手机 dock 瘦身 + 可配置上限 · 2026-10-01
 
 ### 变更

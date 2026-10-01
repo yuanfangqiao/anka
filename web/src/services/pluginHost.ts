@@ -1,13 +1,31 @@
 /**
  * pluginHost —— 应用插件的动态加载宿主。
- * fetch /api/apps → 逐个 import(entry) → setup(uiCtx)。
+ * - kind='app'：fetch /api/apps → import(entry) → setup(uiCtx)
+ * - kind='page'（M11）：静态页应用，无需 setup——注册通用 WebViewPage 并指向静态入口
  * 已加载的 id 记录去重；卸载 = unregisterApp（刷新后彻底干净）。
  */
 import type { UiCtx } from '../registry/uiCtx'
+import WebViewPage from '../components/WebViewPage.vue'
 import { api } from './api'
 
 const loadedIds = new Set<string>()
 let _uiCtx: UiCtx | null = null
+
+/** page 类应用：用内核 WebViewPage 包裹静态入口 */
+function registerPageApp(uiCtx: UiCtx, app: {
+  id: string; title: string; icon: string;
+  route: string; entry: string; dock_order: number;
+}): void {
+  const { defineComponent, h } = uiCtx.vue
+  const Page = defineComponent({
+    name: `page:${app.id}`,
+    setup: () => () => h(WebViewPage, { entry: app.entry, title: app.title }),
+  })
+  uiCtx.registerApp({
+    id: app.id, title: app.title, icon: app.icon,
+    route: app.route, order: app.dock_order, component: Page,
+  })
+}
 
 /** 同步已安装应用：加载未加载过的插件（安装后调用可增量生效） */
 export async function syncAppPlugins(uiCtx: UiCtx): Promise<string[]> {
@@ -23,8 +41,12 @@ export async function syncAppPlugins(uiCtx: UiCtx): Promise<string[]> {
   for (const app of apps) {
     if (loadedIds.has(app.id)) continue
     try {
-      const mod = await import(/* @vite-ignore */ app.entry)
-      mod.setup(uiCtx)
+      if (app.kind === 'page') {
+        registerPageApp(uiCtx, app)        // M11：静态页应用
+      } else {
+        const mod = await import(/* @vite-ignore */ app.entry)
+        mod.setup(uiCtx)
+      }
       loadedIds.add(app.id)
     } catch (e) {
       console.error(`插件 ${app.id} 前端加载失败`, e)

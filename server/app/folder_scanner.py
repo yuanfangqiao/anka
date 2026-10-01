@@ -25,6 +25,7 @@ class FolderManifest:
     description: str = ''
     backend_entry: str | None = None     # 相对插件目录，如 server/main.py
     ui_entry: str | None = None          # 相对插件目录，如 web/index.js
+    page_entry: str | None = None        # M11 降级形态：静态页入口（相对插件目录）
     dock_order: int = 100
     has_sidebar: bool = False
     route: str = ''
@@ -34,6 +35,11 @@ class FolderManifest:
     @property
     def ok(self) -> bool:
         return not self.errors
+
+    @property
+    def page(self) -> bool:
+        """M11：任意静态页应用（无 plugin.json、无后端、iframe 伺服）"""
+        return self.page_entry is not None
 
 
 def _parse(plugin_json: Path) -> FolderManifest:
@@ -76,8 +82,32 @@ def _parse(plugin_json: Path) -> FolderManifest:
     return m
 
 
+# M11：无 plugin.json 时的降级探测入口（按优先级）
+PAGE_ENTRIES = ('index.html', 'dist/index.html', 'web/index.html')
+
+
+def _parse_page_fallback(root: Path) -> FolderManifest | None:
+    """任意可伺服的静态页面目录 → page 类 manifest（无后端、iframe 加载）"""
+    for entry in PAGE_ENTRIES:
+        if (root / entry).is_file():
+            folder = root.name
+            return FolderManifest(
+                id=folder, name=folder, version='0.0.0',
+                icon='package',
+                description='静态页面应用（自动发现，无 plugin.json）',
+                page_entry=entry,
+                dock_order=100,
+                route=f'/app/{folder}',
+                root=root,
+            )
+    log.warning('目录 %s 无 plugin.json 且未发现静态入口 %s，忽略',
+                root.name, PAGE_ENTRIES)
+    return None
+
+
 def scan(plugins_dir: Path) -> dict[str, FolderManifest]:
-    """扫描目录，返回 {id: manifest}；坏插件也返回（带 errors）"""
+    """扫描目录，返回 {id: manifest}；坏插件也返回（带 errors）。
+    M11：无 plugin.json 的目录按静态页应用降级探测。"""
     found: dict[str, FolderManifest] = {}
     if not plugins_dir.is_dir():
         log.warning('plugins dir not found: %s', plugins_dir)
@@ -89,4 +119,9 @@ def scan(plugins_dir: Path) -> dict[str, FolderManifest]:
             found[m.id] = m
             if not m.ok:
                 log.error('插件 %s 校验失败: %s', m.id, m.errors)
+        elif child.is_dir():
+            m = _parse_page_fallback(child)
+            if m:
+                found[m.id] = m
+                log.info('发现静态页应用（自动）: %s -> %s', m.id, m.route)
     return found

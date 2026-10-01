@@ -51,6 +51,11 @@ settings.PLUGIN_DIST_DIR.mkdir(parents=True, exist_ok=True)
 app.mount('/plugin-dist', StaticFiles(directory=settings.PLUGIN_DIST_DIR),
           name='plugin-dist')
 
+# M11：插件目录静态伺服（dev 由 vite 中间件承担，prod 走这里；
+# 与 dev URL 契约一致，page 类静态页应用的入口即 /plugins/<id>/index.html）
+app.mount('/plugins', StaticFiles(directory=settings.APP_PLUGINS_DIR),
+          name='plugins')
+
 
 @app.get('/{full_path:path}', include_in_schema=False)
 async def spa_fallback(full_path: str):

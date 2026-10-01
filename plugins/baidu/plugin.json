@@ -1,0 +1,10 @@
+{
+  "id": "baidu",
+  "name": "百度",
+  "icon": "search",
+  "version": "0.1.0",
+  "system": false,
+  "description": "百度搜索：默认「纯净」首页（后端代理预置关闭热搜 cookie + 删脚本），另附简洁/完整模式",
+  "backend": { "entry": "server/main.py" },
+  "ui": { "entry": "web/index.ts", "dock": { "order": 50 }, "route": "/baidu" }
+}

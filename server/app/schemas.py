@@ -47,9 +47,10 @@ class AppInfo(BaseModel):
     title: str
     icon: str
     route: str
-    entry: str                      # /plugins/<id>/web/index.js
+    entry: str                      # app: 编译产物/源码入口；page: 静态页入口
     dock_order: int
     has_sidebar: bool
+    kind: str = 'app'               # M11：app（setup(uiCtx)）| page（iframe 静态页）
 
 
 class AppCallRequest(BaseModel):

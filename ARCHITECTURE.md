@@ -302,6 +302,7 @@ main.ts → 静态注册系统插件（同一 uiCtx，dogfooding）
 
 - **git 插件**：第三方插件是独立 git 仓库，clone 进 `plugins/<name>/`，内含 `server/`（python）+ `web/`（vue/ts 源码）；启动时按 `installed.json` 自动加载（生产管线见 §8.8）
 - **设置项归处**：全局设置集中在 dock「设置」应用；插件设置推荐以声明式 schema 注册进设置应用的插件分区（iOS 风格，后续实现），当前阶段放插件自己页面内
+- **iframe 插件约定（M10.8 拍板）**：内嵌第三方站点的 iframe 一律加 `sandbox="allow-scripts allow-same-origin allow-forms"`——不给 `allow-popups`（外链新开页被拦截，不脱离 PWA）、不给 `allow-top-navigation`（顶层不可被导航走）。跨域 iframe 是黑盒，无法把外链改道进 iframe（对方 `target` 不可改 + 外站 XFO 双重锁），故「外链在应用内浏览」仅后端代理可解（暂不做）；站内自导航不受影响。工具条提供「新窗口打开」作为外链出口
 
 ### 8.8 插件前端生产管线（M9：安装时编译）
 
@@ -325,6 +326,24 @@ main.ts → 静态注册系统插件（同一 uiCtx，dogfooding）
 - 弃选：浏览器运行时编译（带 compiler、慢）；要求作者预编译 dist（门槛高）
 
 **其他**：卸载时同步删除 `.plugin-dist/<id>/`；workbox 对 `/plugin-dist/` NetworkFirst（不预缓存，装卸后拿最新）；`/shared/vue.js` 随主构建预缓存（离线可用）。
+
+### 8.9 任意文件夹即应用（M11：page 降级形态）
+
+**定位**：AI Agent OS 的核心承诺——`plugins/` 下**任意可伺服的静态页面目录**，即使完全没有 `plugin.json`，也自动成为一个应用。
+
+**发现规则**（`FolderScanner`）：
+- 有 `plugin.json` → 一等公民 App（现行链路：`setup(uiCtx)` 原生渲染）
+- 无 `plugin.json` → 降级探测 `index.html` / `dist/index.html` / `web/index.html`（按优先级）→ **page 类 manifest**：
+  - `id = name = 目录名`，`icon = package`（默认），`route = /app/<目录名>`（无声明时），`order = 100`
+  - 无后端、无编译（要求自包含：单 HTML 或带相对资源的静态产物；**不支持自动 npm build**——作者提交 dist）
+  - 三者皆无 → 忽略并打日志
+
+**运行时**：
+- `AppInfo.kind: 'app' | 'page'` 下发；`pluginHost` 对 page 类不 `import(entry)`，直接注册内核通用组件 `WebViewPage.vue`（同源 iframe，`sandbox="allow-scripts allow-same-origin allow-forms"`）
+- **同源红利**：page 页面内可直接 `fetch('/api/...')` 调内核能力（无需 uiCtx）
+- 伺服：dev 由 vite 中间件（mime 表含 `.html`）；prod 由 FastAPI `mount('/plugins')`——**两态 URL 一致**，page 类不需要 `.plugin-dist`
+- 启停：page 类无 fiber，enable/disable 为 no-op；卸载 = 移出 installed.json
+- 样例：`plugins/clock`（单文件时钟，演示同源调 API）、`plugins/snake/dist`（分离资源贪吃蛇，演示 dist 形态）
 
 ## 7. 关键约束（写代码时必须遵守）
 

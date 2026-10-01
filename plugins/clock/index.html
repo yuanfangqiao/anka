@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>时钟</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px;
+    background: linear-gradient(160deg, #0b0e14 0%, #151a24 100%);
+    color: #e6ebf5;
+    font-family: -apple-system, "PingFang SC", "Segoe UI", sans-serif;
+    user-select: none;
+  }
+  #time {
+    font-size: clamp(56px, 16vw, 120px);
+    font-weight: 700;
+    letter-spacing: 2px;
+    font-variant-numeric: tabular-nums;
+    background: linear-gradient(120deg, #5b8cff, #3ddad7);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  #date { font-size: 18px; color: #8b94a7; letter-spacing: 1px; }
+  #api { font-size: 13px; color: #3ddad7; margin-top: 24px; opacity: 0.85; }
+</style>
+</head>
+<body>
+  <div id="time">00:00:00</div>
+  <div id="date">—</div>
+  <div id="api">（静态页应用 · 也可直接 fetch 内核 API）</div>
+  <script>
+    const WEEK = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+    function tick() {
+      const d = new Date()
+      const p = (n) => String(n).padStart(2, '0')
+      document.getElementById('time').textContent = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+      document.getElementById('date').textContent =
+        `${d.getFullYear()} 年 ${d.getMonth() + 1} 月 ${d.getDate()} 日 · ${WEEK[d.getDay()]}`
+    }
+    tick(); setInterval(tick, 1000)
+    // 演示：同源 iframe 可直接调用内核 API（静态页也能接入 OS 能力）
+    fetch('/api/health').then(r => r.json()).then(h => {
+      document.getElementById('api').textContent = `内核在线 · 插件 ${h.plugins_active}/${h.plugins_total} 运行中`
+    }).catch(() => {})
+  </script>
+</body>
+</html>

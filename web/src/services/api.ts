@@ -42,6 +42,7 @@ export interface AppInfo {
   entry: string
   dock_order: number
   has_sidebar: boolean
+  kind?: 'app' | 'page'      // M11：page = 静态页 iframe 应用（无需 setup）
 }
 
 export interface PluginActionResult {

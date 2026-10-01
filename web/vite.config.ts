@@ -19,6 +19,10 @@ function serveAppPlugins(): Plugin {
     '.svg': 'image/svg+xml',
     '.png': 'image/png',
     '.css': 'text/css',
+    '.html': 'text/html',       // M11：page 类静态页应用入口
+    '.htm': 'text/html',
+    '.webmanifest': 'application/manifest+json',
+    '.ico': 'image/x-icon',
   }
   return {
     name: 'serve-app-plugins',

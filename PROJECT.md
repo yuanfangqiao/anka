@@ -59,6 +59,7 @@ SSE 流式输出，AgengLoop 消费 `llm` + `tools` 两个服务
 | **M8** | **壳层精修与 PWA 修复**：移除主窗口标题条、设置进 dock、dock 缩小、git 插件目录约定、切页白屏修复 | 切页正常无白屏；已安装 PWA 从生产构建重装 | ✅ 完成 |
 | **M9** | **生产态插件管线**：install hook 用 esbuild 安装时编译插件 `web/` → 缓存产物；FastAPI mount `/plugins` 伺服；`import 'vue'` 映射宿主实例（防双 Vue）；插件前端 = Vue SFC + TS（dev 态即时编译已就绪） | 生产构建下安装/卸载 demo 插件可用且 dock 随动；插件内 vue 与宿主同实例；无控制台报错 | ✅ 完成（实际伺服路径为 `/plugin-dist/`，import map 共享 Vue） |
 | **M10** | **GitHub 一键安装**：插件页输入仓库 URL → clone 进 `plugins/` → 复用现有 install API；升级 = 拉取更新 + 重装（沿用「需重启」语义提示） | 输入公开 GitHub 仓库 URL 可完成安装并出现在 dock | ⬜ |
+| **M11** | **任意文件夹即应用**：无 plugin.json 的目录降级探测静态入口（index.html/dist）→ page 类应用（`/app/<目录名>`、默认图标、iframe 同源加载、可直接 fetch 内核 API）；不支持自动 npm build（作者提交 dist） | 丢入纯 HTML 目录与 dist 产物目录均自动出现在 dock 并可浏览/交互；dev/prod 双态一致；控制台无报错 | ✅ 完成 |
 
 > M2 与 M1 可并行：后端移植不依赖前端壳。
 

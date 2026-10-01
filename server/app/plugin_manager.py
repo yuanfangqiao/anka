@@ -83,16 +83,16 @@ class PluginManager:
         self.loader.bootstrap(config, package=package,
                               plugins_dir=plugins_dir)
         for app_id in list(self._installed):
+            m = self.discover().get(app_id)
+            if m is None or m.page:
+                continue                    # page 类无后端（M11）
             try:
-                self._install_loaded(app_id, self.discover()[app_id])
+                self._install_loaded(app_id, m)
             except Exception as e:
                 log.error('安装 app 插件 %s 失败: %s', app_id, e)
-        if not settings.AGENT_DEV:
-            # 生产态：补齐缺失的插件前端构建产物（有缓存则跳过）
-            for app_id in list(self._installed):
-                m = self.discover().get(app_id)
-                if m and m.ok and m.ui_entry and not plugin_builder.has_dist(app_id):
-                    plugin_builder.build_web(app_id)
+            if not settings.AGENT_DEV and m.ok and m.ui_entry \
+                    and not plugin_builder.has_dist(app_id):
+                plugin_builder.build_web(app_id)
         log.info('bootstrap: %s', ', '.join(
             f'{i.name}={i.state}' for i in self.list_plugins()))
 
@@ -132,7 +132,17 @@ class PluginManager:
         result = []
         for app_id in self._installed:
             m = self.discover().get(app_id)
-            if not m or not m.ui_entry:
+            if not m:
+                continue
+            if m.page:
+                # M11：page 类——静态页 iframe 加载，无后端、无编译产物，
+                # entry 即静态路径（dev 由 vite 中间件伺服、prod 由 FastAPI mount 伺服）
+                result.append(AppInfo(
+                    id=m.id, title=m.name, icon=m.icon, route=m.route,
+                    entry=f'/plugins/{m.id}/{m.page_entry}',
+                    dock_order=m.dock_order, has_sidebar=False, kind='page'))
+                continue
+            if not m.ui_entry:
                 continue
             f = self._latest_fibers().get(app_id)
             if f and f.state != FiberState.ACTIVE:
@@ -174,6 +184,14 @@ class PluginManager:
         if name in self._installed:
             return InstallResult(name=name, ok=True, state='ACTIVE',
                                  message='插件已安装')
+        if manifest.page:
+            # M11：page 类无后端无编译，装上即生效
+            self._installed.append(name)
+            self._write_installed()
+            self._invalidate_scan()
+            log.info('install page %s', name)
+            return InstallResult(name=name, ok=True, state='PAGE',
+                                 message='静态页应用已安装')
         if name in self._ever_loaded or folder_loader.was_loaded(name):
             # 拍板语义：同名重装需重启（不做 module eviction）
             return InstallResult(
@@ -201,6 +219,17 @@ class PluginManager:
         if name not in self._installed:
             raise KeyError(name)
 
+        m = self.discover().get(name)
+        if m and m.page:
+            # M11：page 类无 fiber/meta 可摘，移出 installed 即可
+            self._installed.remove(name)
+            self._write_installed()
+            self._invalidate_scan()
+            log.info('uninstall page %s', name)
+            return PluginActionResult(
+                name=name, ok=True, state='UNINSTALLED', cascaded=[],
+                message='静态页应用已移除；刷新页面后彻底消失')
+
         res = self.disable(name)                    # 级联卸载 + 记录
         # 摘除目标 meta 与 fiber（依赖者保留 meta，仅处 DISPOSED）
         self.loader._plugin_metas.pop(name, None)
@@ -225,6 +254,12 @@ class PluginManager:
     # ─── 启停 ──────────────────────────────────
 
     def disable(self, name: str) -> PluginActionResult:
+        m = self.discover().get(name)
+        if m and m.page:
+            return PluginActionResult(      # M11：page 类无启停语义
+                name=name, ok=True, state='PAGE', cascaded=[],
+                message='静态页应用不支持启停')
+
         metas = self.loader._plugin_metas
         if name not in metas:
             raise KeyError(name)
@@ -252,6 +287,12 @@ class PluginManager:
             cascaded=cascaded)
 
     def enable(self, name: str) -> PluginActionResult:
+        m = self.discover().get(name)
+        if m and m.page:
+            return PluginActionResult(      # M11：page 类无启停语义
+                name=name, ok=True, state='PAGE', cascaded=[],
+                message='静态页应用不支持启停')
+
         metas = self.loader._plugin_metas
         if name not in metas:
             raise KeyError(name)
