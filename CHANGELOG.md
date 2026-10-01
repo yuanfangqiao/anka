@@ -2,6 +2,35 @@
 
 记录每次核心修改。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，最新在上。
 
+## [M10.4] 手机 dock 瘦身 + 可配置上限 · 2026-10-01
+
+### 变更
+- **dock 高度 56→46px，去标签改纯图标**（iOS 风格，图标 32px，激活指示点保留），内容区相应加高（`pb-28→pb-24`）
+- **dock 数量上限可配置**：`server/app/settings.py` 新增 `SHELL_CONFIG.mobile_dock_max`（默认 5，环境变量 `MOBILE_DOCK_MAX` 覆盖），经新增 `GET /api/config` 下发；`DockBar` 启动时拉取
+- 超上限实现：每个应用槽位 `flex: 1 0 ${100/max}%`——≤N 个时均匀铺满，>N 个时第 N+1 个起横向滑动（右侧渐隐提示）；桌面分支不受影响
+- 内容区底部预留与 dock 对齐：`main` 底部预留改为 `pb-[calc(54px+env(safe-area-inset-bottom))]`，精确等于 dock 占位——内容直接贴合 dock（滚动时从玻璃 dock 下方划过，iOS 式），滚到底无废白
+- **桌面壳 macOS 化**：主窗口改为占满整个区域，`DockBar` 绝对定位悬浮压在窗口下沿（overlap 66px），消除窗口与 dock 的 flex 间隙——与 macOS「dock 悬浮于应用之上」同构；窗口内容滚动预留 70px 保证滚到底全部可见
+
+### 验证（playwright）
+- 390×844：dock 高 46、6 应用槽宽 71px（=1/5）、`scrollable: true`、0 标签；横滑后末位应用完全可见 ✅
+- 1024×800：桌面 58px 胶囊居中不回归 ✅
+- `GET /api/config` → `{"mobile_dock_max": 5}` ✅
+
+## [M10.3] 笔记页手机端改版 · 2026-10-01
+
+### 变更（仅前端，`plugins/notes/web/index.js`）
+- **手机卡片 → 紧凑行**（~70px）：标题 + 单行摘要 + 标签·时间，一屏 5 条以上（原来 2 条）；桌面保持卡片流
+- **左滑操作**替代常驻 pin/delete 图标：行左滑露出「置顶(琥珀)/删除(红)」，轴向判定不干扰纵向滚动，松手半程吸附；桌面保留 hover 图标
+- **删除撤销**代替确认弹窗：删除后底部浮出「已删除「xx」· 撤销」5 秒，撤销经 `add_note` 恢复内容（无后端改动）
+- **筛选吸顶**：搜索框 + 标签 chips 滚动时吸附在 TopBar 下方（`sticky top-14` + 毛玻璃），不再滚丢
+- 视觉：tag chip 缩小一号、占位笔记（未命名）标题弱化为 ink-2 斜体、手机列表间距收紧
+- 手机/桌面双分支模板拆分（原先共享一个模板混着 `isMobile` 三元）
+
+### 验证（playwright 390×844 与 1440×900）
+- 手机：紧凑行渲染、吸顶生效、CDP 真实触摸输入左滑 → `translateX(-116px)` 操作键露出 ✅
+- 桌面：卡片流不回归；删除 → 撤销条出现 → 点撤销 → 前后端均恢复 5 条 ✅
+- 教训：合成 `TouchEvent` 派发不可靠，触摸手势须用 CDP `Input.dispatchTouchEvent` 验证
+
 ## [M10.2] 手机端 dock 定位修复 · 2026-09-30
 
 ### 修复

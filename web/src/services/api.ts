@@ -87,6 +87,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   health: () => request<Health>('/api/health'),
+  // 壳层配置（内核所有，如 mobile_dock_max）
+  config: () => request<Record<string, number>>('/api/config'),
   plugins: () => request<PluginInfo[]>('/api/plugins'),
   enablePlugin: (name: string) =>
     request<PluginActionResult>(`/api/plugins/${encodeURIComponent(name)}/enable`, { method: 'POST' }),

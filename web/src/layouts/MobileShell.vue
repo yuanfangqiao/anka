@@ -14,7 +14,7 @@ function onScroll(e: Event) {
   <div class="relative flex h-dvh flex-col">
     <TopBar :collapsed="collapsed" />
     <main
-      class="relative flex-1 overflow-y-auto pt-14 pb-28"
+      class="relative flex-1 overflow-y-auto pt-14 pb-[calc(54px+env(safe-area-inset-bottom))]"
       @scroll.passive="onScroll"
     >
       <RouterView v-slot="{ Component }">

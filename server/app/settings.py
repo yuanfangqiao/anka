@@ -38,3 +38,8 @@ PLUGIN_DIST_DIR = PROJECT_ROOT / '.plugin-dist'       # 插件「安装时编译
 # 开发标记：run_dev.py（非 --prod）置 AGENTOS_DEV=1 ——
 # dev 下插件源码由 vite 中间件按需编译，不做安装时构建
 AGENT_DEV = os.environ.get('AGENTOS_DEV', '') == '1'
+
+# 壳层配置（M10.4，经 GET /api/config 下发给前端）
+SHELL_CONFIG = {
+    'mobile_dock_max': int(os.environ.get('MOBILE_DOCK_MAX', '5')),  # 手机 dock 最多可见应用数，超出横滑
+}
