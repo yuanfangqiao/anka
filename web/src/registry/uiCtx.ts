@@ -73,7 +73,7 @@ export function createUiCtx(router: Router): UiCtx {
         path: meta.route,
         name,
         component: meta.component,
-        meta: { title: meta.title, appId: meta.id },
+        meta: { title: meta.title, appId: meta.id, fullscreen: Boolean(meta.fullscreen) },
       })
     },
 

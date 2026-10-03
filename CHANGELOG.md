@@ -2,6 +2,28 @@
 
 记录每次核心修改。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，最新在上。
 
+## [M12] 移动端壳 UI 全面优化（顶部空栏 / dock 重做）· 2026-10-04
+
+**背景**：手机上打开 quickdraw 等 page 类应用，连出四个体验问题，顺带把 dock 整体重做。
+
+### 修复（四连）
+1. **顶部空白条**：`TopBar` 在 page 应用页是永久空白（无返回键、标题只在滚动后出现，而 iframe 页永不滚动）。修复：`AppMeta` 新增 `fullscreen` 标记（page 类注册时置真，首页空态同理）→ `MobileShell` 对 fullscreen 路由**不渲染 TopBar、不留任何顶部空位（含 safe-area）**，dock 之上整块区域完全归应用自己。
+2. **iPad 与 Mac/Win 显示不一致**：iPad 竖屏（768px，含 mini 744px）原命中移动壳。修复：`useBreakpoint` 移动壳阈值改为 `max-width: 639px`（仅手机竖屏）→ **iPad 一律走桌面壳，与 Mac/Win 完全一致**，移动壳的 TopBar/模糊问题在 iPad 上不复存在。
+3. **dock 不对齐 + 触发 iOS Home 白线手势**：旧 dock `h-[46px]` 定高里塞 `safe-bottom` 内边距（border-box 把内容挤到 ~12px），且 `bottom-2` 贴着 Home 指示条手势区。修复：dock 改为 64px 胶囊、**整体抬到 `safe-area-inset-bottom + 10px` 之上**。
+4. **iOS 拖动 dock 导致整页变形**：`overflow-x-auto` 的 iOS 弹性滚动发生滚动链传导。修复：分页 + `scroll-snap` + `overscroll-behavior: contain` + `touch-action: pan-x` 三件套锁死。
+
+### dock 重做（设计拍板）
+- **三行同轴布局**：翻页点（顶轨）/ 图标（中行）/ 当前应用指示（底轨）。两条轨道与图标滚动区**同宽同轴**，指示点按槽位百分比定位、切换时平滑滑动——翻页进度与选中指示天然上下对齐
+- **分页吸附**：每页 `maxVisible` 槽位（内核 `/api/config` 下发），横向 snap 翻页，圆点可点击跳页
+- **全部应用 = dock 上滑拉伸展开**（拍板，取代独立抽屉）：从翻页点/图标区**手势上滑**，整个胶囊向上拉伸成**半屏**应用网格（含未进 dock 的系统页）；装不下时**上下翻页**，**左侧竖向进度点**指示/跳页。无标题、无 X、无九宫格按钮——手势即全部交互；把手下滑 / 点遮罩 / Esc / 打开应用均可收起
+- **更大底部安全边距**：`safe-area-inset-bottom + 16px`，远离 iOS Home 白线手势区
+- **应用专属色相**：page 类应用图标全是 package 蓝方块 → 按 id 哈希映射 HSL 色相，每个应用一枚专属渐变瓷贴；系统插件保留品牌渐变
+
+### 经验
+- 移动壳的"空白/模糊"先怀疑**空 glass 面板**（backdrop-blur 会糊掉一切）
+- iOS 上任何底部固定元素都要把 `safe-area-inset-bottom` 当**定位偏移**而不是**内边距**用，否则定高元素被挤变形
+- iOS 弹性滚动链条：`overflow` 容器不戴 `overscroll-behavior: contain`，整页都会跟着 rubber-band
+
 ## [M11.1] excalidraw 接入踩坑实录（page 类插件三大坑）· 2026-10-01
 
 **背景**：把 excalidraw 0.18.1 官方 dist（完整 React SPA 构建产物，含 monorepo 源码 35MB tarball）直接丢进 `plugins/excalidraw/`。无 `plugin.json` → M11 page 降级自动识别 OK，但从「能识别」到「PWA 里能用」连踩三坑。构建本身不慢（壳前端每次 ~1.8s），耗时全在逐层定位。

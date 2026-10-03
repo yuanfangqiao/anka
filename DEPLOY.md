@@ -26,7 +26,7 @@ rsync -avz \
   --exclude node_modules --exclude .venv --exclude reference \
   --exclude 'plugins/quickdraw/apps' --exclude 'plugins/quickdraw/packages' \
   --exclude 'plugins/quickdraw/examples' --exclude 'plugins/quickdraw-0.1.3.tar.gz' \
-  ./ user@你的服务器:/opt/agentos/
+  ./ ubuntu@106.55.101.165:/home/ubuntu/anka
 ```
 
 注意 rsync **不受 gitignore 影响**，`web/dist` 和 `.plugin-dist` 会带上（这正是不能纯 git 部署的原因）。
@@ -34,7 +34,7 @@ rsync -avz \
 ## 3. 服务器初始化 + 手动验证
 
 ```bash
-cd /opt/agentos/server
+cd /home/ubuntu/anka/server
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 HOST=127.0.0.1 PORT=8100 .venv/bin/python run_dev.py --prod
@@ -46,7 +46,7 @@ curl -s localhost:8100/api/health
 
 ## 4. systemd 守护（生产必备，否则断连进程就没了）
 
-`/etc/systemd/system/agentos.service`：
+`/etc/systemd/system/anka.service`：
 
 ```ini
 [Unit]
@@ -54,17 +54,17 @@ Description=AgentOS PWA
 After=network.target
 
 [Service]
-WorkingDirectory=/opt/agentos/server
+WorkingDirectory=/home/ubuntu/anka/server
 Environment=HOST=127.0.0.1
 Environment=PORT=8100
-ExecStart=/opt/agentos/server/.venv/bin/python run_dev.py --prod
+ExecStart=/home/ubuntu/anka/server/.venv/bin/python run_dev.py --prod
 Restart=always
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-`systemctl enable --now agentos`
+`systemctl enable --now anka`
 
 ## 5. Caddy 映射（参照你 water/dsh 的现成风格）
 
@@ -80,6 +80,11 @@ anka.vitcou.com {
     }
 }
 ```
+
+sudo caddy validate --config /etc/caddy/Caddyfile
+
+systemctl reload caddy
+
 
 两个细节：
 - **`flush_interval -1` 必须加**——chat 接口是 SSE 流式，不加会把输出攒成一坨
@@ -101,6 +106,6 @@ anka.vitcou.com {
 [ ] 未输密码时 401（basic_auth 生效）
 ```
 
-以后更新只需：本地 `npm run build` → 重跑第 2 步 rsync → `systemctl restart agentos`。
+以后更新只需：本地 `npm run build` → 重跑第 2 步 rsync → `systemctl restart anka`。
 
 需要我把这份部署步骤写进 `README.md`（或单独 `DEPLOY.md`）吗？

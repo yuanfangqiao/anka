@@ -10,7 +10,8 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     name: 'home',
     component: () => import('../components/EmptyHome.vue'),
-    meta: { title: '首页' },
+    // 空态首页也是整页内容，不套空 TopBar
+    meta: { title: '首页', fullscreen: true },
   },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]

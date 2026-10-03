@@ -24,6 +24,7 @@ function registerPageApp(uiCtx: UiCtx, app: {
   uiCtx.registerApp({
     id: app.id, title: app.title, icon: app.icon,
     route: app.route, order: app.dock_order, component: Page,
+    fullscreen: true,
   })
 }
 

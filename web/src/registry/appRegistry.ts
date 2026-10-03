@@ -13,7 +13,26 @@ export interface AppMeta {
   order: number
   system: boolean
   inDock: boolean
+  /** page 类全屏应用：壳层不渲染顶部栏、不预留 56px 空位 */
+  fullscreen?: boolean
   component: Component
+}
+
+/** 应用 id → 稳定色相：page 类应用图标同为 package，靠颜色区分身份 */
+export function appHue(id: string): number {
+  let h = 0
+  for (const c of id) h = (h * 31 + c.charCodeAt(0)) % 360
+  return h
+}
+
+/** 图标容器样式：系统插件走品牌渐变（返回 undefined，用模板类），应用插件用专属色相 */
+export function appTileStyle(app: AppMeta): Record<string, string> | undefined {
+  if (app.system) return undefined
+  const h = appHue(app.id)
+  return {
+    background: `linear-gradient(135deg, hsl(${h} 74% 62%), hsl(${(h + 42) % 360} 70% 46%))`,
+    boxShadow: `0 6px 16px -6px hsl(${h} 74% 52% / 0.55)`,
+  }
 }
 
 const apps = reactive<AppMeta[]>([])

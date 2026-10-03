@@ -7,7 +7,9 @@ export const isWide = ref(false)
 let bound = false
 
 function bind() {
-  const mqMobile = window.matchMedia('(max-width: 768px)')
+  // 手机竖屏（<640px）才走移动壳；iPad（mini 744 / 标准 768 / Pro 834+）
+  // 与 Mac/Win 完全一致走桌面壳——不再让平板命中移动端布局
+  const mqMobile = window.matchMedia('(max-width: 639px)')
   const mqWide = window.matchMedia('(min-width: 1280px)')
   const sync = () => {
     isMobile.value = mqMobile.matches
