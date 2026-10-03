@@ -46,12 +46,23 @@ class BaiduService(Service):
         #    搜索框是纯 HTML 表单不受影响，且 srcdoc 与宿主同源，
         #    删脚本同时避免了对方 JS 在宿主 origin 下执行（安全）
         html = re.sub(r'<script[\s\S]*?</script>', '', html)
-        # 1.5) 兜底 CSS：百度对匿名请求有时 SSR 有时 CSR 渲染 feed，
-        #      两种情况都盖住（红包浮层 + feed 流 + 桌面热搜）
+        # 1.5) 兜底 CSS：m.baidu.com 静态 SSR 里就嵌了推荐流（央视新闻 / 净水器软文
+        #      / 红包 banner 等），不是 JS 渲染的，必须用 display:none 兜底。
+        #      保留的只有 #index-form（搜索表单）+ #index-logo（logo）。
         html = html.replace('</head>',
-                            '<style>[class*="index-banner"],#wise-index-feed,'
-                            '#s-hotsearch-wrapper,[class*="s-top-ad"]'
-                            '{display:none!important}</style></head>', 1)
+                            '<style>'
+                            # 红包 / 广告 banner
+                            '[class*="index-banner"],[class*="s-top-ad"],[class*="banner"],'
+                            # 推荐流主容器（央视新闻 + 软文广告都在这里）
+                            '.tab-news-content,.tab-news-head,.news-list-wrapper,'
+                            # 侧栏（菜单 / 个人中心）
+                            '.aside-header-and-padding-bottom,#aside-header,'
+                            # 桌面版热搜兜底（m 版偶尔 SSR 会带）
+                            '#s-hotsearch-wrapper,[class*="hotsearch"],'
+                            # 容器级别兜底
+                            '[class*="feed"],[class*="recommend"],[class*="union-card"]'
+                            '{display:none!important}'
+                            '</style></head>', 1)
         # 2) 相对资源 / 表单提交仍指向百度手机版
         if '<base' not in html:
             html = html.replace('<head>',

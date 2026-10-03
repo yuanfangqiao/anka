@@ -3,8 +3,9 @@ export default {
   content: [
     './index.html',
     './src/**/*.{vue,ts}',
-    // 应用插件（plugins/）的 Vue/TS 源码同样参与类名扫描
-    '../plugins/**/*.{vue,ts,js}',
+    // 应用插件的 Vue/TS 源码参与类名扫描——只扫 web/ 源码目录；
+    // 排除 page 类 dist 产物（如 excalidraw，43MB/数百文件，无需 Tailwind 且会拖垮扫描）
+    '../plugins/*/web/**/*.{vue,ts,js}',
   ],
   darkMode: ['class', '[data-theme="dark"]'],
   theme: {

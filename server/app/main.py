@@ -8,10 +8,11 @@ FastAPI 应用入口。
 
 import asyncio
 import logging
+import re
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import deps, settings
@@ -53,6 +54,45 @@ app.mount('/plugin-dist', StaticFiles(directory=settings.PLUGIN_DIST_DIR),
 
 # M11：插件目录静态伺服（dev 由 vite 中间件承担，prod 走这里；
 # 与 dev URL 契约一致，page 类静态页应用的入口即 /plugins/<id>/index.html）
+
+@app.get('/plugins/{plugin_id}/{page_path:path}', include_in_schema=False)
+async def serve_plugin_html(plugin_id: str, page_path: str):
+    """page 类插件 HTML 伺服：改写绝对路径，适配构建时 base="/" 的产物。
+
+    场景：第三方打包好的静态页（如 excalidraw）构建时默认 base="/"，
+    其 index.html 引用 /assets/xxx.js。挂上 /plugins/<id>/ 后浏览器
+    从站点根 /assets 找 → 404（且会拿到主应用的资源）。
+    修复：伺服 .html 时把 src="/X" href="/X" 改写为 src="/plugins/<id>/<dir>/X"。
+    其他资源（.js/.css/.png/...）由下面 mount('/plugins') 正常伺服。
+    """
+    if not page_path.endswith('.html'):
+        # 非 HTML 走 StaticFiles mount
+        target = settings.APP_PLUGINS_DIR / plugin_id / page_path
+        if target.is_file():
+            return FileResponse(target)
+        raise HTTPException(status_code=404, detail=f'{plugin_id}/{page_path}')
+
+    target = settings.APP_PLUGINS_DIR / plugin_id / page_path
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail=f'{plugin_id}/{page_path}')
+
+    # 挂载前缀：HTML 所在目录的 URL 路径（末尾带 /）
+    url_prefix = f'/plugins/{plugin_id}/{page_path.rsplit("/", 1)[0] + "/" if "/" in page_path else ""}'
+    html = target.read_text(encoding='utf-8')
+    # 注入 <base>：处理相对路径 + 处理所有以 / 开头的资源
+    base_tag = f'<base href="{url_prefix}">'
+    if '<base' not in html:
+        html = re.sub(r'(<head[^>]*>)', r'\1' + base_tag, html, count=1)
+    # 把 src="/X" href="/X" 改写为 src="{prefix}X" —— 跳过 /plugins/、/api/、http(s)
+    def _rewrite(m):
+        attr, quote, path = m.group(1), m.group(2), m.group(3)
+        if path.startswith(('//', '/plugins/', '/api/')):
+            return m.group(0)
+        return f'{attr}={quote}{url_prefix}{path.lstrip("/")}{quote}'
+    html = re.sub(r'(src|href)=(["\'])(/[^"\']*)\2', _rewrite, html)
+    return HTMLResponse(html)
+
+
 app.mount('/plugins', StaticFiles(directory=settings.APP_PLUGINS_DIR),
           name='plugins')
 

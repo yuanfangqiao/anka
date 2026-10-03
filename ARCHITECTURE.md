@@ -339,11 +339,13 @@ main.ts → 静态注册系统插件（同一 uiCtx，dogfooding）
   - 三者皆无 → 忽略并打日志
 
 **运行时**：
-- `AppInfo.kind: 'app' | 'page'` 下发；`pluginHost` 对 page 类不 `import(entry)`，直接注册内核通用组件 `WebViewPage.vue`（同源 iframe，`sandbox="allow-scripts allow-same-origin allow-forms"`）
+- `AppInfo.kind: 'app' | 'page'` 下发；`pluginHost` 对 page 类不 `import(entry)`，直接注册内核通用组件 `WebViewPage.vue`（同源 iframe，**不加 sandbox**：同源下 `allow-scripts+allow-same-origin` 零隔离收益，只会拦掉第三方 SPA 的 SW 注册/剪贴板等能力 → 白屏；跨源 iframe 才用 sandbox 白名单，见 M10.8）
 - **同源红利**：page 页面内可直接 `fetch('/api/...')` 调内核能力（无需 uiCtx）
 - 伺服：dev 由 vite 中间件（mime 表含 `.html`）；prod 由 FastAPI `mount('/plugins')`——**两态 URL 一致**，page 类不需要 `.plugin-dist`
+- **绝对路径改写（M11.1）**：第三方构建产物常 `base="/"`（如 excalidraw dist 引用 `/assets/x.js`），挂上 `/plugins/<id>/` 后会去站点根找 → 404。两态伺服都对 `.html` 做改写：注入 `<base href="/plugins/<id>/<dir>/">` + `src|href="/X"` → `/plugins/<id>/<dir>/X`。FastAPI 侧是 `serve_plugin_html` 路由（须先于 `mount('/plugins')` 注册），vite 侧在 `serveAppPlugins` 中间件——**改一边不算修完**
+- **PWA 红线（M11.1）**：workbox `navigateFallback` 生成的 `NavigationRoute` 在 sw.js 里注册最前，会截胡 iframe 的 navigation 请求 → 插件页拿到壳的 index.html → 壳在 iframe 里递归嵌套。必须配 `navigateFallbackDenylist: [/^\/api\//, /^\/plugins\//, /^\/plugin-dist\//]`
 - 启停：page 类无 fiber，enable/disable 为 no-op；卸载 = 移出 installed.json
-- 样例：`plugins/clock`（单文件时钟，演示同源调 API）、`plugins/snake/dist`（分离资源贪吃蛇，演示 dist 形态）
+- 样例：`plugins/clock`（单文件时钟，演示同源调 API）、`plugins/snake/dist`（分离资源贪吃蛇，演示 dist 形态）、`plugins/excalidraw/dist`（完整第三方 React SPA，演示绝对路径改写；接入实录见 CHANGELOG M11.1）
 
 ## 7. 关键约束（写代码时必须遵守）
 

@@ -121,6 +121,69 @@
 
 弃选方案：浏览器运行时编译（带 compiler、包大、慢、缓存差）；要求作者预编译 dist（ComfyUI 前端实质做法，插件作者门槛高）。
 
+### 3.11 多端状态同步（2026-10-02 评估，未实施）
+
+**触发**：项目将部署到服务器，quickdraw 画图插件要支持多端（多设备）状态同步。本节只做方案评估，未写任何实现代码。
+
+#### 关键结论：引擎已解决数据层，我们只补「传输 + 存储 + 房间」
+
+quickdraw 引擎**天生为同步设计**（官方原话："Real-time sync built into the data model — **you bring the transport**"）。官方给出的完整同步客户端只有两行：
+
+```js
+store.listen((diff) => socket.send(JSON.stringify(diff)), { source: 'user' })
+socket.onmessage = (e) => store.applyDiff(JSON.parse(e.data), 'remote')
+```
+
+引擎已提供的能力：
+
+| 能力 | API | 备注 |
+|------|------|------|
+| 变更事件 | `store.listen(fn, { source: 'user' })` | 可按来源过滤，天然避免回声循环 |
+| 增量格式 | `{ added, removed, updated: { id: [from, to] } }` | **带旧值 `from` → 服务端可做冲突检测** |
+| 应用远端变更 | `store.applyDiff(diff, 'remote')` | **远端 diff 不进本地 undo 栈**，协作撤销不互相踩踏 |
+| 全量快照 | `getSnapshot()` / `loadSnapshot()` | 纯 JSON，落库与冷启动直接可用 |
+| diff 代数 | `composeDiff` / `invertDiff` | 可合并、可回放（等价于自带 op-log） |
+
+**现成接入点**：`apps/app/src/main.js`（244 行）第 93 行已有 `store.listen(...)`（当前为 400ms 防抖写 localStorage）。客户端工作不是「新增同步」，而是**把持久化目标从 localStorage 换成网络**——预估改动 ~40 行。
+
+#### 现状缺口（内核侧要补的三块）
+
+| 缺口 | 现状 | 要做什么 |
+|------|------|------|
+| 实时通道 | 后端**零 WebSocket**（chat 走 SSE `StreamingResponse`） | 新增 WS 端点 |
+| 服务端存储 | **零 DB**（仅 `server/data/installed.json` 类 JSON 文件） | 文档存储（快照 + op-log） |
+| 房间 / 身份 | **零用户体系**（无 auth / user_id / token） | 最小可用：房间 id（分享链接） |
+
+**有利条件**：quickdraw 是 page 类插件，iframe 与宿主同源 —— 页面内可直接 `fetch('/api/...')`，也能 `new WebSocket(...)`；SW 不拦截 WebSocket。因此**不必**转成 app 类插件即可联网。
+
+#### 方案对比
+
+| | 方案 A：最小闭环 | 方案 B：纳入插件模型 | 方案 C：完整 CRDT |
+|---|---|---|---|
+| 做法 | 保持 page 类，iframe 直连通用 WS `/ws/room/{id}`；后端加文档存储服务 | 转 app 类（`plugin.json` + `server/main.py` Service），房间与插件生命周期绑定 | 引入 Yjs，替换/适配 store 层 |
+| 客户端改动 | ~40 行 | ~40 行 + uiCtx 适配 | 引擎级改造 |
+| 后端改动 | WS 端点 + doc store，~200 行 | ~250 行 + 插件骨架 | 大量 |
+| 冲突策略 | 服务端定序 + LWW（shape 粒度） | 同 A | 真正无冲突合并 |
+| 离线编辑 | 弱（需自建队列） | 弱 | **原生支持** |
+| 工作量 | **1–1.5 天** | **2–3 天** | 1–2 周 |
+| 适用 | 先验证 / 内部使用 | 长期演进、多插件复用 | 多人高频协作的生产级产品 |
+
+**倾向**：**A 起步**。通道与存储做成通用内核能力后，B/C 都在它之上生长（A 的 WS + doc store 可直接复用），不是一次性代码。
+
+#### 部署到服务器必须注意（真正的成本在这里）
+
+1. **反向代理要放行 WS 升级头** —— nginx 缺 `Upgrade` / `Connection` 直接 502，是最常见的部署翻车点
+2. **多 worker / 多实例会击穿内存态** —— 房间连接存在进程内存里，A 连 worker1、B 连 worker2 就互不可见；需单 worker + sticky session 或 Redis pub/sub 广播（方案 A 在生产上的最大隐患）
+3. **粘贴图片会让 diff 暴涨** —— 图片以 base64 存于 store 记录，一次贴图即数 MB diff；需限制尺寸 / 单独走上传接口 + WS 消息上限或分片。**不做这条，上线必炸**
+4. **PWA 离线与对账** —— SW 不拦 WS（安全），但离线期间 diff 堆积，重连后需「本地快照 vs 服务端快照」对账（引擎有 `getSnapshot`，对账不难但必须写）
+5. **同步范围要含文件索引** —— quickdraw 有多文件（files index）概念，只同步单个文档会导致换设备后文件列表对不上
+
+#### 边界（本次明确不做）
+
+- 端到端加密（E2EE）
+- 多用户账号体系 / 权限（房间 id 即凭证，先不做鉴权）
+- 光标 / 选区等 presence 实时状态（只同步文档）
+
 ---
 
 ## 四、参考来源与本项目对应关系
@@ -150,6 +213,7 @@
 2. 是否引入 Pinia（MVP 可用 composable 顶住）
 3. 图标方案：lucide-vue-next 是否够用，是否需要自制 SVG 图标集
 4. 是否需要 `.env` 配置（端口、后续 API Key）
+5. **多端同步方案 A/B/C 未拍板**（评估见 §3.11）；连带待定：是否引入 Redis（多实例 WS 广播）、是否上 SQLite、是否需要用户账号体系
 
 ---
 

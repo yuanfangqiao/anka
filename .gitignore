@@ -43,6 +43,11 @@ logs/
 .plugin-dist/
 web/public/shared/
 
+/plugins
+# excalidraw 自托管：仅提交 dist，源码树不入库（M11「作者提交 dist」形态）
+plugins/excalidraw/*
+!plugins/excalidraw/dist/
+
 # ===== 工具产物 =====
 .playwright-cli/
 .codebuddy/
@@ -55,3 +60,5 @@ web/public/shared/
 # ===== 操作系统 =====
 .DS_Store
 Thumbs.db
+
+/gitignore

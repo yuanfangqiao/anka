@@ -2,6 +2,34 @@
 
 记录每次核心修改。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，最新在上。
 
+## [M11.1] excalidraw 接入踩坑实录（page 类插件三大坑）· 2026-10-01
+
+**背景**：把 excalidraw 0.18.1 官方 dist（完整 React SPA 构建产物，含 monorepo 源码 35MB tarball）直接丢进 `plugins/excalidraw/`。无 `plugin.json` → M11 page 降级自动识别 OK，但从「能识别」到「PWA 里能用」连踩三坑。构建本身不慢（壳前端每次 ~1.8s），耗时全在逐层定位。
+
+### 坑 1：构建产物绝对路径 vs 挂载前缀（白屏）
+- **症状**：iframe 打开了，但全白。直接访问 `/plugins/excalidraw/dist/index.html` 也白。
+- **根因**：excalidraw 构建时 `base="/"`，`index.html` 里写的是 `src="/assets/index-*.js"`。挂上 `/plugins/excalidraw/` 后浏览器去**站点根** `/assets/` 找——而站点根 `/assets` 已被主应用挂载（main.py），插件的 JS 拿到 404。
+- **修复**：伺服 page 类插件的 `.html` 时**改写 HTML**——注入 `<base href="/plugins/<id>/<dir>/">` + 把 `src="/X" href="/X"` 改写为 `/plugins/<id>/<dir>/X`（跳过 `/plugins/`、`/api/`、`http(s)`）。
+- **关键点**：**dev 和 prod 是两套伺服，要各修一遍**——prod 是 FastAPI（`main.py serve_plugin_html` 路由，先于 `mount('/plugins')` 匹配），dev 是 vite 中间件（`vite.config.ts serveAppPlugins`）。只修一边会出现「8000 能开、5173 白屏」或反之。
+
+### 坑 2：iframe sandbox 同源下零收益还拦功能（白屏）
+- **症状**：路径改写后直连 URL 能渲染，但 PWA 壳里 iframe 仍白。
+- **根因**：`WebViewPage` 的 `sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"` 拦掉了 excalidraw 启动需要的能力（SW 注册/剪贴板/弹窗等）。
+- **认知**：iframe 与宿主**同源**（`/plugins/...` 同端口）时，`allow-scripts + allow-same-origin` 组合**安全收益为零**（里面脚本本就能摸 parent DOM），sandbox 只剩兼容性破坏。
+- **修复**：`WebViewPage.vue` 去掉 `sandbox`。iframe 保留——对 excalidraw 这种完整第三方 SPA（自带路由/全局 CSS/挂载 `#root`/自带 SW），iframe 是必须隔离，不能「直接套进壳 DOM」（挂载点冲突、全局 CSS 污染壳、SW 抢 scope、无法卸载）。
+
+### 坑 3：SW navigateFallback 截胡 iframe navigation（多层内嵌，最隐蔽）
+- **症状**：点几次插件图标，页面变成壳套壳套壳（每层一个 dock）。
+- **根因**：workbox `navigateFallback: '/index.html'` 生成的 `NavigationRoute` 在 sw.js 里**注册顺序排第一**且无 denylist。iframe 加载就是 navigation 请求（`mode: 'navigate'`）→ 请求 `/plugins/snake/dist/index.html` 被它截胡，返回**壳的 index.html** → 壳在 iframe 里递归启动 → 在嵌套壳里点 dock → iframe 导航 `/app/snake` → 再嵌一层。
+- **修复**：`vite.config.ts` workbox 加 `navigateFallbackDenylist: [/^\/api\//, /^\/plugins\//, /^\/plugin-dist\//]`。
+- **注意**：旧 SW 仍在用户浏览器里跑，`autoUpdate` 换装需刷新一次（必要时强刷）。
+
+### 经验（page 类插件接入 checklist）
+1. 第三方 dist 丢进 `plugins/` 后，先 curl 其 `index.html` 看资源路径是相对（`./x.js`，免改）还是绝对（`/x.js`，依赖我们的改写）
+2. 验证必须**双态**：dev（5173，vite 中间件）+ prod（8000，FastAPI）
+3. PWA 异常先怀疑 SW：iframe 白屏/嵌套/旧内容，多半是 `navigateFallback` 或旧 SW 缓存，不是插件本身
+4. 同源 iframe 不要加 sandbox；跨源 iframe（trendshift 类）才用 sandbox 白名单（见 M10.8）
+
 ## [M11] 任意文件夹即应用（page 降级形态）· 2026-10-01
 
 ### 新增

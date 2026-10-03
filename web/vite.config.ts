@@ -23,6 +23,10 @@ function serveAppPlugins(): Plugin {
     '.htm': 'text/html',
     '.webmanifest': 'application/manifest+json',
     '.ico': 'image/x-icon',
+    '.woff2': 'font/woff2',      // excalidraw 等 dist 产物自带字体
+    '.woff': 'font/woff',
+    '.ttf': 'font/ttf',
+    '.map': 'application/json',
   }
   return {
     name: 'serve-app-plugins',
@@ -36,6 +40,30 @@ function serveAppPlugins(): Plugin {
           return
         }
         const ext = path.extname(file)
+        // page 类插件 HTML：改写绝对路径（构建时 base="/" 的产物，如 excalidraw
+        // dist/index.html 引用 /assets/x.js → 挂上 /plugins/<id>/ 后会去站点根
+        // 找 → 404。改写为 /plugins/<id>/<dir>/x.js；与 FastAPI 侧 serve_plugin_html 一致）
+        if (ext === '.html' || ext === '.htm') {
+          // raw 形如 /excalidraw/dist/index.html（中间件已剥掉 /plugins 前缀）
+          const dir = raw.includes('/')
+            ? raw.slice(0, raw.lastIndexOf('/') + 1)
+            : '/'
+          const urlPrefix = `/plugins${dir}`
+          let html = fs.readFileSync(file, 'utf-8')
+          if (!html.includes('<base')) {
+            html = html.replace(/(<head[^>]*>)/, `$1<base href="${urlPrefix}">`)
+          }
+          html = html.replace(
+            /(src|href)=(["'])(\/[^"']*)\2/g,
+            (m, attr, q, p) =>
+              p.startsWith('//') || p.startsWith('/plugins/') || p.startsWith('/api/')
+                ? m
+                : `${attr}=${q}${urlPrefix}${p.slice(1)}${q}`,
+          )
+          res.setHeader('Content-Type', 'text/html')
+          res.end(html)
+          return
+        }
         if (ext === '.vue' || ext === '.ts') {
           try {
             // 用绝对文件路径走 vite 编译管线；保留 query（SFC 子块 ?vue&type=…）
@@ -85,6 +113,10 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: '/index.html',
+        // 关键：NavigationRoute 在生成的 sw.js 里注册在最前，会截胡所有
+        // navigation 请求（含 iframe 加载插件页）→ iframe 拿到壳的 index.html
+        // → 壳在 iframe 里递归启动（多层内嵌）。denylist 放行插件/接口路径。
+        navigateFallbackDenylist: [/^\/api\//, /^\/plugins\//, /^\/plugin-dist\//],
         cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         globIgnores: ['**/plugins/**'],
