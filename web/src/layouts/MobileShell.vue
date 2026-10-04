@@ -36,10 +36,11 @@ onMounted(() => {
 </script>
 
 <template>
+  <!-- 两段式：上方内容区（独立内滚）+ 下方 dock 专属条——内容永不滑到 dock 背后 -->
   <div class="relative flex h-dvh flex-col">
     <TopBar v-if="needsChrome" :collapsed="collapsed" />
     <main
-      class="relative flex-1 overflow-y-auto pb-[calc(88px+env(safe-area-inset-bottom,0px))]"
+      class="relative flex-1 overflow-y-auto"
       :class="needsChrome ? 'pt-14' : ''"
       @scroll.passive="onScroll"
     >
@@ -49,6 +50,11 @@ onMounted(() => {
         </Transition>
       </RouterView>
     </main>
-    <DockBar />
+    <div
+      class="shrink-0 px-3 pt-2"
+      :style="{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }"
+    >
+      <DockBar />
+    </div>
   </div>
 </template>

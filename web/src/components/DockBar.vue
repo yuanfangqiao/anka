@@ -12,18 +12,43 @@ const { apps, dockApps, resolveIcon } = registry
 
 // 手机 dock 每页槽位数（内核 /api/config 下发）
 const maxVisible = ref(5)
+
+// ---- 每页容量：桌面按浏览器宽度测算，尽可能多展示 ---------------------------
+// 胶囊最大宽 = min(92vw, 460px)（原版紧凑基线）；槽位 = 瓷贴 36 + 间距 6 = 42px
+const MAX_DOCK_W = 460
+const winWidth = ref(window.innerWidth)
+function onResize() {
+  winWidth.value = window.innerWidth
+}
+
 onMounted(async () => {
+  window.addEventListener('resize', onResize, { passive: true })
   try {
     maxVisible.value = (await api.config()).mobile_dock_max ?? 5
   } catch { /* 后端离线时用默认值 */ }
 })
 
+const maxWidthPx = computed(() => Math.min(Math.round(winWidth.value * 0.92), MAX_DOCK_W))
+const capacity = computed(() =>
+  props.desktop
+    ? Math.max(3, Math.floor((maxWidthPx.value - 24) / 42))
+    : maxVisible.value,
+)
+
+// 胶囊宽度必须显式计算：内容层全部 absolute inset-0（高度过渡交叉淡化），
+// max-content 会塌缩成 0（只剩 2px 边框），图标从中心点向右溢出渲染。
+// 非分页折叠态 = n×(瓷贴36+间距6) − 末位间距 + px-2.5×2 = 42n + 14
+const pillWidth = computed(() => {
+  if (expanded.value || paged.value) return `${maxWidthPx.value}px`
+  return `${dockApps.value.length * 42 + 14}px`
+})
+
 // ---- dock 分页（横滑） -----------------------------------------------------
-const paged = computed(() => !props.desktop && dockApps.value.length > maxVisible.value)
+const paged = computed(() => dockApps.value.length > capacity.value)
 const pages = computed<AppMeta[][]>(() => {
   const out: AppMeta[][] = []
-  for (let i = 0; i < dockApps.value.length; i += maxVisible.value) {
-    out.push(dockApps.value.slice(i, i + maxVisible.value))
+  for (let i = 0; i < dockApps.value.length; i += capacity.value) {
+    out.push(dockApps.value.slice(i, i + capacity.value))
   }
   return out
 })
@@ -53,27 +78,26 @@ function open(app: AppMeta) {
   router.push(app.route)
 }
 
-// ---- 当前应用指示 ---------------------------------------------------------
-// 与翻页点共用同一条水平轴：指示点在底部轨道按「槽位百分比」定位，
-// 轨道与图标滚动区等宽 → 顶轨（翻页点）与底轨（选中指示）天然上下对齐。
+// ---- 当前应用指示（移动端底轨） ----------------------------------------------
+// 与翻页点共用同一条水平轴：指示点在底部轨道按「槽位百分比」定位
 const activeSlot = computed(() => {
   const page = pages.value[pageIndex.value]
   return page ? page.findIndex((a) => isActive(a.route)) : -1
 })
 const markerLeft = computed(() =>
-  activeSlot.value < 0 ? null : `${((activeSlot.value + 0.5) / maxVisible.value) * 100}%`,
+  activeSlot.value < 0 ? null : `${((activeSlot.value + 0.5) / capacity.value) * 100}%`,
 )
 
-// ---- 全部应用：dock 上滑拉伸展开（半屏，竖向分页） ---------------------------
+// ---- 全部应用：dock 向上拉伸展开（半屏，竖向分页） ---------------------------
 const expanded = ref(false)
 const allApps = computed(() => [...apps].sort((a, b) => a.order - b.order))
-// 展开高度 = 屏幕的一半
-const expandedHeight = computed(() => Math.round(window.innerHeight * 0.5))
+const expandedHeight = computed(() => Math.min(Math.round(window.innerHeight * 0.5), 520))
+const gridCols = computed(() => (props.desktop ? 6 : 4))
 
 // 每页行数由半屏高度推导（行高 ≈ 瓷贴48 + 名称14 + 间距20 = 82，把手+内边距 ≈ 40）
 const gridRows = computed(() => Math.max(2, Math.floor((expandedHeight.value - 40) / 82)))
 const gridPages = computed<AppMeta[][]>(() => {
-  const per = gridRows.value * 4
+  const per = gridRows.value * gridCols.value
   const out: AppMeta[][] = []
   for (let i = 0; i < allApps.value.length; i += per) {
     out.push(allApps.value.slice(i, i + per))
@@ -104,7 +128,24 @@ function openFromGrid(app: AppMeta) {
   expanded.value = false
 }
 
-// 手势：折叠时从翻页点/图标区上滑 → 展开；展开后从把手区下滑 → 收起
+// 交互（桌面）：顶轨点圆点 = 跳页、点空白 = 展开；点胶囊左右 22% 空白 = 翻页
+function onTrackClick(e: MouseEvent) {
+  if ((e.target as HTMLElement).closest('button')) return
+  expanded.value = true
+}
+function onNavClick(e: MouseEvent) {
+  if (expanded.value || !paged.value) return
+  const t = e.target as HTMLElement
+  if (t.closest('button')) return
+  const el = e.currentTarget as HTMLElement
+  const x = e.clientX - el.getBoundingClientRect().left
+  if (x < el.clientWidth * 0.22 && pageIndex.value > 0) goPage(pageIndex.value - 1)
+  else if (x > el.clientWidth * 0.78 && pageIndex.value < pageCount.value - 1) {
+    goPage(pageIndex.value + 1)
+  }
+}
+
+// 手势（移动端）：折叠时上滑展开；展开后把手区下滑收起
 let startY = 0
 function gestureStart(e: TouchEvent) {
   startY = e.touches[0].clientY
@@ -127,62 +168,14 @@ watch(expanded, (v) => {
 onBeforeUnmount(() => {
   document.documentElement.style.overflow = ''
   window.removeEventListener('keydown', onKey)
+  window.removeEventListener('resize', onResize)
 })
 </script>
 
 <template>
-  <!-- 桌面端：macOS 式自由横排 dock -->
-  <nav
-    v-if="desktop"
-    class="glass-panel relative z-40 h-[58px] rounded-[22px] px-2.5 py-1.5 shadow-card"
-    aria-label="应用 Dock"
-  >
-    <div class="dock-scroll flex h-full max-w-[460px] items-center gap-1.5 overflow-x-auto overscroll-contain">
-      <div
-        v-for="app in dockApps"
-        :key="app.id"
-        class="group relative flex shrink-0 flex-col items-center"
-      >
-        <div
-          class="pointer-events-none absolute bottom-full left-1/2 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-lg bg-bg-2 px-2.5 py-1 text-[11px] text-ink-0 opacity-0 shadow-card transition-opacity duration-micro group-hover:opacity-100"
-        >
-          {{ app.title }}
-        </div>
-
-        <button
-          type="button"
-          class="flex items-center justify-center transition-transform duration-micro active:scale-90 cursor-pointer"
-          :aria-current="isActive(app.route) ? 'page' : undefined"
-          :aria-label="app.title"
-          @click="open(app)"
-        >
-          <span
-            class="flex h-9 w-9 items-center justify-center rounded-[30%] text-white"
-            :class="[
-              app.system ? 'bg-gradient-to-br from-brand to-brand-cyan shadow-md shadow-brand/25' : '',
-              isActive(app.route) ? 'ring-2 ring-brand/70' : '',
-            ]"
-            :style="appTileStyle(app)"
-          >
-            <component :is="resolveIcon(app.icon)" :size="18" />
-          </span>
-        </button>
-
-        <span
-          class="pointer-events-none mt-[3px] h-[3px] rounded-full transition-all duration-micro"
-          :class="isActive(app.route) ? 'w-3 bg-gradient-to-r from-brand to-brand-cyan' : 'w-[3px] bg-transparent'"
-        ></span>
-      </div>
-    </div>
-  </nav>
-
-  <!-- 移动端：悬浮胶囊 dock，整体抬到 Home 指示条手势区之上（更大安全边距） -->
-  <div
-    v-else-if="dockApps.length"
-    class="fixed inset-x-3 bottom-0 z-40"
-    :style="{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }"
-  >
-    <!-- 展开时的遮罩：在胶囊之下、页面之上，点空白收起 -->
+  <!-- ================= 桌面端：原版 58px 胶囊（外观零变更） ================= -->
+  <div v-if="desktop" class="relative z-40 h-[58px] w-full">
+    <!-- 展开时的遮罩：点空白收起 -->
     <div
       v-if="expanded"
       class="fixed inset-0 -z-10 bg-black/30 backdrop-blur-[2px]"
@@ -190,7 +183,205 @@ onBeforeUnmount(() => {
     ></div>
 
     <nav
-      class="glass-panel relative w-full overflow-hidden rounded-[26px] shadow-card transition-[height] duration-300 ease-out"
+      class="glass-panel absolute bottom-0 left-1/2 -translate-x-1/2 rounded-[22px] shadow-card transition-[height] duration-300 ease-out"
+      :style="{
+        height: expanded ? expandedHeight + 'px' : '58px',
+        width: pillWidth,
+      }"
+      aria-label="应用 Dock"
+      @click="onNavClick"
+    >
+      <!-- 折叠层 -->
+      <div
+        class="absolute inset-0 transition-opacity duration-200"
+        :class="expanded ? 'pointer-events-none opacity-0' : 'opacity-100'"
+      >
+        <!-- 图标不超容量：原版单行，宽度随内容收缩（像素级原样） -->
+        <div v-if="!paged" class="flex h-full items-center gap-1.5 px-2.5 py-1.5">
+          <div
+            v-for="app in dockApps"
+            :key="app.id"
+            class="group relative flex shrink-0 flex-col items-center"
+          >
+            <div
+              class="pointer-events-none absolute bottom-full left-1/2 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-lg bg-bg-2 px-2.5 py-1 text-[11px] text-ink-0 opacity-0 shadow-card transition-opacity duration-micro group-hover:opacity-100"
+            >
+              {{ app.title }}
+            </div>
+            <button
+              type="button"
+              class="flex items-center justify-center transition-transform duration-micro active:scale-90 cursor-pointer"
+              :aria-current="isActive(app.route) ? 'page' : undefined"
+              :aria-label="app.title"
+              @click.stop="open(app)"
+            >
+              <span
+                class="flex h-9 w-9 items-center justify-center rounded-[30%] text-white"
+                :class="[
+                  app.system ? 'bg-gradient-to-br from-brand to-brand-cyan shadow-md shadow-brand/25' : '',
+                  isActive(app.route) ? 'ring-2 ring-brand/70' : '',
+                ]"
+                :style="appTileStyle(app)"
+              >
+                <component :is="resolveIcon(app.icon)" :size="18" />
+              </span>
+            </button>
+            <span
+              class="pointer-events-none mt-[3px] h-[3px] rounded-full transition-all duration-micro"
+              :class="isActive(app.route) ? 'w-3 bg-gradient-to-r from-brand to-brand-cyan' : 'w-[3px] bg-transparent'"
+            ></span>
+          </div>
+        </div>
+
+        <!-- 超容量：58px 总高不变，顶轨圆点 + snap 整页（py 微调挤出顶轨） -->
+        <div v-else class="flex h-full flex-col px-2 py-1">
+          <!-- 顶轨：点圆点跳页，点空白向上展开 -->
+          <div
+            class="flex h-[7px] cursor-pointer items-start justify-center gap-1.5"
+            @click="onTrackClick"
+          >
+            <button
+              v-for="i in pageCount"
+              :key="i"
+              type="button"
+              class="h-1.5 rounded-full transition-all duration-micro cursor-pointer"
+              :class="i - 1 === pageIndex ? 'w-4 bg-gradient-to-r from-brand to-brand-cyan' : 'w-1.5 bg-line'"
+              :aria-label="`Dock 第 ${i} 页`"
+              @click.stop="goPage(i - 1)"
+            ></button>
+          </div>
+
+          <div
+            ref="scroller"
+            class="dock-scroll flex flex-1 snap-x snap-mandatory overflow-x-auto overscroll-contain"
+            @scroll.passive="onScroll"
+          >
+            <div
+              v-for="(page, pi) in pages"
+              :key="pi"
+              class="grid h-full w-full shrink-0 snap-start"
+              :style="{ gridTemplateColumns: `repeat(${capacity}, 1fr)` }"
+            >
+              <div
+                v-for="app in page"
+                :key="app.id"
+                class="group relative flex h-full flex-col items-center justify-center"
+              >
+                <div
+                  class="pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 whitespace-nowrap rounded-lg bg-bg-2 px-2.5 py-1 text-[11px] text-ink-0 opacity-0 shadow-card transition-opacity duration-micro group-hover:opacity-100"
+                >
+                  {{ app.title }}
+                </div>
+                <button
+                  type="button"
+                  class="flex items-center justify-center transition-transform duration-micro active:scale-90 cursor-pointer"
+                  :aria-current="isActive(app.route) ? 'page' : undefined"
+                  :aria-label="app.title"
+                  @click.stop="open(app)"
+                >
+                  <span
+                    class="flex h-9 w-9 items-center justify-center rounded-[30%] text-white"
+                    :class="[
+                      app.system ? 'bg-gradient-to-br from-brand to-brand-cyan shadow-md shadow-brand/25' : '',
+                      isActive(app.route) ? 'ring-2 ring-brand/70' : '',
+                    ]"
+                    :style="appTileStyle(app)"
+                  >
+                    <component :is="resolveIcon(app.icon)" :size="18" />
+                  </span>
+                </button>
+                <span
+                  class="pointer-events-none mt-[3px] h-[3px] rounded-full transition-all duration-micro"
+                  :class="isActive(app.route) ? 'w-3 bg-gradient-to-r from-brand to-brand-cyan' : 'w-[3px] bg-transparent'"
+                ></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 展开层：全部应用网格（与移动端同款） -->
+      <div
+        class="absolute inset-0 flex flex-col overflow-hidden rounded-[22px] pb-2 transition-opacity duration-200"
+        :class="expanded ? 'opacity-100' : 'pointer-events-none opacity-0'"
+      >
+        <div
+          class="flex h-7 shrink-0 cursor-pointer items-start justify-center pt-2"
+          @click="expanded = false"
+        >
+          <div class="h-1 w-10 rounded-full bg-line" aria-hidden="true"></div>
+        </div>
+
+        <div class="relative min-h-0 flex-1 pl-4 pr-3">
+          <div
+            v-if="gridPageCount > 1"
+            class="absolute left-0 top-1/2 z-10 flex -translate-y-1/2 flex-col items-center gap-1.5"
+          >
+            <button
+              v-for="i in gridPageCount"
+              :key="i"
+              type="button"
+              class="w-1.5 rounded-full transition-all duration-micro cursor-pointer"
+              :class="i - 1 === gridPageIndex ? 'h-4 bg-gradient-to-b from-brand to-brand-cyan' : 'h-1.5 bg-line'"
+              :aria-label="`应用第 ${i} 页`"
+              @click.stop="goGridPage(i - 1)"
+            ></button>
+          </div>
+
+          <div
+            ref="gridScroller"
+            class="grid-scroll h-full snap-y snap-mandatory overflow-y-auto overscroll-contain"
+            @scroll.passive="onGridScroll"
+          >
+            <div
+              v-for="(page, pi) in gridPages"
+              :key="pi"
+              class="grid h-full snap-start content-start gap-x-2 gap-y-5"
+              :style="{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }"
+            >
+              <button
+                v-for="app in page"
+                :key="app.id"
+                type="button"
+                class="group flex flex-col items-center gap-1.5 cursor-pointer"
+                :aria-label="app.title"
+                @click="openFromGrid(app)"
+              >
+                <span
+                  class="flex h-12 w-12 items-center justify-center rounded-[26%] text-white shadow-md transition-transform duration-micro group-active:scale-90"
+                  :class="[
+                    app.system ? 'bg-gradient-to-br from-brand to-brand-cyan shadow-brand/25' : '',
+                    isActive(app.route) ? 'ring-2 ring-brand/70' : '',
+                  ]"
+                  :style="appTileStyle(app)"
+                >
+                  <component :is="resolveIcon(app.icon)" :size="22" />
+                </span>
+                <span
+                  class="w-full truncate text-center text-[11px] leading-tight"
+                  :class="isActive(app.route) ? 'font-medium text-ink-0' : 'text-ink-1'"
+                >
+                  {{ app.title }}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+  </div>
+
+  <!-- ================= 移动端：三行同轴胶囊（外观/手势零变更） ================= -->
+  <div v-else-if="dockApps.length" class="relative z-40 h-[72px] w-full">
+    <!-- 展开时的遮罩：点空白收起 -->
+    <div
+      v-if="expanded"
+      class="fixed inset-0 -z-10 bg-black/30 backdrop-blur-[2px]"
+      @click="expanded = false"
+    ></div>
+
+    <nav
+      class="glass-panel absolute inset-x-0 bottom-0 overflow-hidden rounded-[26px] shadow-card transition-[height] duration-300 ease-out"
       :style="{ height: expanded ? expandedHeight + 'px' : '72px' }"
       aria-label="应用 Dock"
       @touchstart.passive="gestureStart"
@@ -222,7 +413,7 @@ onBeforeUnmount(() => {
             v-for="(page, pi) in pages"
             :key="pi"
             class="grid h-full w-full shrink-0 snap-start"
-            :style="{ gridTemplateColumns: `repeat(${maxVisible}, 1fr)` }"
+            :style="{ gridTemplateColumns: `repeat(${capacity}, 1fr)` }"
           >
             <button
               v-for="app in page"
@@ -272,7 +463,6 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="relative min-h-0 flex-1 pl-4 pr-3">
-          <!-- 竖向翻页进度（左侧）：指示当前页、可点击跳页 -->
           <div
             v-if="gridPageCount > 1"
             class="absolute left-0 top-1/2 z-10 flex -translate-y-1/2 flex-col items-center gap-1.5"
@@ -296,7 +486,8 @@ onBeforeUnmount(() => {
             <div
               v-for="(page, pi) in gridPages"
               :key="pi"
-              class="grid h-full snap-start grid-cols-4 content-start gap-x-2 gap-y-5"
+              class="grid h-full snap-start content-start gap-x-2 gap-y-5"
+              :style="{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }"
             >
               <button
                 v-for="app in page"
