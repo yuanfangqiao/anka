@@ -155,19 +155,41 @@ function onNavClick(e: MouseEvent) {
   }
 }
 
-// 手势（移动端）：上滑展开全部应用、下滑收窄成白线——对称手势，优雅成对
+// 手势状态机（移动端）：一次触摸（touchstart→touchend）只允许触发一个状态迁移。
+// gestureDone 消费标记是关键——没有它，下滑收起展开态的同一根手指会继续冒泡到
+// nav 级手势，造成"展开→dock→收纳线"一次滑动连锁两级跳。
+// 链路：dock ⇄ 上滑/下滑 ⇄ 展开应用 / 收纳线
 let startY = 0
+let gestureDone = false
 function gestureStart(e: TouchEvent) {
   startY = e.touches[0].clientY
+  gestureDone = false
 }
 function gestureMove(e: TouchEvent) {
-  if (expanded.value) return
+  if (gestureDone) return
+  if (expanded.value) return // 展开态的收起只认把手（headerGestureMove），网格滑动归网格
   const dy = e.touches[0].clientY - startY
-  if (dy < -48) expanded.value = true
-  else if (dy > 48) minimized.value = true
+  if (minimized.value) {
+    if (dy < -48) {
+      minimized.value = false
+      gestureDone = true
+    }
+    return
+  }
+  if (dy < -48) {
+    expanded.value = true
+    gestureDone = true
+  } else if (dy > 48) {
+    minimized.value = true
+    gestureDone = true
+  }
 }
 function headerGestureMove(e: TouchEvent) {
-  if (expanded.value && e.touches[0].clientY - startY > 48) expanded.value = false
+  if (gestureDone || !expanded.value) return
+  if (e.touches[0].clientY - startY > 48) {
+    expanded.value = false
+    gestureDone = true
+  }
 }
 
 function onKey(e: KeyboardEvent) {
@@ -421,6 +443,8 @@ onBeforeUnmount(() => {
     class="relative z-40 w-full transition-[height] duration-300 ease-out"
     :style="{ height: minimized ? '22px' : '72px' }"
     @click="restoreIfMinimized"
+    @touchstart.passive="gestureStart"
+    @touchmove.passive="gestureMove"
   >
     <!-- 展开时的遮罩：点空白收起 -->
     <div
