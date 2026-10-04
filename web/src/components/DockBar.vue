@@ -13,9 +13,11 @@ const { apps, dockApps, resolveIcon } = registry
 // 手机 dock 每页槽位数（内核 /api/config 下发）
 const maxVisible = ref(5)
 
-// ---- 每页容量：桌面按浏览器宽度测算，尽可能多展示 ---------------------------
-// 胶囊最大宽 = min(92vw, 460px)（原版紧凑基线）；槽位 = 瓷贴 36 + 间距 6 = 42px
-const MAX_DOCK_W = 460
+// ---- 每页容量：桌面完全按浏览器宽度测算，尽可能多展示 ---------------------------
+// 胶囊最大宽 = 92% 视口宽（1000px 兜底防超宽屏）；槽位 = 瓷贴 36 + 间距 6 = 42px。
+// 注意：上限只约束「分页态」的胶囊宽度——应用数 ≤ 容量时胶囊始终按内容收紧（42n+14），
+// 所以放大上限不会让少量应用的应用栏变成长条
+const MAX_DOCK_W = 1000
 const winWidth = ref(window.innerWidth)
 function onResize() {
   winWidth.value = window.innerWidth
@@ -92,7 +94,7 @@ const markerLeft = computed(() =>
 const expanded = ref(false)
 const allApps = computed(() => [...apps].sort((a, b) => a.order - b.order))
 const expandedHeight = computed(() => Math.min(Math.round(window.innerHeight * 0.5), 520))
-const gridCols = computed(() => (props.desktop ? 6 : 4))
+const gridCols = computed(() => (props.desktop ? 6 : 5))
 
 // 每页行数由半屏高度推导（行高 ≈ 瓷贴48 + 名称14 + 间距20 = 82，把手+内边距 ≈ 40）
 const gridRows = computed(() => Math.max(2, Math.floor((expandedHeight.value - 40) / 82)))
@@ -392,7 +394,12 @@ onBeforeUnmount(() => {
         class="absolute inset-0 flex flex-col px-1.5 transition-opacity duration-200"
         :class="expanded ? 'pointer-events-none opacity-0' : 'opacity-100'"
       >
-        <div v-if="pageCount > 1" class="flex h-[13px] items-start justify-center gap-1.5 pt-[4px]">
+        <!-- 顶轨：点圆点跳页，点空白向上展开（与桌面端一致；触屏另有上滑手势） -->
+        <div
+          v-if="pageCount > 1"
+          class="flex h-[13px] cursor-pointer items-start justify-center gap-1.5 pt-[4px]"
+          @click="onTrackClick"
+        >
           <button
             v-for="i in pageCount"
             :key="i"
