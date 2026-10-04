@@ -14,7 +14,8 @@ import DockBar from '../components/DockBar.vue'
       </RouterView>
     </main>
 
-    <div class="flex h-[74px] shrink-0 items-end justify-center pb-2">
+    <!-- dock 条高度由 DockBar 自驱动（收窄时内容区自动变高） -->
+    <div class="flex shrink-0 justify-center">
       <DockBar desktop />
     </div>
   </div>

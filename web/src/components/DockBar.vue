@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ChevronDown } from 'lucide-vue-next'
 import { appTileStyle, registry, type AppMeta } from '../registry/appRegistry'
 import { api } from '../services/api'
 
@@ -92,6 +93,8 @@ const markerLeft = computed(() =>
 
 // ---- 全部应用：dock 向上拉伸展开（半屏，竖向分页） ---------------------------
 const expanded = ref(false)
+// 收窄态：dock 缩成一根 iOS 式白线（下滑手势或点底边触发，点白线/空白恢复）
+const minimized = ref(false)
 const allApps = computed(() => [...apps].sort((a, b) => a.order - b.order))
 const expandedHeight = computed(() => Math.min(Math.round(window.innerHeight * 0.5), 520))
 const gridCols = computed(() => (props.desktop ? 6 : 5))
@@ -130,6 +133,11 @@ function openFromGrid(app: AppMeta) {
   expanded.value = false
 }
 
+// 收窄态恢复：点白线、dock 区任意空白均可
+function restoreIfMinimized() {
+  if (minimized.value) minimized.value = false
+}
+
 // 交互（桌面）：顶轨点圆点 = 跳页、点空白 = 展开；点胶囊左右 22% 空白 = 翻页
 function onTrackClick(e: MouseEvent) {
   if ((e.target as HTMLElement).closest('button')) return
@@ -147,13 +155,16 @@ function onNavClick(e: MouseEvent) {
   }
 }
 
-// 手势（移动端）：折叠时上滑展开；展开后把手区下滑收起
+// 手势（移动端）：上滑展开全部应用、下滑收窄成白线——对称手势，优雅成对
 let startY = 0
 function gestureStart(e: TouchEvent) {
   startY = e.touches[0].clientY
 }
 function gestureMove(e: TouchEvent) {
-  if (!expanded.value && e.touches[0].clientY - startY < -48) expanded.value = true
+  if (expanded.value) return
+  const dy = e.touches[0].clientY - startY
+  if (dy < -48) expanded.value = true
+  else if (dy > 48) minimized.value = true
 }
 function headerGestureMove(e: TouchEvent) {
   if (expanded.value && e.touches[0].clientY - startY > 48) expanded.value = false
@@ -176,7 +187,12 @@ onBeforeUnmount(() => {
 
 <template>
   <!-- ================= 桌面端：原版 58px 胶囊（外观零变更） ================= -->
-  <div v-if="desktop" class="relative z-40 h-[58px] w-full">
+  <div
+    v-if="desktop"
+    class="relative z-40 w-full transition-[height] duration-300 ease-out"
+    :style="{ height: minimized ? '22px' : '74px' }"
+    @click="restoreIfMinimized"
+  >
     <!-- 展开时的遮罩：点空白收起 -->
     <div
       v-if="expanded"
@@ -184,8 +200,24 @@ onBeforeUnmount(() => {
       @click="expanded = false"
     ></div>
 
-    <nav
-      class="glass-panel absolute bottom-0 left-1/2 -translate-x-1/2 rounded-[22px] shadow-card transition-[height] duration-300 ease-out"
+    <!-- 收窄态：iOS 式白线，点白线或 dock 区任意空白恢复 -->
+    <Transition name="dock-line">
+      <button
+        v-if="minimized"
+        type="button"
+        class="group absolute bottom-[7px] left-0 right-0 mx-auto flex h-5 w-[150px] cursor-pointer items-center justify-center"
+        title="恢复 Dock"
+        @click="minimized = false"
+      >
+        <!-- 注意：不能用 bg-ink-0/40（Tailwind 无法给 var() 颜色注入 alpha → 透明），用 opacity 实现 -->
+        <span class="h-[5px] w-[136px] rounded-full bg-ink-0 opacity-40 transition-all duration-200 group-hover:w-[160px] group-hover:opacity-70"></span>
+      </button>
+    </Transition>
+
+    <Transition name="dock-min">
+      <nav
+        v-show="!minimized"
+        class="glass-panel absolute bottom-2 left-1/2 -translate-x-1/2 rounded-[22px] shadow-card transition-[height] duration-300 ease-out"
       :style="{
         height: expanded ? expandedHeight + 'px' : '58px',
         width: pillWidth,
@@ -300,6 +332,15 @@ onBeforeUnmount(() => {
             </div>
           </div>
         </div>
+
+        <!-- 收窄触发区：dock 内部下方，悬停浮现向下箭头提示 -->
+        <div
+          class="group/minzone absolute inset-x-0 bottom-0 flex h-3 cursor-pointer items-end justify-center"
+          title="收起 Dock"
+          @click.stop="minimized = true"
+        >
+          <ChevronDown :size="12" class="mb-px text-ink-2 opacity-0 transition-opacity duration-200 group-hover/minzone:opacity-100" />
+        </div>
       </div>
 
       <!-- 展开层：全部应用网格（与移动端同款） -->
@@ -371,10 +412,16 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </nav>
+    </Transition>
   </div>
 
   <!-- ================= 移动端：三行同轴胶囊（外观/手势零变更） ================= -->
-  <div v-else-if="dockApps.length" class="relative z-40 h-[72px] w-full">
+  <div
+    v-else-if="dockApps.length"
+    class="relative z-40 w-full transition-[height] duration-300 ease-out"
+    :style="{ height: minimized ? '22px' : '72px' }"
+    @click="restoreIfMinimized"
+  >
     <!-- 展开时的遮罩：点空白收起 -->
     <div
       v-if="expanded"
@@ -382,13 +429,29 @@ onBeforeUnmount(() => {
       @click="expanded = false"
     ></div>
 
-    <nav
-      class="glass-panel absolute inset-x-0 bottom-0 overflow-hidden rounded-[26px] shadow-card transition-[height] duration-300 ease-out"
-      :style="{ height: expanded ? expandedHeight + 'px' : '72px' }"
-      aria-label="应用 Dock"
-      @touchstart.passive="gestureStart"
-      @touchmove.passive="gestureMove"
-    >
+    <!-- 收窄态：iOS 式白线，点白线或 dock 区任意空白恢复 -->
+    <Transition name="dock-line">
+      <button
+        v-if="minimized"
+        type="button"
+        class="group absolute bottom-[8px] left-0 right-0 mx-auto flex h-5 w-[150px] cursor-pointer items-center justify-center"
+        title="恢复 Dock"
+        @click="minimized = false"
+      >
+        <!-- 注意：不能用 bg-ink-0/40（Tailwind 无法给 var() 颜色注入 alpha → 透明），用 opacity 实现 -->
+        <span class="h-[5px] w-[136px] rounded-full bg-ink-0 opacity-40 transition-all duration-200 group-hover:w-[160px] group-hover:opacity-70"></span>
+      </button>
+    </Transition>
+
+    <Transition name="dock-min">
+      <nav
+        v-show="!minimized"
+        class="glass-panel absolute inset-x-0 bottom-0 overflow-hidden rounded-[26px] shadow-card transition-[height] duration-300 ease-out"
+        :style="{ height: expanded ? expandedHeight + 'px' : '72px' }"
+        aria-label="应用 Dock"
+        @touchstart.passive="gestureStart"
+        @touchmove.passive="gestureMove"
+      >
       <!-- 折叠层：翻页点（顶轨）/ 图标（中行）/ 当前应用指示（底轨），三行同轴对称 -->
       <div
         class="absolute inset-0 flex flex-col px-1.5 transition-opacity duration-200"
@@ -452,6 +515,15 @@ onBeforeUnmount(() => {
             class="absolute top-[3px] h-[3px] w-3 rounded-full bg-gradient-to-r from-brand to-brand-cyan transition-[left] duration-micro"
             :style="{ left: markerLeft, transform: 'translateX(-50%)' }"
           ></span>
+        </div>
+
+        <!-- 收窄触发区：dock 内部下方，悬停浮现向下箭头提示 -->
+        <div
+          class="group/minzone absolute inset-x-0 bottom-0 flex h-3 cursor-pointer items-end justify-center"
+          title="收起 Dock"
+          @click.stop="minimized = true"
+        >
+          <ChevronDown :size="12" class="mb-px text-ink-2 opacity-0 transition-opacity duration-200 group-hover/minzone:opacity-100" />
         </div>
       </div>
 
@@ -526,10 +598,43 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </nav>
+    </Transition>
   </div>
 </template>
 
 <style scoped>
+/* 收窄/恢复：纯上下动效——向下挤压收纳进白线、向上弹回。
+   注意：桌面胶囊靠 translateX(-50%) 居中，transform 必须带上
+   var(--tw-translate-x, 0)（移动端 inset-x-0 无此变量 → 回退 0），
+   否则动画期 X 居中丢失，看起来就像"从右边弹出" */
+.dock-min-enter-active,
+.dock-min-leave-active {
+  transition:
+    opacity 220ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.dock-min-enter-from,
+.dock-min-leave-to {
+  opacity: 0;
+  transform: translate(var(--tw-translate-x, 0), 18px) scaleY(0.6);
+  transform-origin: bottom;
+}
+.dock-line-enter-active {
+  transition:
+    opacity 260ms ease 80ms,
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1) 80ms;
+}
+.dock-line-leave-active {
+  transition: opacity 120ms ease;
+}
+.dock-line-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.dock-line-leave-to {
+  opacity: 0;
+}
+
 .dock-scroll {
   scrollbar-width: none;
   /* iOS 弹性滚动 + 滚动链传导会带着整页 rubber-band → 视觉变形；

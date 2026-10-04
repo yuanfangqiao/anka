@@ -1,0 +1,27 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - main [ref=e5]:
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - button "打开会话栏" [ref=e10] [cursor=pointer]
+          - heading "对话" [level=1] [ref=e14]
+        - generic [ref=e15]:
+          - generic [ref=e20]:
+            - paragraph [ref=e21]: agent-loop 运行中
+            - paragraph [ref=e22]: "inject: llm, tools · provide: agents"
+          - generic [ref=e23]: Echo Adapter
+        - generic [ref=e25]:
+          - generic [ref=e26]: 你好，我是由 6 个插件组装出来的 Agent。我的 LLM 是 llm-echo 提供的 Echo Adapter，工具来自 tools-runtime。试着问我「目录里有什么」。
+          - generic [ref=e33]: 当前目录里有什么？
+          - generic [ref=e45]:
+            - generic [ref=e46]: 我调用了 bash 工具看了一下：
+            - generic [ref=e47]:
+              - paragraph [ref=e48]: 工具调用 · tool-bash
+              - paragraph [ref=e51]: $ ls server/app
+              - paragraph [ref=e55]: cordis plugins api main.py settings.py
+          - generic [ref=e56]: 目录包含 cordis（插件内核）、plugins（六个插件）和 api（FastAPI 路由）。这条回复经过 llm-logger 的 waterfall 包裹，耗时 12ms。
+        - generic [ref=e63]:
+          - textbox "给 Agent 发条消息…" [ref=e64]
+          - button "发送" [disabled] [ref=e65]
+    - button "恢复 Dock" [ref=e71] [cursor=pointer]
+  - generic: 当前在浏览器内打开——从主屏幕图标进入才是全屏应用
