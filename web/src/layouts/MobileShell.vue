@@ -1,28 +1,46 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import TopBar from '../components/TopBar.vue'
 import DockBar from '../components/DockBar.vue'
+import { registry } from '../registry/appRegistry'
+import { useToast } from '../composables/useToast'
 
 const route = useRoute()
+const { warn } = useToast()
 
-// page 类应用全屏运行：不渲染顶部栏、不留任何空位（含 safe-area）——
-// dock 之上整块区域完全归应用自己，插件自行管理自己的安全区
-const fullscreen = computed(() => Boolean(route.meta.fullscreen))
+// 顶栏只服务「需要返回」的非 dock 系统页（如插件管理）；
+// dock 应用（对话/设置等）自带页头，page 类应用全屏——一律整屏交给应用自己
+const needsChrome = computed(() => {
+  if (route.meta.fullscreen) return false
+  const app = registry.apps.find((a) => a.id === (route.meta.appId as string | undefined))
+  return Boolean(app && !app.inDock)
+})
 
 const collapsed = ref(false)
 
 function onScroll(e: Event) {
   collapsed.value = (e.target as HTMLElement).scrollTop > 44
 }
+
+// iOS：浏览器内打开（非主屏图标启动）时，顶栏域名/底栏分享按钮是宿主浏览器的 UI，
+// 页面代码无法去除——提示一次正确打开方式
+onMounted(() => {
+  const standalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as { standalone?: boolean }).standalone === true
+  if (standalone || sessionStorage.getItem('pwa-standalone-hint')) return
+  sessionStorage.setItem('pwa-standalone-hint', '1')
+  window.setTimeout(() => warn('当前在浏览器内打开——从主屏幕图标进入才是全屏应用'), 800)
+})
 </script>
 
 <template>
   <div class="relative flex h-dvh flex-col">
-    <TopBar v-if="!fullscreen" :collapsed="collapsed" />
+    <TopBar v-if="needsChrome" :collapsed="collapsed" />
     <main
       class="relative flex-1 overflow-y-auto pb-[calc(88px+env(safe-area-inset-bottom,0px))]"
-      :class="fullscreen ? '' : 'pt-14'"
+      :class="needsChrome ? 'pt-14' : ''"
       @scroll.passive="onScroll"
     >
       <RouterView v-slot="{ Component }">

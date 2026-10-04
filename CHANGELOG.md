@@ -12,6 +12,10 @@
 3. **dock 不对齐 + 触发 iOS Home 白线手势**：旧 dock `h-[46px]` 定高里塞 `safe-bottom` 内边距（border-box 把内容挤到 ~12px），且 `bottom-2` 贴着 Home 指示条手势区。修复：dock 改为 64px 胶囊、**整体抬到 `safe-area-inset-bottom + 10px` 之上**。
 4. **iOS 拖动 dock 导致整页变形**：`overflow-x-auto` 的 iOS 弹性滚动发生滚动链传导。修复：分页 + `scroll-snap` + `overscroll-behavior: contain` + `touch-action: pan-x` 三件套锁死。
 
+### 追加（同日）
+- **顶栏按需渲染**：dock 应用（对话/设置等，自带页头）与全屏页一律不渲染 TopBar、不留 `pt-14` 空位——只有非 dock 系统页（如插件管理，需要返回键）才出现顶栏
+- **iOS「莫名出现浏览器栏」定性**：那不是页面触发的（全仓无 `navigator.share`/`window.open` 调用）——顶部 X+域名、底部分享/刷新工具栏是**宿主浏览器**（Safari / 各 App 内置浏览器）画的 UI，页面代码无法去除。两张截图的真实差异是**启动方式**：主屏图标启动 = standalone（无浏览器栏，对话那张）；通过链接在浏览器内打开 = 带栏（设置那张）。代码侧兜底：非 standalone 时 toast 提示一次正确打开方式（每会话一次）
+
 ### dock 重做（设计拍板）
 - **三行同轴布局**：翻页点（顶轨）/ 图标（中行）/ 当前应用指示（底轨）。两条轨道与图标滚动区**同宽同轴**，指示点按槽位百分比定位、切换时平滑滑动——翻页进度与选中指示天然上下对齐
 - **分页吸附**：每页 `maxVisible` 槽位（内核 `/api/config` 下发），横向 snap 翻页，圆点可点击跳页
