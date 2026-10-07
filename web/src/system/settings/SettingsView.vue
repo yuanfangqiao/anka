@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Blocks, Download, Info, Moon, Sun, Waves } from 'lucide-vue-next'
+import { Blocks, Download, Info, Key, Moon, Sun, Waves, Zap } from 'lucide-vue-next'
 import AppFrame from '../../components/AppFrame.vue'
 import BaseCard from '../../components/ui/BaseCard.vue'
 import BaseSwitch from '../../components/ui/BaseSwitch.vue'
 import { useTheme } from '../../composables/useTheme'
 import { useBreakpoint } from '../../composables/useBreakpoint'
+import { api } from '../../services/api'
 
 const router = useRouter()
 const { theme, setTheme } = useTheme()
@@ -18,11 +19,52 @@ const dark = computed({
 })
 
 const standalone = ref(false)
-onMounted(() => {
+
+// ─── M13 TokenHub 模型服务 ───
+const keyInput = ref('')
+const keyMasked = ref<string | null>(null)
+const hasKey = ref(false)
+const testing = ref(false)
+const testResult = ref('')
+
+onMounted(async () => {
   standalone.value =
     window.matchMedia('(display-mode: standalone)').matches ||
     (navigator as unknown as { standalone?: boolean }).standalone === true
+  try {
+    const s = await api.settings()
+    hasKey.value = s.has_key
+    keyMasked.value = s.api_key_masked ?? null
+  } catch { /* 后端未连接 */ }
 })
+
+async function saveKey() {
+  const v = keyInput.value.trim()
+  if (!v) return
+  try {
+    const s = await api.saveSettings({ api_key: v })
+    hasKey.value = s.has_key
+    keyMasked.value = s.api_key_masked ?? null
+    keyInput.value = ''
+  } catch (e) {
+    alert(`保存失败：${(e as Error).message}`)
+  }
+}
+
+async function testConn() {
+  testing.value = true
+  testResult.value = ''
+  try {
+    const r = await api.testConnection()
+    testResult.value = r.ok
+      ? `连接成功 · ${r.model ?? ''}${r.sample ? ' · ' + r.sample : ''}`
+      : `失败：${r.error}`
+  } catch (e) {
+    testResult.value = `失败：${(e as Error).message}`
+  } finally {
+    testing.value = false
+  }
+}
 </script>
 
 <template>
@@ -71,6 +113,49 @@ onMounted(() => {
             <p class="mt-0.5 text-[11px] text-ink-2">查看依赖、热启停、安装与卸载</p>
           </div>
           <span class="text-ink-2">›</span>
+        </BaseCard>
+      </section>
+
+      <section class="space-y-2">
+        <p class="px-1 text-xs font-medium text-ink-2">模型服务</p>
+        <BaseCard class="!p-4">
+          <div class="flex items-center gap-3">
+            <span class="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand/15 text-brand">
+              <Key :size="18" />
+            </span>
+            <div class="flex-1">
+              <p class="text-sm font-medium">TokenHub API Key</p>
+              <p class="mt-0.5 text-[11px] text-ink-2">
+                {{ hasKey ? `已配置（${keyMasked}）· 只写存储，不回读` : '尚未配置 · 填入 sk-tp- 开头的密钥' }}
+              </p>
+            </div>
+          </div>
+          <div class="mt-3 flex items-center gap-2">
+            <input
+              v-model="keyInput"
+              type="password"
+              autocomplete="off"
+              placeholder="sk-tp-…"
+              class="h-9 flex-1 rounded-xl border border-line bg-bg-0 px-3 text-sm text-ink-0 outline-none focus:border-brand/50"
+            />
+            <button
+              type="button"
+              :disabled="!keyInput.trim()"
+              class="h-9 rounded-xl bg-gradient-to-r from-brand to-brand-cyan px-4 text-sm font-medium text-white shadow-glow transition-all duration-micro hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+              @click="saveKey"
+            >保存</button>
+          </div>
+          <div class="mt-3 flex items-center gap-2">
+            <button
+              type="button"
+              :disabled="testing"
+              class="flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-line bg-glass px-4 text-sm text-ink-1 transition-all duration-micro hover:border-brand/40 disabled:opacity-50"
+              @click="testConn"
+            >
+              <Zap :size="14" class="text-brand-cyan" /> {{ testing ? '测试中…' : '连通性测试' }}
+            </button>
+            <span v-if="testResult" class="min-w-0 truncate text-[11px] text-ink-2">{{ testResult }}</span>
+          </div>
         </BaseCard>
       </section>
 

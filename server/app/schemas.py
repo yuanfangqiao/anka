@@ -69,7 +69,50 @@ class PluginActionResult(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     model: str = 'default'
-    max_turns: int = 5
+    max_turns: int = 100              # 插件开发类任务需要多轮工具调用（M16：5→20→100）
+    session_id: str | None = None     # M15：多会话（缺省则新建）
+
+
+class SessionSummary(BaseModel):
+    """GET /api/sessions —— 会话摘要"""
+    id: str
+    title: str
+    updated_at: float
+    count: int = 0
+
+
+class ChatMessage(BaseModel):
+    """会话历史气泡（user/assistant + 工具卡）"""
+    role: str
+    text: str = ''
+    tools: list[dict] = []
+
+
+class SessionDetail(BaseModel):
+    id: str
+    title: str
+    messages: list[ChatMessage]
+
+
+class ModelInfo(BaseModel):
+    """TokenHub 模型清单项（M13）"""
+    id: str
+    name: str
+
+
+class SettingsPayload(BaseModel):
+    """POST /api/settings —— 只写：api_key 或 default_model"""
+    api_key: str | None = None
+    default_model: str | None = None
+
+
+class SettingsView(BaseModel):
+    """GET /api/settings —— 脱敏视图（绝不回传完整 Key）"""
+    models: list[ModelInfo]
+    default_model: str
+    base_url: str
+    has_key: bool
+    api_key_masked: str | None = None
 
 
 class ErrorBody(BaseModel):

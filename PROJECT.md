@@ -1,6 +1,6 @@
 # PROJECT.md · 产品范围与里程碑
 
-> 最后更新：2026-09-30 ｜ 当前状态：**M0 文档阶段**，尚未生成业务代码
+> 最后更新：2026-10-04 ｜ 当前状态：**M15 完成**（真实模型 + 自我插件开发 + 对话真实化/可终止）
 
 ## 1. 一句话定义
 
@@ -60,6 +60,9 @@ SSE 流式输出，AgengLoop 消费 `llm` + `tools` 两个服务
 | **M9** | **生产态插件管线**：install hook 用 esbuild 安装时编译插件 `web/` → 缓存产物；FastAPI mount `/plugins` 伺服；`import 'vue'` 映射宿主实例（防双 Vue）；插件前端 = Vue SFC + TS（dev 态即时编译已就绪） | 生产构建下安装/卸载 demo 插件可用且 dock 随动；插件内 vue 与宿主同实例；无控制台报错 | ✅ 完成（实际伺服路径为 `/plugin-dist/`，import map 共享 Vue） |
 | **M10** | **GitHub 一键安装**：插件页输入仓库 URL → clone 进 `plugins/` → 复用现有 install API；升级 = 拉取更新 + 重装（沿用「需重启」语义提示） | 输入公开 GitHub 仓库 URL 可完成安装并出现在 dock | ⬜ |
 | **M11** | **任意文件夹即应用**：无 plugin.json 的目录降级探测静态入口（index.html/dist）→ page 类应用（`/app/<目录名>`、默认图标、iframe 同源加载、可直接 fetch 内核 API）；不支持自动 npm build（作者提交 dist） | 丢入纯 HTML 目录与 dist 产物目录均自动出现在 dock 并可浏览/交互；dev/prod 双态一致；控制台无报错 | ✅ 完成 |
+| **M13** | **TokenHub 真实模型接入**：13 模型 ID 全走同一 OpenAI 兼容端点（Bearer）；对话页下拉切换、设置页配 Key（脱敏 + 只写存储）；SSE 流式 + 工具调用全程可视 | 配置 Key 后对话走真实模型；无 Key 回退 Echo；切换模型即时生效且服务端持久 | ✅ 完成 |
+| **M14** | **Harness 自我插件开发**：Agent 经工具读/写 `plugins/` → 脚手架 → 隔离试载校验 → 无重启安装/重载 → 回滚；护栏限可写区仅 `plugins/`；会话日志 append-only 权威事件源 | scaffold→verify→install→reload→uninstall 全链路通过；越界写入被护栏拦截；日志可投影模型历史 | ✅ 完成 |
+| **M15** | **对话 UI 真实化**：真会话列表（`/api/sessions` 日志投影）、多轮上下文（`derive_messages`）、SSE 有序 blocks（文本+工具卡）、**可终止**（`AbortController` + 后端 `cancel`）、删除会话；移除全部 Mock | 侧栏会话可新建/切换/删除并持久；同一对话多轮记忆；发送中可一键终止且 UI 即时解锁；无硬编码消息/兜底回声 | ✅ 完成 |
 
 > M2 与 M1 可并行：后端移植不依赖前端壳。
 

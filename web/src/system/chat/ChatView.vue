@@ -1,129 +1,50 @@
 <script setup lang="ts">
-import { nextTick, ref } from 'vue'
-import { Bot, PanelLeftOpen, Send, SquareTerminal, User, Wrench, X } from 'lucide-vue-next'
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { Bot, PanelLeftOpen, Send, Square, SquareTerminal, User, Wrench, X } from 'lucide-vue-next'
 import BaseCard from '../../components/ui/BaseCard.vue'
 import BasePanel from '../../components/ui/BasePanel.vue'
 import ChatSidebar from './ChatSidebar.vue'
+import { useChat, type Block } from './useChat'
 import { isMobile } from '../../composables/useBreakpoint'
+import type { ToolCard } from '../../services/api'
 
-interface Msg {
-  id: number
-  role: 'user' | 'agent'
-  text: string
-  tool?: { name: string; cmd: string; result: string }
-}
-
-let seq = 0
-const messages = ref<Msg[]>([
-  {
-    id: ++seq,
-    role: 'agent',
-    text: '你好，我是由 6 个插件组装出来的 Agent。我的 LLM 是 llm-echo 提供的 Echo Adapter，工具来自 tools-runtime。试着问我「目录里有什么」。',
-  },
-  {
-    id: ++seq,
-    role: 'user',
-    text: '当前目录里有什么？',
-  },
-  {
-    id: ++seq,
-    role: 'agent',
-    text: '我调用了 bash 工具看了一下：',
-    tool: {
-      name: 'tool-bash',
-      cmd: 'ls server/app',
-      result: 'cordis  plugins  api  main.py  settings.py',
-    },
-  },
-  {
-    id: ++seq,
-    role: 'agent',
-    text: '目录包含 cordis（插件内核）、plugins（六个插件）和 api（FastAPI 路由）。这条回复经过 llm-logger 的 waterfall 包裹，耗时 12ms。',
-  },
-])
+const {
+  messages, sending, tick, models, currentModel,
+  loadModels, selectModel, refreshSessions, send, stop,
+} = useChat()
 
 const draft = ref('')
-const sending = ref(false)
 const listEl = ref<HTMLElement>()
 const panelOpen = ref(false)
+
+onMounted(() => { loadModels(); refreshSessions() })
+onUnmounted(() => { if (sending.value) stop() })
+
+watch(tick, scrollBottom)
 
 async function scrollBottom() {
   await nextTick()
   listEl.value?.scrollTo({ top: listEl.value.scrollHeight, behavior: 'smooth' })
 }
 
-async function send() {
-  const text = draft.value.trim()
-  if (!text || sending.value) return
+function submit() {
+  const text = draft.value
+  if (!text.trim() || sending.value) return
   draft.value = ''
-  messages.value.push({ id: ++seq, role: 'user', text })
-  scrollBottom()
-  sending.value = true
-
-  try {
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text }),
-    })
-    if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`)
-
-    const reply: Msg = { id: ++seq, role: 'agent', text: '' }
-    messages.value.push(reply)
-    await consumeSse(res.body.getReader(), reply)
-    if (!reply.text && !reply.tool) reply.text = '（无回复）'
-  } catch (e) {
-    console.error('chat sse failed, fallback to local echo', e)
-    await localEcho(text)
-  } finally {
-    sending.value = false
-    scrollBottom()
-  }
+  send(text)
 }
 
-async function consumeSse(reader: ReadableStreamDefaultReader<Uint8Array>, reply: Msg) {
-  const decoder = new TextDecoder()
-  let buf = ''
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buf += decoder.decode(value, { stream: true })
-    const frames = buf.split('\n\n')
-    buf = frames.pop() ?? ''
-    for (const frame of frames) {
-      const line = frame.trim()
-      if (!line.startsWith('data:')) continue
-      const ev = JSON.parse(line.slice(5).trim())
-      if (ev.type === 'tool_call') {
-        if (!reply.text) reply.text = '我需要先调用一个工具：'
-        reply.tool = {
-          name: `tool-${ev.tool}`,
-          cmd: ev.args?.command ?? JSON.stringify(ev.args),
-          result: '执行中…',
-        }
-      } else if (ev.type === 'tool_result') {
-        if (reply.tool) reply.tool.result = ev.result
-      } else if (ev.type === 'text') {
-        reply.text = ev.content
-      } else if (ev.type === 'error') {
-        reply.text = `出错了：${ev.content}`
-      }
-      scrollBottom()
-    }
-  }
+function textOf(b: Block): string {
+  return b.kind === 'text' ? b.text : ''
 }
 
-async function localEcho(text: string) {
-  const reply: Msg = { id: ++seq, role: 'agent', text: '' }
-  messages.value.push(reply)
-  const full = `[ECHO] ${text} —— 后端未连接；执行 python server/run_dev.py 后，这里会经 SSE 真实流式返回。`
-  for (let i = 1; i <= full.length; i++) {
-    reply.text = full.slice(0, i)
-    if (i % 4 === 0) {
-      scrollBottom()
-      await new Promise((r) => setTimeout(r, 18))
-    }
-  }
+function toolOf(b: Block): ToolCard | null {
+  return b.kind === 'tool' ? b.tool : null
+}
+
+function toolCmd(args?: Record<string, unknown>): string {
+  if (!args) return ''
+  return (args.command as string) ?? (args.path as string) ?? JSON.stringify(args)
 }
 </script>
 
@@ -156,15 +77,28 @@ async function localEcho(text: string) {
           <Bot :size="18" />
         </span>
         <div class="min-w-0 flex-1">
-          <p class="text-sm font-medium">agent-loop 运行中</p>
+          <p class="text-sm font-medium">Agent 对话</p>
           <p class="truncate text-xs text-ink-2">inject: llm, tools · provide: agents</p>
         </div>
-        <span class="flex items-center gap-1.5 rounded-full bg-ok/15 px-2.5 py-1 text-[11px] text-ok">
-          <span class="h-1.5 w-1.5 rounded-full bg-ok animate-pulse-dot"></span>Echo Adapter
-        </span>
+        <select
+          v-model="currentModel"
+          class="max-w-[220px] cursor-pointer rounded-full border border-line bg-glass px-2.5 py-1 text-[11px] text-ink-1 outline-none transition-all duration-micro hover:border-brand/40"
+          aria-label="选择模型"
+          @change="selectModel(currentModel)"
+        >
+          <option v-for="m in models" :key="m.id" :value="m.id">{{ m.name }}</option>
+        </select>
       </BaseCard>
 
       <div ref="listEl" class="stagger flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
+        <div
+          v-if="!messages.length"
+          class="flex flex-1 flex-col items-center justify-center gap-2 text-center text-ink-2"
+        >
+          <Bot :size="26" class="opacity-60" />
+          <p class="text-sm">开始一段新对话吧</p>
+        </div>
+
         <div
           v-for="m in messages"
           :key="m.id"
@@ -179,32 +113,47 @@ async function localEcho(text: string) {
             <Bot v-else :size="15" />
           </span>
           <div class="max-w-[78%] space-y-2">
-            <div
-              class="rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed"
-              :class="
-                m.role === 'user'
-                  ? 'rounded-tr-md bg-gradient-to-r from-brand to-brand-cyan text-white'
-                  : 'rounded-tl-md glass-panel text-ink-0'
-              "
+            <p
+              v-if="!m.blocks.length && sending"
+              class="rounded-2xl rounded-tl-md glass-panel px-3.5 py-2.5 text-sm text-ink-2"
             >
-              {{ m.text || '…' }}
-            </div>
-            <BaseCard v-if="m.tool" class="!rounded-xl !p-3 text-xs">
-              <p class="flex items-center gap-1.5 font-medium text-warn">
-                <Wrench :size="13" /> 工具调用 · {{ m.tool.name }}
-              </p>
-              <p class="mt-2 flex items-center gap-1.5 rounded-lg bg-bg-0 px-2.5 py-1.5 font-mono text-ink-1">
-                <SquareTerminal :size="13" class="text-brand-cyan" /> $ {{ m.tool.cmd }}
-              </p>
-              <p class="mt-1.5 font-mono text-ink-2">{{ m.tool.result }}</p>
-            </BaseCard>
+              …
+            </p>
+
+            <template v-for="(b, i) in m.blocks" :key="i">
+              <div
+                v-if="textOf(b)"
+                class="rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap"
+                :class="
+                  m.role === 'user'
+                    ? 'rounded-tr-md bg-gradient-to-r from-brand to-brand-cyan text-white'
+                    : 'rounded-tl-md glass-panel text-ink-0'
+                "
+              >
+                {{ textOf(b) }}
+              </div>
+              <BaseCard
+                v-else-if="toolOf(b)"
+                class="!rounded-xl !p-3 text-xs"
+              >
+                <p class="flex items-center gap-1.5 font-medium text-warn">
+                  <Wrench :size="13" /> 工具调用 · {{ toolOf(b)?.name }}
+                </p>
+                <p class="mt-2 flex items-center gap-1.5 rounded-lg bg-bg-0 px-2.5 py-1.5 font-mono text-ink-1">
+                  <SquareTerminal :size="13" class="text-brand-cyan" /> $ {{ toolCmd(toolOf(b)?.args) }}
+                </p>
+                <p class="mt-1.5 font-mono whitespace-pre-wrap break-all text-ink-2">{{ toolOf(b)?.result }}</p>
+              </BaseCard>
+            </template>
+
+            <p v-if="m.stopped" class="text-right text-[11px] text-ink-2">已终止</p>
           </div>
         </div>
       </div>
 
       <form
         class="glass-panel flex items-center gap-2 rounded-2xl p-2 shadow-card"
-        @submit.prevent="send"
+        @submit.prevent="submit"
       >
         <input
           v-model="draft"
@@ -213,8 +162,18 @@ async function localEcho(text: string) {
           class="h-10 flex-1 bg-transparent px-3 text-sm text-ink-0 placeholder:text-ink-2 border-0 outline-none shadow-none focus:ring-0"
         />
         <button
+          v-if="sending"
+          type="button"
+          class="flex h-10 w-10 items-center justify-center rounded-xl bg-bg-2 text-ink-0 transition-all duration-micro hover:brightness-110 active:scale-90 cursor-pointer"
+          aria-label="终止"
+          @click="stop"
+        >
+          <Square :size="15" fill="currentColor" />
+        </button>
+        <button
+          v-else
           type="submit"
-          :disabled="!draft.trim() || sending"
+          :disabled="!draft.trim()"
           class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-brand to-brand-cyan text-white shadow-glow transition-all duration-micro hover:brightness-110 active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           aria-label="发送"
         >
@@ -252,7 +211,7 @@ async function localEcho(text: string) {
           </button>
         </div>
         <div class="min-h-0 flex-1 overflow-y-auto p-3">
-          <ChatSidebar />
+          <ChatSidebar @select="panelOpen = false" />
         </div>
       </aside>
     </Transition>

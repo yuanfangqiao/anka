@@ -41,4 +41,14 @@ def apply(ctx, config):
         'name': 'bash',
         'description': 'Execute a shell command',
         'handler': _run_bash,
+        'parameters': {
+            'type': 'object',
+            'properties': {
+                'command': {
+                    'type': 'string',
+                    'description': '要执行的 shell 命令',
+                },
+            },
+            'required': ['command'],
+        },
     })

@@ -1,6 +1,6 @@
 # pwa-demo · 可安装的 Agent 样例 PWA
 
-> 状态：**M0 文档阶段**（业务代码尚未生成）。本 README 先锁定依赖清单与启动方式，代码落地后按此运行即可。
+> 状态：**M14 完成**（真实模型 TokenHub + Agent 自我插件开发就绪）。
 > 文档导航：[IDEA.md](./IDEA.md)（需求）· [PROJECT.md](./PROJECT.md)（范围与里程碑）· [ARCHITECTURE.md](./ARCHITECTURE.md)（技术方案）· [AGENT.md](./AGENT.md)（Agent 工作守则）
 
 ## 这是什么
@@ -9,7 +9,7 @@
 
 - **手机形态**（≤768px）：顶部返回/设置 + 内容区 + 底部 dock（笔记 / 对话 / 探索）
 - **桌面形态**（>768px）：左侧竖向侧边栏（插件 / 任务 / 网络 / 工作区）+ 大圆角主窗口（对话框）+ 底部居中 dock（与手机共用）
-- **后端**：FastAPI 承载插件化 Agent 内核（移植自 `reference/cordis-mini`），默认 Fake LLM（Echo Adapter），预留真实模型 adapter 接口
+- **后端**：FastAPI 承载插件化 Agent 内核（移植自 `reference/cordis-mini`），LLM 走 `llm-tokenhub`（腾讯云 TokenHub，13 模型），无 Key 时自动回退 Echo 假模型
 - **PWA**：manifest + Service Worker，mac / Win / iOS / Android 均可安装，具备离线 App Shell
 
 ## 环境要求
@@ -24,7 +24,7 @@
 ```
 fastapi>=0.112
 uvicorn[standard]>=0.30
-httpx>=0.27        # 预留：后续接真实 LLM API
+httpx>=0.27        # TokenHub 真实 LLM 流式调用
 ```
 
 ### 前端 `web/package.json`（核心依赖）
@@ -127,6 +127,12 @@ pwa-demo/
 ```
 
 技术细节见 `ARCHITECTURE.md`（App 插件模型见第 8 节）。
+
+## 配置模型（TokenHub · M13）
+
+1. 打开「设置」→「模型服务」分区，粘贴 TokenHub API Key（`sk-tp-...`）→「保存」→「测试连通性」
+2. 对话页顶栏下拉切换 13 个模型，选择会即时生效并持久到服务端 `server/data/settings.json`
+3. 未配 Key 时对话自动回退 Echo 假模型，不会报错；Key 存 `server/data/credentials.json`（只写、不回读明文、不入日志），API 只回脱敏 `sk-tp-***`
 
 ## 应用插件的装与卸
 

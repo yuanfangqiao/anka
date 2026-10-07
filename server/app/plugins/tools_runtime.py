@@ -44,6 +44,21 @@ class Tools(Service):
     def list_tools(self) -> list:
         return list(self._tools.keys())
 
+    def defs(self) -> list:
+        """返回 OpenAI function-calling 工具定义（供 agent_loop 传给 LLM）"""
+        result = []
+        for tool in self._tools.values():
+            result.append({
+                'type': 'function',
+                'function': {
+                    'name': tool['name'],
+                    'description': tool.get('description', ''),
+                    'parameters': tool.get('parameters',
+                                           {'type': 'object', 'properties': {}}),
+                },
+            })
+        return result
+
     def execute(self, tool_name: str, args: dict) -> str:
         """执行工具 —— 三段 waterfall 流水线"""
         tool = self._tools.get(tool_name)
@@ -52,10 +67,11 @@ class Tools(Service):
 
         exec_ctx = {'tool_name': tool_name, 'args': args}
 
-        # 第一段：pre-execute
+        # 第一段：pre-execute（单调守卫：返回非 None/False 即拦截）
         pre_result = self.ctx.events.serial('tools/pre-execute', exec_ctx)
-        if pre_result == 'denied':
-            return 'denied by pre-execute gate'
+        if pre_result is not None and pre_result is not False:
+            return pre_result if isinstance(pre_result, str) \
+                else 'denied by pre-execute gate'
 
         # 第二段：execute（走 waterfall 允许拦截）
         result = self.ctx.events.waterfall(

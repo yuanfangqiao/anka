@@ -28,6 +28,15 @@ def was_loaded(plugin_id: str) -> bool:
     return module_name(plugin_id) in sys.modules
 
 
+def evict_module(plugin_id: str) -> None:
+    """摘除 sys.modules 里的插件模块及其子模块（支持无重启重载）"""
+    base = module_name(plugin_id)
+    prefix = f'{base}.'
+    for mod in [m for m in sys.modules
+                if m == base or m.startswith(prefix)]:
+        del sys.modules[mod]
+
+
 def load_meta(manifest: FolderManifest) -> PluginMeta:
     """从 manifest 加载后端模块并提取 PluginMeta"""
     if not manifest.backend_entry:

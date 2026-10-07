@@ -16,7 +16,8 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import deps, settings
-from .api import apps, chat, health, plugins
+from .api import (apps, chat, health, plugins, sessions, settings_api,
+                 sync_api)
 from .logging_conf import setup_logging
 
 log = logging.getLogger('agentos')
@@ -42,6 +43,9 @@ app.include_router(health.router, prefix='/api')
 app.include_router(plugins.router, prefix='/api/plugins')
 app.include_router(apps.router, prefix='/api')
 app.include_router(chat.router, prefix='/api')
+app.include_router(sessions.router, prefix='/api')
+app.include_router(settings_api.router, prefix='/api')
+app.include_router(sync_api.router, prefix='/api')
 
 _DIST = settings.DIST_DIR
 if (_DIST / 'assets').is_dir():

@@ -180,9 +180,12 @@ export default defineConfig({
       allow: [path.resolve(__dirname, '..')],
     },
     proxy: {
+      // M16：多端同步走 /api/sync/ws/{room_id}，Vite 默认不代理 WebSocket
+      // upgrade（101 握手），必须显式开 ws: true，否则客户端永远连不上。
       '/api': {
         target: 'http://localhost:8000',
-        changeOrigin: true
+        changeOrigin: true,
+        ws: true
       }
     }
   }

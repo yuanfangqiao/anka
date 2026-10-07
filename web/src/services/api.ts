@@ -53,6 +53,52 @@ export interface PluginActionResult {
   message?: string
 }
 
+export interface ModelInfo {
+  id: string
+  name: string
+}
+
+export interface SettingsView {
+  models: ModelInfo[]
+  default_model: string
+  base_url: string
+  has_key: boolean
+  api_key_masked?: string | null
+}
+
+export interface ConnectionTest {
+  ok: boolean
+  model?: string
+  sample?: string
+  error?: string
+}
+
+// M15：多会话（由 append-only 会话日志投影）
+export interface ToolCard {
+  name: string
+  args: Record<string, unknown>
+  result: string
+}
+
+export interface SessionSummary {
+  id: string
+  title: string
+  updated_at: number
+  count: number
+}
+
+export interface SessionMessage {
+  role: string
+  text: string
+  tools: ToolCard[]
+}
+
+export interface SessionDetail {
+  id: string
+  title: string
+  messages: SessionMessage[]
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -108,5 +154,25 @@ export const api = {
     request<{ ok: boolean; result: unknown }>(`/api/apps/${encodeURIComponent(id)}/call`, {
       method: 'POST',
       body: JSON.stringify({ method, args }),
+    }),
+  // M13：TokenHub 模型服务
+  settings: () => request<SettingsView>('/api/settings'),
+  saveSettings: (payload: { api_key?: string; default_model?: string }) =>
+    request<SettingsView>('/api/settings', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  testConnection: (payload: { default_model?: string } = {}) =>
+    request<ConnectionTest>('/api/settings/test', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  // M15：会话管理
+  sessions: () => request<SessionSummary[]>('/api/sessions'),
+  sessionMessages: (id: string) =>
+    request<SessionDetail>(`/api/sessions/${encodeURIComponent(id)}`),
+  deleteSession: (id: string) =>
+    request<{ ok: boolean }>(`/api/sessions/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
     }),
 }

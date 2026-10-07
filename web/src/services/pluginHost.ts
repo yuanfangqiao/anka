@@ -28,16 +28,23 @@ function registerPageApp(uiCtx: UiCtx, app: {
   })
 }
 
+export interface SyncResult {
+  /** 本次新加载出来的应用标题（用于提示「已加载新插件」） */
+  loaded: string[]
+  failed: string[]
+}
+
 /** 同步已安装应用：加载未加载过的插件（安装后调用可增量生效） */
-export async function syncAppPlugins(uiCtx: UiCtx): Promise<string[]> {
+export async function syncAppPlugins(uiCtx: UiCtx): Promise<SyncResult> {
   _uiCtx = uiCtx
+  const loaded: string[] = []
   const failed: string[] = []
   let apps
   try {
     apps = await api.apps()
   } catch (e) {
     console.error('获取应用清单失败（后端离线？）', e)
-    return ['__apps_fetch_failed__']
+    return { loaded, failed: ['__apps_fetch_failed__'] }
   }
   for (const app of apps) {
     if (loadedIds.has(app.id)) continue
@@ -49,12 +56,13 @@ export async function syncAppPlugins(uiCtx: UiCtx): Promise<string[]> {
         mod.setup(uiCtx)
       }
       loadedIds.add(app.id)
+      loaded.push(app.title || app.id)
     } catch (e) {
       console.error(`插件 ${app.id} 前端加载失败`, e)
       failed.push(app.id)
     }
   }
-  return failed
+  return { loaded, failed }
 }
 
 export function unloadApp(appId: string) {
@@ -63,8 +71,8 @@ export function unloadApp(appId: string) {
 }
 
 /** 安装后增量加载新应用（不重载已加载的） */
-export async function syncInstalled(): Promise<string[]> {
-  if (!_uiCtx) return []
+export async function syncInstalled(): Promise<SyncResult> {
+  if (!_uiCtx) return { loaded: [], failed: [] }
   return syncAppPlugins(_uiCtx)
 }
 

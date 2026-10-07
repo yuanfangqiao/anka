@@ -39,6 +39,10 @@ web/.env.*
 logs/
 *.pid
 
+# ===== M13/M14 运行时数据（凭据/会话日志/插件备份） =====
+.plugin-backup/
+server/data
+
 # ===== M9 插件前端构建产物（安装时编译缓存） =====
 .plugin-dist/
 web/public/shared/
@@ -62,3 +66,7 @@ plugins/excalidraw/*
 Thumbs.db
 
 /gitignore
+
+# 临时
+/tmp
+/bak

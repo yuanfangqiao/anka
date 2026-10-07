@@ -1,6 +1,6 @@
 # ARCHITECTURE.md · 技术架构
 
-> 最后更新：2026-09-30 ｜ 对应阶段 M0（尚未落代码）｜ 与 `PROJECT.md` 里程碑对齐
+> 最后更新：2026-10-04 ｜ 对应阶段 M15（对话真实化：多会话 / 多轮 / 可终止）｜ 与 `PROJECT.md` 里程碑对齐
 
 ## 1. 总览
 
@@ -19,8 +19,9 @@
 │  api/  health.py  plugins.py  chat.py(M4)                            │
 │  PluginManager ── asyncio.Lock + asyncio.to_thread ──┐ 并发串行化     │
 │  cordis/  Loader · Fiber · Context · Events · Service · Registry     │
-│  plugins/ llm-runtime · llm-echo · tools-runtime · tool-bash ·       │
-│           agent-loop · llm-logger                                    │
+│  plugins/ llm-runtime · llm-echo · llm-tokenhub · tools-runtime ·    │
+│           tool-bash · agent-loop · llm-logger · harness-tools ·      │
+│           harness-guard · session-log                                │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -46,7 +47,7 @@ pwa-demo/
         ├── cordis/               # 移植自 reference/cordis-mini/cordis
         │   ├── context.py  service.py  fiber.py  events.py  loader.py  registry.py
         │   └── PATCHES.md        # 相对原版的每处改动
-        ├── plugins/              # 六个插件（Echo Adapter 为默认 LLM）
+        ├── plugins/              # 十个 infra 插件（llm-tokenhub 为真实模型，Echo 为兜底）
         └── api/  health.py  plugins.py  chat.py
 └── web/                          # 前端
     ├── package.json  vite.config.ts  tsconfig.json  index.html
@@ -120,19 +121,23 @@ MVP 阶段插件只在 `lifespan` 启动时 bootstrap 一次，热路径无 to_t
 | 插件 | 类型 | inject | provide |
 |------|------|--------|---------|
 | `llm-runtime` | Service | — | `llm` |
-| `llm-echo` | 函数 | `llm` | —（注册 echo adapter） |
+| `llm-echo` | 函数 | `llm` | —（注册 echo adapter，兜底） |
+| `llm-tokenhub` | 函数 | `llm` | —（注册 13 模型真实 adapter） |
 | `tools-runtime` | Service | — | `tools` |
 | `tool-bash` | 函数 | `tools` | —（注册 bash 工具） |
 | `agent-loop` | Service | `llm`, `tools` | `agents` |
-| `llm-logger` | 函数 | `llm` | —（waterfall 包裹 stream，可热卸载验证 teardown） |
+| `llm-logger` | 函数 | `llm` | —（waterfall 惰性包裹 stream） |
+| `harness-tools` | 函数 | `tools` | —（fs 读写/脚手架/校验/装卸） |
+| `harness-guard` | 函数 | `tools` | —（`tools/pre-execute` 单调护栏） |
+| `session-log` | 函数 | `tools` | —（append-only 会话日志） |
 
-Fake LLM：`llm-echo` 提供 Echo Adapter，可返回 text 或 tool_call。**新增真实模型只需加一个 `llm-xxx` 插件调 `ctx.llm.register_adapter([...], Adapter())`**，内核零改动——这是「预留 LLM Adapter 接口」的落点。
+Fake LLM：`llm-echo` 提供 Echo Adapter，可返回 text 或 tool_call。**新增真实模型只需加一个 `llm-xxx` 插件调 `ctx.llm.register_adapter([...], Adapter())`**，内核零改动——这是「预留 LLM Adapter 接口」的落点（`llm-tokenhub` 即首个实例）。
 
 ### 3.7 API 契约
 
 ```http
 GET /api/health
-→ { "status": "ok", "plugins_total": 6, "plugins_active": 6 }
+→ { "status": "ok", "plugins_total": 15, "plugins_active": 15 }
 
 GET /api/plugins
 → [ { "name": "llm-runtime", "state": "ACTIVE",
@@ -146,6 +151,13 @@ POST /api/plugins/{name}/enable
 → { "name": "llm-runtime", "ok": true, "state": "ACTIVE", "cascaded": [...] }
 
 POST /api/chat            # M4：SSE，逐 chunk 返回
+# body: { message, model, max_turns, session_id? }
+# SSE 事件序：session → (tool_call → tool_result → text_delta)* → done
+# 客户端断连 → 置 cancel，worker 在下一 chunk 处停下（M15）
+
+GET  /api/sessions              # M15：会话摘要 [{id,title,updated_at,count}]（日志投影）
+GET  /api/sessions/{id}         # M15：会话气泡历史 [{role,text,tools[]}]
+DELETE /api/sessions/{id}       # M15：删除会话日志文件
 ```
 
 ### 3.8 部署形态
@@ -346,6 +358,32 @@ main.ts → 静态注册系统插件（同一 uiCtx，dogfooding）
 - **PWA 红线（M11.1）**：workbox `navigateFallback` 生成的 `NavigationRoute` 在 sw.js 里注册最前，会截胡 iframe 的 navigation 请求 → 插件页拿到壳的 index.html → 壳在 iframe 里递归嵌套。必须配 `navigateFallbackDenylist: [/^\/api\//, /^\/plugins\//, /^\/plugin-dist\//]`
 - 启停：page 类无 fiber，enable/disable 为 no-op；卸载 = 移出 installed.json
 - 样例：`plugins/clock`（单文件时钟，演示同源调 API）、`plugins/snake/dist`（分离资源贪吃蛇，演示 dist 形态）、`plugins/excalidraw/dist`（完整第三方 React SPA，演示绝对路径改写；接入实录见 CHANGELOG M11.1）
+
+## 9. 模型接入与自我插件开发（M13/M14）
+
+### 9.1 真实模型（M13：TokenHub）
+
+- **端点**：13 模型 ID 全走同一 OpenAI 兼容端点 `POST {TOKENHUB_BASE_URL}/chat/completions`，`stream:true` + `tools`，Bearer 认证
+- **adapter seam**：`llm-tokenhub` 逐 chunk 解析 SSE（`delta.content`→`text_delta`、`delta.tool_calls`→`tool_call`），yield 不物化；模型 ID 前缀注册进 `ctx.llm`
+- **凭据 seam**：`get_api_key()` 每次请求解析（env 优先、`credentials.json` 兜底）；`GET /api/settings` 只回脱敏 `sk-tp-***`，`POST` 只写不回读——轮换即时生效，Key 永不回传/入日志
+- **默认模型**：`DEFAULT_MODEL`（`tc-code-latest`）服务端持久于 `settings.json`；前端下拉 localStorage 即时 + `POST /api/settings` 持久
+- **function calling**：`ctx.tools.defs()` 返回 OpenAI 工具定义传给 `stream(tools=...)`；assistant 消息含 `tool_calls`，tool 结果带 `tool_call_id`
+
+### 9.2 自我插件开发（M14：Harness）
+
+- **工具集**（`harness-tools`）：`fs_list/fs_read/fs_write`（写前备份 `.plugin-backup/<id>/<ts>/`）、`plugin_scaffold/verify/install/uninstall/reload/list`；`plugin_verify` 在**子进程 + 一次性上下文**里 `apply()` 跑 smoke，通过才允许 install（隔离试载，不污染主进程）
+- **护栏**（`harness-guard`，挂 `tools/pre-execute` 单调守卫）：路径 containment 限制写区仅 `plugins/`；拒绝 `server/app/plugins/`（infra）与护栏/日志/审批源码；bash 危险命令黑名单——**一旦 denied 不可被后续放行**
+- **无重启 reload**：`folder_loader.evict_module()` 驱逐模块 + `PluginManager.reload_plugin()` 备份→级联卸载→摘 meta/fiber→重载→失败回滚；`deps.kernel_rlock`（`threading.RLock`）跨线程串行化
+- **会话日志**（`session-log`）：append-only JSONL（`server/data/sessions/`），hook `llm/stream` 与 `tools/post-execute`；`derive_messages()` 投影模型历史——「模型可见即已记录」的权威事件源
+- **可编辑边界**：可编辑 = `plugins/`（app 插件）；不可编辑 = 评估器/审批/日志/护栏/回归集（`server/app/`）
+
+### 9.3 对话真实化与终止（M15）
+
+- **多会话**：前端持 `session_id`（首轮为空，后端在 `session` 事件下发）；chat worker 起跑前 `session_log.bind()`，同一对话所有轮次写入同一 `sessions/<id>.jsonl`
+- **多轮上下文**：`derive_messages(session_id)` 取最后一条 `request` 的权威 messages，补上其后最终 assistant 回复 → 交给 `agent_loop.run(history=...)`（system 由本轮重新注入，避免重复）
+- **投影**：`session_messages()` 把 OpenAI 格式 messages 转成 UI 气泡（user/assistant 文本 + 工具卡，tool 结果回填到对应 tool_call）
+- **终止**：`cancel`（`threading.Event`）由 chat 层创建；客户端断连时 SSE 生成器 `finally` 置位 → `agent_loop` 在下一 chunk / 下一轮开头返回已产出文本并 emit `stopped`。前端 `AbortController` 断开连接并即时解锁 UI
+- **单写者**：日志 append-only，只追加不修改；删除即移除整份文件
 
 ## 7. 关键约束（写代码时必须遵守）
 

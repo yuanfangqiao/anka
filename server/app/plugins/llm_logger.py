@@ -28,14 +28,19 @@ def apply(ctx, config):
         log.info('>>> stream: model=%s, messages=%s', model, msg_count)
         start = time.time()
 
-        # ── 委派（必须调 next_fn，否则整条链断在这里）──
-        stream = next_fn()
+        # ── 委派（惰性透传，逐 chunk 转发，绝不物化整条流）──
+        count = 0
+
+        def _counting(source):
+            nonlocal count
+            for chunk in source:
+                count += 1
+                yield chunk
+
+        yield from _counting(next_fn())
 
         # ── 后置 ──
         elapsed = time.time() - start
-        chunks = list(stream)
-        log.info('<<< stream done: %s chunks, %.3fs', len(chunks), elapsed)
-
-        return iter(chunks)
+        log.info('<<< stream done: %s chunks, %.3fs', count, elapsed)
 
     ctx.events.on('llm/stream', log_stream)

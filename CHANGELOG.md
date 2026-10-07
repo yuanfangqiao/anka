@@ -2,6 +2,102 @@
 
 记录每次核心修改。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，最新在上。
 
+## [M15] 对话 UI 真实化（多会话 · 多轮上下文 · 可终止）· 2026-10-04
+
+**背景**：M13 接入真实模型后，对话 UI 仍是 Mock——初始消息、侧栏会话、失败兜底 `localEcho` 全是硬编码；且请求一旦卡住无法中止，UI 永久停在「…」。
+
+### 新增
+- **会话管理 API**（`api/sessions.py`）：`GET /api/sessions`（摘要列表，按最近更新倒序）、`GET /api/sessions/{id}`（UI 气泡历史）、`DELETE /api/sessions/{id}`；数据源即 session-log 的 append-only 日志
+- **`session_log` 扩展**：`bind()/unbind()/new_session_id()`（chat worker 显式绑定会话）、`derive_messages()`（补上最终 assistant 回复，得到可续聊的 OpenAI 历史）、`session_messages()`（投影为 user/assistant+工具卡气泡）、`list_sessions()/delete_session()`
+- **前端 `useChat.ts`**：模块级单例状态，ChatView 与两处 ChatSidebar 共享；真会话列表、切换/新建/删除、SSE 解析为有序 blocks（text/tool）、终止、错误呈现
+
+### 变更
+- **`agent_loop.run`**：新增 `history`（由会话日志投影的多轮上下文）与 `cancel`（`threading.Event`）；每 chunk 与每轮开头检查，置位即返回已产出文本并 emit `stopped`
+- **`chat.py`**：接收 `session_id`（缺省新建）、绑定会话、投影 history；引入 `cancel` 事件，客户端断连（SSE 生成器关闭）时置位通知 worker 停下；首个 `session` 事件回传 session_id
+- **`ChatView.vue`**：删除 4 条 Mock 消息与 `localEcho` 兜底；改真数据渲染（空态提示、工具卡、`whitespace-pre-wrap`）；发送中按钮切换为**终止**（`AbortController`）；卸载时中止在途请求
+- **`ChatSidebar.vue`**：删除 3 条 Mock 会话；改真列表（标题/相对时间/悬停删除/当前高亮），移动端选中后自动收起抽屉
+- **`smoke.py`**：新增会话投影、删除幂等、cancel 终止断言；`main()` 结束时清理本次冒烟新产生的会话（不再污染用户侧栏）；3b 改为不发真实网络请求的注册/解析校验
+
+### 修复
+- 每个请求都新建会话的缺陷（旧逻辑 `_is_continuation` + 无绑定）→ 显式 `bind` 后同一对话共用一份日志
+- 「卡住没有结果」→ 前端可随时终止；后端 `cancel` 在下一 chunk 生效，不再永久转圈
+
+## [M16] 画布多端实时同步（WebSocket + SQLite）· 2026-10-04
+
+**背景**：项目要部署到服务器，quickdraw 画布插件要支持多端（多设备）状态同步；
+拍板三条约束：**多客户端同时作画**（非单写者广播）、**一并支持持久化与回放**、**不做鉴权**。
+实现基线复用 IDEA.md §3.11 的方案 A（通用内核能力），见下方目录结构。
+
+### 新增
+- **`sync-store` 插件**（`plugins/sync_store.py`）：SQLite 访问层。三张表 `sync_doc`（物化快照）/ `sync_log`（op-log，房间+文件内 `seq` 单调递增）/ `sync_index`（文件索引）。提供 `get_doc / save_doc / append_op / ops_since / max_seq / compact / get_index / save_index`。连接**按线程本地持有** + WAL + `busy_timeout`（内核跑在 worker 线程，SQLite 连接不可跨线程共享）
+- **`sync-hub` 插件**（`plugins/sync_hub.py`）：Service 提供 `ctx.sync`。房间注册表 `{(app_id, room_id, file_id): set[ws]}`、`subscribe / unsubscribe / peers / publish / broadcast / snapshot / since / put_snapshot / compact`
+- **`api/sync_api.py`**：WebSocket 端点 + 文件索引 REST（`GET/PUT /api/sync/index`）
+
+### 变更
+- `settings.py`：新增 `SYNC_DB`（`server/data/agentos.db`）、`SYNC_LOG_KEEP`、`SYNC_MAX_MSG`、`SYNC_MAX_POINTS`；`PLUGIN_CONFIG` 注册 `sync-store` / `sync-hub`
+- `main.py`：挂载 `sync_api` 路由
+- `web/vite.config.ts`：dev 代理补 `'/ws'` 且 `ws: true`（原配置只有 `/api`，WS upgrade 不会被代理）
+- `plugins/quickdraw/apps/app/src/main.js`：新增 `sync.js`，把持久化目标从 localStorage 换成网络
+
+### 协议
+
+**C→S**：`hello{room,file,since}` · `doc{file,diff,client_id}` · `snapshot{file,snapshot}` · `index-get` · `ops-get{file,since}` · `ping`
+**S→C**：`hello{room,file,rev,snapshot,peers}` · `doc{file,seq,client_id,diff}` · `ack{file,seq}` · `snapshot-ok{file,rev}` · `index{rev,payload,client_id}` · `index-ok{rev}` · `ops{file,ops}` · `pong` · `error{message}`
+
+**回声抑制**：广播带发起者 `client_id`，发起者丢弃自己那条（其余客户端 `applyDiff(diff,'remote')`，不进本地 undo 栈）。
+
+### 目录结构
+
+```
+server/app/
+├── settings.py                     # [MODIFY] SYNC_DB / 日志阈值 / PLUGIN_CONFIG +2
+├── main.py                         # [MODIFY] 挂载 sync_api
+├── api/
+│   └── sync_api.py                 # [NEW] WS 端点 + 文件索引 REST
+└── plugins/
+    ├── sync_store.py               # [NEW] SQLite 访问层（3 表 + 压缩）
+    └── sync_hub.py                 # [NEW] Service（ctx.sync）房间/定序/广播
+
+web/vite.config.ts                      # [MODIFY] proxy 补 /ws + ws:true
+plugins/quickdraw/apps/app/src/
+├── sync.js                         # [NEW] 同步客户端（发布/应用/重连）
+└── main.js                         # [MODIFY] store.listen → sync
+```
+
+## [M13] TokenHub 真实模型接入（13 模型 · 凭据 seam）· 2026-10-04
+
+**背景**：把 Fake LLM（Echo）升级为真实模型——腾讯云 TokenHub（Code Plan）的 OpenAI 兼容端点，13 个模型 ID 全走同一端点，架构上兑现「预留 LLM adapter 插座位」。
+
+### 新增
+- **`llm-tokenhub` 插件**（`server/app/plugins/llm_tokenhub.py`）：TokenHubAdapter 用 httpx 同步流式 POST，逐 chunk 解析 SSE（`delta.content`→`text_delta`、`delta.tool_calls`→`tool_call`），**不物化整条流**。13 个模型 ID 前缀注册进 `ctx.llm`，内核零改动
+- **凭据 seam**（`settings_api.py` + `settings.py`）：`GET /api/settings` 只回脱敏 `sk-tp-***`（`masked_api_key`）；`POST` 只写不回读；Key 存独立 `server/data/credentials.json`（与 settings 分离）；adapter **每次请求解析 Key**（`get_api_key`：env 优先、文件兜底），轮换后下一请求即时生效
+- **13 模型清单** `TOKENHUB_MODELS`（ID 全小写）：`tc-code-latest`（默认）/ `deepseek-v4-flash-202605` / `deepseek-v4-pro-202606` / `minimax-m2.7` / `minimax-m3` / `glm-5` / `glm-5.1` / `glm-5.2` / `glm-5.3` / `glm-5.3-flash` / `hy4-preview` / `kimi-k2.7-code` / `kimi-k3`；`DEFAULT_MODEL` 服务端持久（`settings.json`）
+
+### 变更
+- **`agent_loop.py`**：`run(..., model)` 透传；`ctx.tools.defs()` 取 OpenAI 工具定义传给 `stream(..., tools=...)`；assistant 消息（含 `tool_calls`）与 `tool` 消息（带 `tool_call_id`）回填；支持 system prompt
+- **`tools_runtime.py`**：新增 `defs()` 返回 `[{type:'function', function:{name,description,parameters}}]`；`tool_bash.py` 补 `parameters` JSON Schema
+- **`llm_logger.py`**：改惰性 `yield from next_fn()`，不再 `list(stream)` 破坏流式
+- **前端**：ChatView 顶栏模型下拉（localStorage 即时 + `POST /api/settings` 服务端持久）；Settings 增「模型服务」分区（Key 脱敏输入 + 连通性测试）；`api.ts` 补 `settings/saveSettings/testConnection`
+
+### 兜底
+- 无 Key 时 `llm-tokenhub` 返回「未配置 API Key」提示；Echo 仍在——真实模型与回声双轨并存，配置即切
+
+## [M14] Harness 自我插件开发（护栏 · 无重启 reload · 会话日志）· 2026-10-04
+
+**背景**：参照 DeepSeek Harness 的 self-improvement 模式，让 Agent 在对话中开发/更新/验证/回滚自己的 app 插件——改动可验证、可回滚、风险隔离。
+
+### 新增
+- **`harness-tools` 插件**：`fs_list/fs_read/fs_write`（写前自动备份 `.plugin-backup/<id>/<ts>/`）、`plugin_scaffold`（脚手架生成 plugin.json + server/main.py + web/index.js）、`plugin_verify`、`plugin_install/uninstall/reload/list`。**`plugin_verify` 升级为隔离试载**：子进程 `import` + 一次性 `_Any` 上下文跑 `apply()` 冒烟，通过才允许 install，不污染主进程
+- **`harness-guard` 插件**（`tools/pre-execute` 单调守卫）：拒绝 `plugins/` 之外路径、拒绝 `server/app/plugins/`（infra）与护栏/日志/审批源码、bash 危险命令黑名单——**一旦 denied 不可被后续放行**
+- **`session-log` 插件**：append-only JSONL（`server/data/sessions/`），hook `llm/stream` 与 `tools/post-execute`，记录 user/assistant（内嵌完整流）/tool_call/tool_result；`derive_messages()` 从日志投影模型历史——「模型可见即已记录」的权威事件源
+
+### 变更
+- **无重启 reload**：`folder_loader.evict_module()` 模块驱逐 + `PluginManager.reload_plugin()` 备份→级联卸载→摘 meta/fiber→重载→失败回滚；`deps.kernel_rlock`（`threading.RLock`）跨线程串行化内核变更
+- 可编辑边界显式化：可编辑区 = `plugins/`（app 插件）；不可编辑区 = 评估器/审批/日志/护栏/回归集（`server/app/`，Agent 经 fs_write 无法触及）
+
+### 验证
+- `scripts/smoke.py` 扩充至 10 个 infra 插件断言 + harness 工具全链路（scaffold→verify→install→reload→uninstall）+ 护栏越界拦截 + session-log 投影，全部通过
+
 ## [M12] 移动端壳 UI 全面优化（顶部空栏 / dock 重做）· 2026-10-04
 
 **背景**：手机上打开 quickdraw 等 page 类应用，连出四个体验问题，顺带把 dock 整体重做。
