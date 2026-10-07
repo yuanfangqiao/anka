@@ -39,7 +39,7 @@ onMounted(() => {
   <!-- 两段式：上方内容区（独立内滚）+ 下方 dock 专属条——内容永不滑到 dock 背后。
        overflow-hidden + min-h-0 布局不变式：任何子元素异常都只被裁剪，
        dock 在结构上不可能被推到视口之外（安卓真机溢出加固） -->
-  <div class="relative flex h-dvh flex-col overflow-hidden">
+  <div class="relative flex h-full flex-col overflow-hidden">
     <TopBar v-if="needsChrome" :collapsed="collapsed" />
     <main
       class="relative min-h-0 flex-1 overflow-y-auto"

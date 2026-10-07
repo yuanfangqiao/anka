@@ -1,9 +1,0 @@
-{
-  "id": "trendshift",
-  "name": "趋势榜",
-  "icon": "flame",
-  "version": "0.1.0",
-  "system": false,
-  "description": "iframe 内嵌 TrendShift（GitHub 趋势/热榜聚合，实测允许内嵌）",
-  "ui": { "entry": "web/index.ts", "dock": { "order": 60 }, "route": "/trendshift" }
-}

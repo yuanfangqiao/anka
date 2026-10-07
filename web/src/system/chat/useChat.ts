@@ -1,14 +1,15 @@
 /**
- * 对话状态（M15）—— 模块级单例，ChatView 与两处 ChatSidebar 实例共享同一份状态。
+ * 对话状态（M17）—— 模块级单例，ChatView / ChatSidebar / AgentProcessPanel 共享。
  *
- * 真数据链路：
- *  - 会话列表 / 历史气泡来自后端 append-only 会话日志（/api/sessions）
- *  - 发送走 /api/chat SSE，token 级 text_delta 追加；tool_call/tool_result 渲染工具卡
- *  - session_id 由后端在首个 session 事件下发，后续轮次复用（多轮上下文由后端投影）
- *  - 终止：AbortController 断开 SSE，后端置 cancel，worker 在下一 chunk 处停下
+ * M17 重构：从「POST /api/chat 直连 SSE」升级为「run 订阅模型」（借鉴 pi durable harness）：
+ *  - run 的生命周期在服务端：POST /api/chat 只启动，事件走 GET /api/runs/{id}/stream
+ *  - 切应用 / 切路由 / 切后台 / 刷新页面都不中断执行——断连≠取消，只有 stop 才终止
+ *  - 事件带 seq 游标，断线自动重连（after=cursor 无重无漏）；页面刷新后凭
+ *    GET /api/runs 找回活动 run 并重放全量事件重建现场
+ *  - 过程可视化：每个 run 维护 steps（思考 / 工具执行步骤流），供全局悬浮过程面板渲染
  */
 
-import { ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { api, type SessionMessage, type SessionSummary, type ToolCard } from '../../services/api'
 import { syncInstalled } from '../../services/pluginHost'
 import { useToast } from '../../composables/useToast'
@@ -23,8 +24,38 @@ export interface ChatMsg {
   id: number
   role: 'user' | 'assistant'
   blocks: Block[]
+  image?: string | null
   stopped?: boolean
   error?: boolean
+}
+
+/** 过程面板步骤：思考（模型输出）或工具执行 */
+export interface Step {
+  kind: 'think' | 'tool'
+  text?: string
+  turn?: number
+  name?: string
+  cmd?: string
+  result?: string
+  done: boolean
+  ts: number
+  doneTs?: number
+}
+
+export interface RunView {
+  id: string
+  sessionId: string
+  preview: string
+  active: boolean
+  stopped: boolean
+  error: boolean
+  bubbles: ChatMsg[]
+  steps: Step[]
+  startedAt: number
+  // —— 以下为续传内部状态（不参与模板渲染语义）——
+  _cursor: number
+  _newTurn: boolean
+  _attached: boolean
 }
 
 let seq = 0
@@ -33,20 +64,35 @@ const nextId = () => ++seq
 const messages = ref<ChatMsg[]>([])
 const sessions = ref<SessionSummary[]>([])
 const activeSessionId = ref('')
-const sending = ref(false)
+const runs = ref<RunView[]>([])
+const pending = ref(false)        // startChat 请求进行中（防连击）
 const tick = ref(0)
 
 const models = ref<{ id: string; name: string }[]>([])
 const currentModel = ref('')
 
-let controller: AbortController | null = null
 const bump = () => { tick.value++ }
+
+/** 当前会话正在活动的 run（驱动 sending 态与 ChatView 实时气泡） */
+const activeRun = computed(
+  () => runs.value.find((r) => r.active && r.sessionId === activeSessionId.value) ?? null,
+)
+const sending = computed(() => pending.value || Boolean(activeRun.value))
+
+/** 历史消息 + 当前会话活动 run 的实时气泡（ChatView 与创造模式浮窗共用渲染源） */
+const displayMessages = computed(() =>
+  activeRun.value ? [...messages.value, ...activeRun.value.bubbles] : messages.value)
 
 function toMsg(m: SessionMessage): ChatMsg {
   const blocks: Block[] = []
   if (m.text) blocks.push({ kind: 'text', text: m.text })
   for (const t of m.tools ?? []) blocks.push({ kind: 'tool', tool: t })
-  return { id: nextId(), role: m.role === 'user' ? 'user' : 'assistant', blocks }
+  return {
+    id: nextId(),
+    role: m.role === 'user' ? 'user' : 'assistant',
+    blocks,
+    image: m.image ?? null,
+  }
 }
 
 function appendText(msg: ChatMsg, chunk: string) {
@@ -64,6 +110,146 @@ function setToolResult(msg: ChatMsg, tool: string, result: string) {
     }
   }
 }
+
+function toolCmd(args?: Record<string, unknown>): string {
+  if (!args) return ''
+  return (args.command as string) ?? (args.path as string) ?? JSON.stringify(args)
+}
+
+// ─── run 事件应用（实时与重放共用同一路径，保证重建现场一致）─────
+
+function applyEvent(run: RunView, ev: Record<string, unknown>) {
+  const type = ev.type as string
+  const current = () => run.bubbles[run.bubbles.length - 1]
+
+  if (type === 'status' && ev.phase === 'thinking') {
+    run.steps.push({ kind: 'think', text: '', turn: ev.turn as number, done: false, ts: Date.now() })
+  } else if (type === 'text_delta') {
+    if (run._newTurn) {
+      run.bubbles.push({ id: nextId(), role: 'assistant', blocks: [] })
+      run._newTurn = false
+    }
+    const chunk = ev.content as string
+    appendText(current(), chunk)
+    const think = [...run.steps].reverse().find((s) => s.kind === 'think' && !s.done)
+    if (think) think.text = ((think.text ?? '') + chunk).slice(-2000)
+  } else if (type === 'tool_call') {
+    for (const s of run.steps) if (s.kind === 'think' && !s.done) { s.done = true; s.doneTs = Date.now() }
+    current().blocks.push({
+      kind: 'tool',
+      tool: { name: ev.tool as string, args: (ev.args as Record<string, unknown>) ?? {}, result: '执行中…' },
+    })
+    run.steps.push({
+      kind: 'tool',
+      name: ev.tool as string,
+      cmd: toolCmd(ev.args as Record<string, unknown>),
+      done: false,
+      ts: Date.now(),
+    })
+  } else if (type === 'tool_result') {
+    setToolResult(current(), ev.tool as string, ev.result as string)
+    const step = [...run.steps].reverse().find((s) => s.kind === 'tool' && !s.done)
+    if (step) {
+      step.done = true
+      step.doneTs = Date.now()
+      step.result = String(ev.result ?? '').slice(0, 500)
+    }
+    run._newTurn = true
+  } else if (type === 'error') {
+    run.error = true
+    current().error = true
+    appendText(current(), `出错了：${ev.content}`)
+  } else if (type === 'stopped') {
+    run.stopped = true
+    current().stopped = true
+  }
+  bump()
+}
+
+function finalizeRun(run: RunView) {
+  run.active = false
+  for (const s of run.steps) if (!s.done) { s.done = true; s.doneTs = Date.now() }
+  const hasContent = run.bubbles.some((b) =>
+    b.blocks.some((bl) => bl.kind === 'tool' || (bl.kind === 'text' && bl.text)))
+  if (!hasContent) {
+    const last = run.bubbles[run.bubbles.length - 1]
+    if (last) appendText(last, run.stopped ? '（已终止）' : '（无回复）')
+  }
+  // 现场气泡并入消息流（仅当用户仍停留在该会话；否则历史已从会话日志可取）
+  if (run.sessionId === activeSessionId.value) {
+    messages.value.push(...run.bubbles)
+  }
+  run.bubbles = []
+  bump()
+  refreshSessions()
+  // Agent 可能在本次对话里装了插件：增量同步，让 dock 立即出现（M16）
+  syncInstalled().then(({ loaded, failed }) => {
+    if (loaded.length) toast.ok(`已加载新插件：${loaded.join('、')}`)
+    if (failed.length) toast.warn(`插件前端加载失败：${failed.join('、')}（详见控制台）`)
+  }).catch(() => {})
+  // 过程面板短暂保留完成态后移除
+  window.setTimeout(() => {
+    runs.value = runs.value.filter((r) => r.id !== run.id)
+  }, 8000)
+}
+
+/** 订阅 run 事件流；断线自动重连（after=游标续传），直到收到 done 或 run 被回收 */
+async function attachStream(run: RunView) {
+  if (run._attached) return
+  run._attached = true
+  for (;;) {
+    let gone = false
+    try {
+      const res = await fetch(`/api/runs/${run.id}/stream?after=${run._cursor}`)
+      if (res.status === 404) { gone = true }
+      else if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`)
+      else {
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buf = ''
+        let finished = false
+        for (;;) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buf += decoder.decode(value, { stream: true })
+          const frames = buf.split('\n\n')
+          buf = frames.pop() ?? ''
+          for (const frame of frames) {
+            const line = frame.trim()
+            if (!line.startsWith('data:')) continue
+            let ev: Record<string, unknown>
+            try { ev = JSON.parse(line.slice(5).trim()) } catch { continue }
+            run._cursor = (ev.seq as number) ?? run._cursor
+            if (ev.type === 'done') { finished = true; continue }
+            applyEvent(run, ev)
+          }
+        }
+        if (finished || !run.active) { finalizeRun(run); return }
+      }
+    } catch { /* 网络抖动/切后台断流 —— 走重连 */ }
+    if (gone) {
+      // run 已被服务端回收：本地收尾，按会话日志可对账
+      finalizeRun(run)
+      return
+    }
+    await new Promise((r) => setTimeout(r, 1500))
+  }
+}
+
+function newRunView(id: string, sessionId: string, preview: string): RunView {
+  // 必须经 reactive 代理：attachStream 持有同一引用做流式变更，
+  // 裸对象直改会绕过响应式触发（气泡不实时更新，只能靠计时器被动刷新）
+  return reactive({
+    id, sessionId, preview,
+    active: true, stopped: false, error: false,
+    bubbles: [{ id: nextId(), role: 'assistant', blocks: [] }],
+    steps: [],
+    startedAt: Date.now(),
+    _cursor: 0, _newTurn: false, _attached: false,
+  })
+}
+
+// ─── 会话与模型 ─────────────────────────────────────────────
 
 async function loadModels() {
   try {
@@ -88,7 +274,6 @@ async function refreshSessions() {
 }
 
 async function loadSession(id: string) {
-  if (sending.value) stop()
   activeSessionId.value = id
   try {
     const detail = await api.sessionMessages(id)
@@ -100,7 +285,6 @@ async function loadSession(id: string) {
 }
 
 function startNewSession() {
-  if (sending.value) stop()
   activeSessionId.value = ''
   messages.value = []
   bump()
@@ -114,118 +298,82 @@ async function removeSession(id: string) {
   await refreshSessions()
 }
 
-function stop() {
-  controller?.abort()
+/** 页面加载后重挂服务端仍在执行的 run（刷新/PWA 重启场景） */
+async function restoreRuns() {
+  let list
+  try {
+    list = await api.runs()
+  } catch { return }
+  for (const info of list) {
+    if (!info.active) continue
+    if (runs.value.some((r) => r.id === info.id)) continue
+    const run = newRunView(info.id, info.session_id, info.preview)
+    run.startedAt = info.created_at * 1000
+    runs.value.unshift(run)
+    attachStream(run)     // 全量重放 → 重建思考/工具步骤与气泡
+  }
+  // 刷新/PWA 重启后：自动回到仍在执行的会话，现场即刻可见
+  if (!activeSessionId.value && runs.value.length) {
+    const latest = [...runs.value].sort((a, b) => b.startedAt - a.startedAt)[0]
+    await loadSession(latest.sessionId)
+  }
+  if (runs.value.length) bump()
 }
 
-async function send(text: string) {
-  const msg = text.trim()
-  if (!msg || sending.value) return
+// ─── 发送与终止 ─────────────────────────────────────────────
 
-  messages.value.push({ id: nextId(), role: 'user', blocks: [{ kind: 'text', text: msg }] })
-  const reply: ChatMsg = { id: nextId(), role: 'assistant', blocks: [] }
-  messages.value.push(reply)
-  const bubbles: ChatMsg[] = [reply]
+async function send(text: string, image?: string) {
+  const msg = text.trim()
+  if ((!msg && !image) || sending.value) return
+
+  messages.value.push({
+    id: nextId(), role: 'user',
+    blocks: msg ? [{ kind: 'text', text: msg }] : [],
+    image: image ?? null,
+  })
   bump()
 
-  sending.value = true
-  controller = new AbortController()
-  let current = reply
-  let newTurn = false
-
-  const startBubble = () => {
-    const b: ChatMsg = { id: nextId(), role: 'assistant', blocks: [] }
-    messages.value.push(b)
-    bubbles.push(b)
-    return b
-  }
-
+  pending.value = true
   try {
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: msg,
-        model: currentModel.value || undefined,
-        session_id: activeSessionId.value || undefined,
-      }),
-      signal: controller.signal,
+    const started = await api.startChat({
+      message: msg || '请根据这张截图进行修改',
+      model: currentModel.value || undefined,
+      session_id: activeSessionId.value || undefined,
+      image,
     })
-    if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`)
-
-    const reader = res.body.getReader()
-    const decoder = new TextDecoder()
-    let buf = ''
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buf += decoder.decode(value, { stream: true })
-      const frames = buf.split('\n\n')
-      buf = frames.pop() ?? ''
-      for (const frame of frames) {
-        const line = frame.trim()
-        if (!line.startsWith('data:')) continue
-        let ev: Record<string, unknown>
-        try {
-          ev = JSON.parse(line.slice(5).trim())
-        } catch { continue }
-        const type = ev.type as string
-        if (type === 'session') {
-          activeSessionId.value = ev.session_id as string
-        } else if (type === 'text_delta') {
-          if (newTurn) { current = startBubble(); newTurn = false }
-          appendText(current, ev.content as string)
-        } else if (type === 'tool_call') {
-          current.blocks.push({
-            kind: 'tool',
-            tool: {
-              name: ev.tool as string,
-              args: (ev.args as Record<string, unknown>) ?? {},
-              result: '执行中…',
-            },
-          })
-        } else if (type === 'tool_result') {
-          setToolResult(current, ev.tool as string, ev.result as string)
-          newTurn = true
-        } else if (type === 'error') {
-          current.error = true
-          appendText(current, `出错了：${ev.content}`)
-        } else if (type === 'stopped') {
-          current.stopped = true
-        }
-        bump()
-      }
-    }
-    const hasContent = bubbles.some((b) =>
-      b.blocks.some((bl) => bl.kind === 'tool' || (bl.kind === 'text' && bl.text)))
-    if (!hasContent) reply.blocks.push({ kind: 'text', text: '（无回复）' })
-  } catch (e) {
-    const err = e as { name?: string; message?: string }
-    if (err?.name === 'AbortError') {
-      current.stopped = true
-      if (!current.blocks.length) appendText(current, '（已终止）')
-    } else {
-      current.error = true
-      appendText(current, `出错了：${err?.message ?? '网络异常'}`)
-    }
-  } finally {
-    sending.value = false
-    controller = null
+    activeSessionId.value = started.session_id
+    const run = newRunView(started.run_id, started.session_id, msg)
+    runs.value.unshift(run)
     bump()
-    refreshSessions()
-    // Agent 可能在本次对话里装了插件：增量同步，让 dock 立即出现（M16）
-    syncInstalled().then(({ loaded, failed }) => {
-      if (loaded.length) toast.ok(`已加载新插件：${loaded.join('、')}`)
-      if (failed.length) toast.warn(`插件前端加载失败：${failed.join('、')}（详见控制台）`)
-    }).catch(() => {})
+    attachStream(run)
+  } catch (e) {
+    const err = e as { message?: string }
+    messages.value.push({
+      id: nextId(), role: 'assistant',
+      blocks: [{ kind: 'text', text: `出错了：${err?.message ?? '网络异常'}` }],
+      error: true,
+    })
+    bump()
+  } finally {
+    pending.value = false
   }
+}
+
+function stop() {
+  const run = activeRun.value
+  if (run) api.stopRun(run.id).catch(() => {})
+}
+
+/** 供过程面板终止任意 run（不限当前会话） */
+function stopRun(id: string) {
+  api.stopRun(id).catch(() => {})
 }
 
 export function useChat() {
   return {
-    messages, sessions, activeSessionId, sending, tick,
+    messages, sessions, activeSessionId, sending, tick, runs, activeRun, displayMessages,
     models, currentModel,
     loadModels, selectModel, refreshSessions, loadSession,
-    startNewSession, removeSession, send, stop,
+    startNewSession, removeSession, restoreRuns, send, stop, stopRun,
   }
 }

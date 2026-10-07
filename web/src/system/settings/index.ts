@@ -5,7 +5,7 @@ import SettingsView from './SettingsView.vue'
 export function setup(uiCtx: UiCtx) {
   uiCtx.registerApp({
     id: 'settings',
-    title: '设置',
+    title: '控制台',
     icon: 'settings',
     route: '/settings',
     order: -10,

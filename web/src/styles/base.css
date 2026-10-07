@@ -13,6 +13,9 @@
   }
   body {
     margin: 0;
+    /* M17 安卓刷新拉伸加固：文档流整体不可滚动，滚动只允许发生在各
+       区域自己的滚动容器内——浏览器刷新时的滚动恢复无处生效 */
+    overflow: hidden;
     overscroll-behavior: none;
   }
   ::-webkit-scrollbar {

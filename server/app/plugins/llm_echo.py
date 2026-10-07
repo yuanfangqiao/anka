@@ -33,8 +33,12 @@ class EchoAdapter:
             }
             return
 
-        # 后续调用：返回 echo 文本
-        last_msg = messages[-1]['content'] if messages else 'hello'
+        # 后续调用：返回 echo 文本（vision 数组消息只取文本部分）
+        last = messages[-1]['content'] if messages else 'hello'
+        if isinstance(last, list):
+            last = ' '.join(str(p.get('text', '')) for p in last
+                            if isinstance(p, dict) and p.get('type') == 'text')
+        last_msg = last
         # 如果最后一条是 tool_result，生成总结性回复
         if messages and messages[-1].get('role') == 'tool':
             tool_output = messages[-1]['content']

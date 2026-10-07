@@ -71,7 +71,7 @@ async function testConn() {
   <AppFrame>
     <div class="flex flex-col gap-4 pb-2">
       <header class="pt-2">
-        <h1 class="text-[30px] font-bold tracking-tight">设置</h1>
+        <h1 class="text-[30px] font-bold tracking-tight">控制台</h1>
         <p class="mt-1 text-sm text-ink-2">外观、安装状态与关于</p>
       </header>
 
@@ -186,7 +186,7 @@ async function testConn() {
           <div class="flex items-center gap-3">
             <span class="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-brand to-brand-cyan font-bold text-white shadow-glow">A</span>
             <div>
-              <p class="text-sm font-semibold">AgentOS · PWA Agent 样例</p>
+              <p class="text-sm font-semibold">Anka</p>
               <p class="mt-0.5 text-[11px] text-ink-2">v0.1.0 · M1 双布局壳 + PWA</p>
             </div>
           </div>

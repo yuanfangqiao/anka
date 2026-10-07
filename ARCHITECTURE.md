@@ -150,10 +150,13 @@ POST /api/plugins/{name}/disable
 POST /api/plugins/{name}/enable
 → { "name": "llm-runtime", "ok": true, "state": "ACTIVE", "cascaded": [...] }
 
-POST /api/chat            # M4：SSE，逐 chunk 返回
-# body: { message, model, max_turns, session_id? }
-# SSE 事件序：session → (tool_call → tool_result → text_delta)* → done
-# 客户端断连 → 置 cancel，worker 在下一 chunk 处停下（M15）
+POST /api/chat            # M17：启动 run，立即返回 { run_id, session_id }
+# body: { message, model, max_turns, session_id?, image? }   # image: 截屏 data URL
+GET  /api/runs                    # M17：run 摘要（active 供刷新后重挂）
+GET  /api/runs/{id}/stream?after=N  # M17：SSE 重放 after 之后的事件 + 现场续传
+# 事件序：(status.thinking | text_delta | tool_call | tool_result)* → done
+# 断连不取消（后台续跑），重连带 after=游标无重无漏；仅 stop 终止
+POST /api/runs/{id}/stop          # M17：置 cancel，worker 在下一 chunk 处停下
 
 GET  /api/sessions              # M15：会话摘要 [{id,title,updated_at,count}]（日志投影）
 GET  /api/sessions/{id}         # M15：会话气泡历史 [{role,text,tools[]}]

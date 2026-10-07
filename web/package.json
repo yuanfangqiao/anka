@@ -9,10 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "vue": "^3.4.38",
-    "vue-router": "^4.4.5",
+    "html-to-image": "^1.11.13",
     "lucide-vue-next": "^0.453.0",
-    "tailwind-merge": "^2.5.5"
+    "tailwind-merge": "^2.5.5",
+    "vue": "^3.4.38",
+    "vue-router": "^4.4.5"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.1.4",

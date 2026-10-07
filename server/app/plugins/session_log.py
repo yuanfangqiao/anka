@@ -169,6 +169,19 @@ def derive_messages(session_id: str) -> list:
     return messages
 
 
+def _split_content(content) -> tuple[str, str | None]:
+    """OpenAI content 兼容拆解：纯文本原样返回；vision 数组拆出文本与首图。"""
+    if isinstance(content, list):
+        text = ' '.join(str(p.get('text', ''))
+                        for p in content
+                        if isinstance(p, dict) and p.get('type') == 'text').strip()
+        image = next((p.get('image_url', {}).get('url')
+                      for p in content
+                      if isinstance(p, dict) and p.get('type') == 'image_url'), None)
+        return text, image
+    return (content or ''), None
+
+
 def _project(messages: list) -> list:
     """把 OpenAI 格式 messages 投影成前端可渲染的气泡（user/assistant + 工具卡）。"""
     ui: list = []
@@ -176,7 +189,11 @@ def _project(messages: list) -> list:
     for m in messages:
         role = m.get('role')
         if role == 'user':
-            ui.append({'role': 'user', 'text': m.get('content') or ''})
+            text, image = _split_content(m.get('content'))
+            entry = {'role': 'user', 'text': text}
+            if image:
+                entry['image'] = image
+            ui.append(entry)
         elif role == 'assistant':
             entry = {'role': 'assistant', 'text': m.get('content') or '', 'tools': []}
             for tc in m.get('tool_calls') or []:
@@ -208,8 +225,10 @@ def _title_of(events: list) -> str:
             continue
         for m in ev.get('messages', []):
             if m.get('role') == 'user' and m.get('content'):
-                text = str(m['content']).strip().replace('\n', ' ')
-                return text[:24] + ('…' if len(text) > 24 else '')
+                text, _ = _split_content(m['content'])
+                text = text.strip().replace('\n', ' ')
+                if text:
+                    return text[:24] + ('…' if len(text) > 24 else '')
     return '新会话'
 
 

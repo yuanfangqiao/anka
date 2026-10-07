@@ -27,7 +27,7 @@ const confirming = ref<PluginInfo | null>(null)
 const systemApps = [
   { id: 'chat', name: '对话', desc: '与插件化 Agent 对话' },
   { id: 'plugins-manager', name: '插件管理', desc: '管理插件的插件（self-hosting）' },
-  { id: 'settings', name: '设置', desc: '主题、安装状态与关于' },
+  { id: 'settings', name: '控制台', desc: '主题、安装状态与关于' },
 ]
 
 const total = computed(() => plugins.value.length)

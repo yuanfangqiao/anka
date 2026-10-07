@@ -91,12 +91,28 @@ export interface SessionMessage {
   role: string
   text: string
   tools: ToolCard[]
+  image?: string | null      // M17：用户消息附带的截屏（data URL）
 }
 
 export interface SessionDetail {
   id: string
   title: string
   messages: SessionMessage[]
+}
+
+// M17：对话 run（服务端常驻执行，断连不取消，可重放续传）
+export interface ChatStarted {
+  run_id: string
+  session_id: string
+}
+
+export interface RunInfo {
+  id: string
+  session_id: string
+  preview: string
+  model: string
+  active: boolean
+  created_at: number
 }
 
 export class ApiError extends Error {
@@ -174,5 +190,21 @@ export const api = {
   deleteSession: (id: string) =>
     request<{ ok: boolean }>(`/api/sessions/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+    }),
+  // M17：对话 run（启动与事件流分离；断连不取消，stop 才终止）
+  startChat: (payload: {
+    message: string
+    model?: string
+    session_id?: string
+    image?: string
+  }) =>
+    request<ChatStarted>('/api/chat', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  runs: () => request<RunInfo[]>('/api/runs'),
+  stopRun: (id: string) =>
+    request<{ ok: boolean }>(`/api/runs/${encodeURIComponent(id)}/stop`, {
+      method: 'POST',
     }),
 }

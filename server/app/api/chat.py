@@ -1,83 +1,55 @@
 """
-POST /api/chat —— SSE 流式对话。
+POST /api/chat —— 启动一次对话 run（M17 重构）。
 
-同步内核 → 异步 SSE 的桥接模式（见 ARCHITECTURE.md review 修正）：
-- worker 线程跑 AgentLoop.run，经 on_event 回调把事件塞进 queue.Queue
-- 异步生成器用 asyncio.to_thread(queue.get) 逐条取出并 yield SSE 帧
-- 客户端断连（生成器被关闭）时置 cancel，worker 在下一个 chunk 处停下
+契约变化（M15 → M17）：
+- M15：POST 直接返回 SSE 流，客户端断连即取消
+- M17：POST 只负责启动，立即返回 {run_id, session_id}；
+  事件流经 GET /api/runs/{id}/stream 订阅（断点重放 + 续传，见 runs.py）。
+  run 由服务端 RunManager 常驻执行——客户端切后台/刷新页面不中断，
+  只有 POST /api/runs/{id}/stop 才显式终止。
 
-M15：多会话（session_id 绑定 + 由会话日志投影多轮 history）+ 可终止。
+worker 线程模型不变：AgentLoop.run 在独立线程执行，事件经 run.emit
+缓冲并广播；会话日志绑定不变（权威事件源仍是 sessions/<id>.jsonl）。
 """
 
-import asyncio
-import json
-import queue
 import threading
 
 from fastapi import APIRouter
-from fastapi.responses import StreamingResponse
 
-from .. import deps, settings
+from .. import deps, run_manager, settings
 from ..plugins import session_log
-from ..schemas import ChatRequest
+from ..schemas import ChatRequest, ChatStarted
 
 router = APIRouter(tags=['chat'])
 
 
-def _sse(payload: dict) -> str:
-    return f'data: {json.dumps(payload, ensure_ascii=False)}\n\n'
-
-
 @router.post('/chat')
-async def chat(req: ChatRequest) -> StreamingResponse:
-    q: queue.Queue = queue.Queue()
-    cancel = threading.Event()
+async def chat(req: ChatRequest) -> ChatStarted:
     session_id = req.session_id or session_log.new_session_id()
+    model = req.model
+    if model in (None, '', 'default'):
+        model = settings.get_default_model()
+
+    run = run_manager.manager.create(session_id, req.message, model)
 
     def worker() -> None:
         try:
             agents = deps.manager.ctx.get('agents')
             if agents is None:
-                q.put({'type': 'error',
-                       'content': 'agent-loop 未激活，请到插件页检查 agent-loop / llm-runtime 状态'})
+                run.emit({'type': 'error',
+                          'content': 'agent-loop 未激活，请到插件页检查 agent-loop / llm-runtime 状态'})
                 return
             # 绑定会话：本轮所有 LLM/工具事件都记到同一会话文件
             session_log.bind(session_id)
             history = session_log.derive_messages(session_id)
-            model = req.model
-            if model in (None, '', 'default'):
-                model = settings.get_default_model()
-            agents.run(req.message, max_turns=req.max_turns, on_event=q.put,
-                       model=model, history=history, cancel=cancel)
+            agents.run(req.message, max_turns=req.max_turns, on_event=run.emit,
+                       model=model, history=history, cancel=run.cancel,
+                       image=req.image)
         except Exception as e:  # 内核异常必须转成事件，不能让客户端干等
-            q.put({'type': 'error', 'content': str(e)})
+            run.emit({'type': 'error', 'content': str(e)})
         finally:
             session_log.unbind()
-            q.put({'type': 'done'})
+            run.emit({'type': 'done'})
 
-    async def event_stream():
-        thread = threading.Thread(target=worker, daemon=True)
-        thread.start()
-        yield _sse({'type': 'session', 'session_id': session_id})
-        try:
-            while True:
-                ev = await asyncio.to_thread(q.get)
-                if ev.get('type') == 'done':
-                    yield _sse({'type': 'done'})
-                    break
-                yield _sse(ev)
-        except asyncio.CancelledError:
-            # 客户端断连：通知 worker 终止（下一次 chunk 检查处生效）
-            cancel.set()
-            raise
-        finally:
-            cancel.set()
-
-    return StreamingResponse(
-        event_stream(),
-        media_type='text/event-stream',
-        headers={
-            'Cache-Control': 'no-cache',
-            'X-Accel-Buffering': 'no',
-        },
-    )
+    threading.Thread(target=worker, daemon=True).start()
+    return ChatStarted(run_id=run.id, session_id=session_id)

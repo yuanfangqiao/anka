@@ -1,0 +1,65 @@
+- generic [ref=e117]:
+  - main [ref=e118]:
+    - generic [ref=e121]:
+      - generic [ref=e122]:
+        - button "打开会话栏" [ref=e123] [cursor=pointer]
+        - heading "对话" [level=1] [ref=e127]
+      - generic [ref=e128]:
+        - generic [ref=e133]:
+          - paragraph [ref=e134]: Agent 对话
+          - paragraph [ref=e135]: "inject: llm, tools · provide: agents"
+        - combobox "选择模型" [ref=e136] [cursor=pointer]:
+          - option "Auto"
+          - option "DeepSeek-V4-Flash 正式版 原厂直供" [selected]
+          - option "DeepSeek-V4-Pro 正式版 原厂直供"
+          - option "MiniMax-M2.7"
+          - option "MiniMax-M3"
+          - option "GLM-5"
+          - option "GLM-5.1"
+          - option "GLM-5.2"
+          - option "GLM-5.3"
+          - option "GLM-5.3-Flash"
+          - option "Hy4 preview"
+          - option "Kimi K2.7 Code"
+          - option "Kimi K3"
+      - paragraph [ref=e142]: 开始一段新对话吧
+      - generic [ref=e143]:
+        - textbox "给 Agent 发条消息…" [ref=e144]
+        - button "发送" [disabled] [ref=e145]
+  - navigation "应用 Dock" [ref=e151]:
+    - generic [ref=e152]:
+      - generic [ref=e153] [cursor=pointer]:
+        - button "Dock 第 1 页" [ref=e154]
+        - button "Dock 第 2 页" [ref=e155]
+        - button "Dock 第 3 页" [ref=e156]
+      - generic [ref=e157]:
+        - generic [ref=e158]:
+          - button "设置" [ref=e159] [cursor=pointer]
+          - button "对话" [ref=e164] [cursor=pointer]
+          - button "笔记" [ref=e168] [cursor=pointer]
+          - button "探索" [ref=e173] [cursor=pointer]
+          - button "俄罗斯方块" [ref=e178] [cursor=pointer]
+        - generic [ref=e182]:
+          - button "clock" [ref=e183] [cursor=pointer]
+          - button "snake" [ref=e189] [cursor=pointer]
+          - button "clock-2" [ref=e195] [cursor=pointer]
+          - button "clock-3" [ref=e201] [cursor=pointer]
+          - button "quickdraw" [ref=e207] [cursor=pointer]
+        - button "translate" [ref=e214] [cursor=pointer]
+      - generic "收起 Dock" [ref=e222] [cursor=pointer]
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - button "设置"
+            - button "对话"
+            - button "笔记"
+            - button "探索"
+            - button "俄罗斯方块"
+            - button "插件管理"
+            - button "clock"
+            - button "snake"
+            - button "clock-2"
+            - button "clock-3"
+            - button "quickdraw"
+            - button "translate"

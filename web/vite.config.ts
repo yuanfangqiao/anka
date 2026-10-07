@@ -95,7 +95,7 @@ export default defineConfig({
       injectRegister: 'auto',
       includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],
       manifest: {
-        name: 'AgentOS · PWA Agent 样例',
+        name: 'Anka',
         short_name: 'AgentOS',
         description: '一切皆插件的 Agent 演示：可安装的 PWA 双布局壳',
         start_url: '/',
@@ -164,6 +164,11 @@ export default defineConfig({
       // vue 外置：宿主与插件共享同一实例（经 index.html 的 import map → /shared/vue.js）
       external: ['vue'],
     },
+  },
+  optimizeDeps: {
+    // 截屏库为动态 import：显式纳入预构建，避免 dev 态首次触发时
+    // 命中 504 Outdated Optimize Dep（截屏静默失败的环境差异根因）
+    include: ['html-to-image'],
   },
   resolve: {
     alias: {

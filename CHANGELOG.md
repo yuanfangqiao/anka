@@ -2,6 +2,127 @@
 
 记录每次核心修改。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，最新在上。
 
+## [M17.6] 对话页头部精简 · 2026-10-08
+
+- 删除「Agent 对话」标题与「inject: llm, tools · provide: agents」契约文案；头部改为
+  右上角 1/3 宽圆角胶囊，只保留模型选择器（对话区因此更宽）
+
+## [M17.5] 截屏修改上下文精简化（插件标识取代 DOM 摘要）· 2026-10-08
+
+**背景**：整屏 DOM 摘要全是 meta/link/通用 div 噪音（还会把浮层自身包进去），对模型无价值；
+模型真正需要的是「这是哪个插件、文件在哪」。
+
+### 变更
+- **消息组装**（CreateModeOverlay）：上下文从 DOM 摘要改为插件标识——经应用注册表按当前路由
+  解析出 app：`[截屏修改 · 插件 tetris（俄罗斯方块）· 文件根目录 plugins/tetris/ · 选区…]`；
+  非插件界面给出明确提示（可写区仅 plugins/ 下应用插件）
+- **气泡分层显示**（ChatView）：截屏修改消息解析为元信息行（10px mono 小字）+ 干净指令气泡，
+  布局 = 截图 → 插件信息 → 指令；兼容剥离历史消息里的旧 DOM 摘要
+- 删除 `summarizeRegion` 死代码（screenCapture.ts 只留截屏与裁剪）
+
+## [M17.4] 后台任务指示条替代过程悬浮窗 · 2026-10-08
+
+**背景**：M17.3 后对话页已有收纳式过程展示，AgentProcessPanel 悬浮窗与其冗余（且遮挡内容）。
+拍板：删除悬浮窗，换 DeepSeek 同款**顶栏指示条**——跨页可见性保留，冗余去掉。
+
+### 新增
+- **BackgroundTaskIndicator**（`components/BackgroundTaskIndicator.vue`）：全局 fixed 顶部
+  居中玻璃胶囊「N 个后台任务运行中」（spinner + 计数，safe-top 适配，z-[55] 低于创造模式浮层）；
+  仅在**有活动 run 且不在对话页**时显示；点击展开气泡：每个 run 的标题、当前步骤一行
+  （思考中…/正在运行命令 · cmd，取 steps 尾条）、耗时（展开态才驱动 1s 计时）、
+  终止、打开对话（loadSession + push /chat）；外点收起
+
+### 删除
+- AgentProcessPanel.vue 悬浮窗（拖拽窗口 + 完整步骤流列表）
+
+### 保留
+- useChat run 订阅模型零改动：服务端常驻、断连不取消、断线重连续传、刷新重挂；
+  对话页内过程展示（M17.3 ToolGroup 折叠摘要）不变
+
+## [M17.3] 对话过程收纳（对齐 DeepSeek Harness 前端）· 2026-10-07
+
+**背景**：工具调用的参数与全量结果逐条铺开，占满屏幕没法看。对齐 DeepSeek Harness：
+**中间过程收纳一行摘要，最终回答正常气泡**。
+
+### 新增
+- **ToolGroup 组件**（`system/chat/ToolGroup.vue`）：连续工具块收纳为单行——
+  进行中「正在运行命令 · npm run build」（spinner），完成后按出现顺序去重计数
+  （「执行了命令，读取了 3 个文件，修改了 2 个文件」）；点击展开明细：
+  每工具一行（动作 · 参数摘要），结果折叠进 max-h-32 滚动区并 2000 字截断
+- `ChatView` 渲染改为分段：连续 tool 块归组 → ToolGroup，文本仍为气泡
+
+## [M17.2] 创造模式 v2：dom-to-image 保真截屏 + 截图上框选 · 2026-10-07
+
+**背景**：M17.1 的 getDisplayMedia 路线需要屏幕录制授权（不友好）且浮屏小窗形态被否；
+M17 初版 html2canvas 截屏白屏（JS 自建渲染器丢弃 backdrop-filter、fixed 根容器定位错乱）。
+拍板：恢复初版全屏浮层形态，截屏换成熟开源方案，附 DOM 结构摘要让模型拿到
+「准确图片 + 结构上下文」。
+
+### 新增
+- **html-to-image 截屏**（`services/screenCapture.ts`，动态导入 17KB；dom-to-image 系列的
+  活跃维护分叉）：计算样式全量内联 → SVG `<foreignObject>` → 浏览器原生排版引擎绘制，
+  CSS 变量/渐变/暗色主题/图标全部保真，纯浏览器内零权限弹窗
+- **截图上框选裁剪**：浮层内直接在截图上拖拽选区（品牌蓝虚线选框 + 清除按钮），
+  选区按比例换算为页面 client 坐标（以 `<img>` 元素矩形为基准的往返恒等映射）；
+  裁剪对已有 canvas 做 `drawImage` 子区域，零二次捕获；不框选默认整屏
+- **DOM 结构摘要**：每条带图消息附带选区/整屏的元素结构摘要（tag.class+文本+尺寸，
+  4000 字上限），摘要自动排除浮层自身
+
+### 变更
+- `useCreateMode` 状态机改为 off → capturing（进入即截屏）→ window（浮层）；
+  进入手势不变（移动双指对角 / 桌面 Ctrl+点击左下角）
+- 消息组装：`[截屏修改 · 当前界面 {route} · 选区(x,y,w×h)] {指令}` + DOM 摘要 + 图片，
+  发送后关浮层跳对话页（恢复初版行为）
+
+### 删除
+- getDisplayMedia 像素捕获路线、浮屏小窗（CreateModeWindow）、独立框选层（SelectionLayer）、
+  html2canvas 依赖
+
+### 修复（截屏白边伪影根因 + 环境差异）
+- **白边伪影**：该引擎家族序列化计算样式时丢失 border 宽度——Tailwind 预飞行的
+  `border: 0 solid rgb(229,231,235)` 退化为 medium 灰边 → 全元素白色描边（图标也变方块）。
+  捕获期注入归一化样式（禁用 border/outline/backdrop-filter，--line/--glass 替换为
+  暗色底合成不透明色），截完即移除——桌面/移动双端实测零伪影
+- **dev 模式截屏静默失败**：截屏库为动态 import，新装后未进 Vite 预构建缓存 →
+  `504 Outdated Optimize Dep` 导入失败。`vite.config.ts` 加 `optimizeDeps.include`；
+  失败原因不再吞进 console，toast 直接显示真实错误（环境差异可诊断）
+
+## [M17] Run 常驻化 + 过程面板 + 截屏创造模式 + 安卓刷新拉伸修复 · 2026-10-07
+
+**背景**：对齐一流代码 Agent（DeepSeek Harness / Pi durable harness）的前端交互与 loop 能力——
+① 安卓真机刷新 PWA 界面被拉长、dock 图标被挤出屏幕；② 用户发消息后只见「…」，
+看不到思考/执行过程，切走应用对话即中断；③ 需要「指着屏幕改界面」的创造模式。
+
+### 新增
+- **RunManager**（`server/app/run_manager.py`）：run 生命周期归服务端（借鉴 pi durable
+  harness）——事件带 seq 缓冲、多订阅者分发、显式 cancel 令牌；完成的 run 保留 30 分钟供重放
+- **`api/runs.py`**：`GET /api/runs`（活动 run 摘要，供刷新后重挂）、
+  `GET /api/runs/{id}/stream?after=N`（SSE 先重放再续传，15s 心跳）、
+  `POST /api/runs/{id}/stop`（唯一终止途径——**客户端断连不再取消**）
+- **AgentProcessPanel**（全局悬浮小窗口，双壳挂载）：任何页面实时展示每个 run 的
+  「思考 · 第 N 轮」与「工具执行」步骤流（耗时/结果/进度计数/经过时间），可打开对话、
+  可终止；桌面端可拖拽，移动端 dock 上方胶囊点按展开
+- **截屏创造模式**：移动端双指按住左下+右上对角、桌面端 Ctrl+点击左下角进入；
+  html2canvas 截屏（动态导入不拖累壳层）→ 覆盖层输入修改指令 → 截图+指令以
+  vision 消息发给 Agent（`ChatRequest.image`，OpenAI content 数组直通 TokenHub）
+- `agent_loop.run` 新增 `image` 参数与 `status.thinking` 相位事件（过程面板数据源）
+
+### 变更
+- **`POST /api/chat` 契约变化**：不再返回 SSE，改为立即返回 `{run_id, session_id}`；
+  worker 线程照旧执行，事件经 `run.emit` 缓冲广播
+- **`useChat.ts` 重构为 run 订阅模型**：send → 启动 run → 订阅事件流；断线自动
+  `after=游标` 重连续传；`restoreRuns()` 在 App 根挂载时重挂活动 run（自动回到进行中会话）；
+  run 对象经 `reactive()` 代理（裸对象直改绕过响应式，气泡不实时更新的坑）；
+  run 完成时现场气泡并入消息流（历史仍可从会话日志投影，无重复）
+- **ChatView 移除「离开页面即终止」**：切应用/切路由/切后台/刷新均不中断执行
+
+### 修复
+- **安卓刷新拉伸（任务一）**：App 根 `h-dvh` → `fixed inset-0` 钉死视口，双壳根
+  `h-dvh` → `h-full`，body `overflow:hidden` 禁掉文档流滚动（刷新滚动恢复无处生效），
+  viewport 加 `interactive-widget=resizes-content`——页面在结构上不可能比屏幕长，
+  dock 不可能被推出视口
+- **消息「…」无进度**：过程面板逐步骤可见，气泡 token 级实时输出
+
 ## [M15] 对话 UI 真实化（多会话 · 多轮上下文 · 可终止）· 2026-10-04
 
 **背景**：M13 接入真实模型后，对话 UI 仍是 Mock——初始消息、侧栏会话、失败兜底 `localEcho` 全是硬编码；且请求一旦卡住无法中止，UI 永久停在「…」。

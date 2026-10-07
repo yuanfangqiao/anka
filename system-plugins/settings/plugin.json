@@ -1,6 +1,6 @@
 {
   "id": "settings",
-  "name": "设置",
+  "name": "控制台",
   "icon": "settings",
   "version": "0.1.0",
   "system": true,

@@ -1,24 +1,29 @@
 <script setup lang="ts">
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { Bot, PanelLeftOpen, Send, Square, SquareTerminal, User, Wrench, X } from 'lucide-vue-next'
+import { nextTick, onMounted, ref, watch } from 'vue'
+import { Bot, PanelLeftOpen, Send, Square, User, X } from 'lucide-vue-next'
 import BaseCard from '../../components/ui/BaseCard.vue'
 import BasePanel from '../../components/ui/BasePanel.vue'
 import ChatSidebar from './ChatSidebar.vue'
-import { useChat, type Block } from './useChat'
+import ToolGroup from './ToolGroup.vue'
+import { useChat, type Block, type ChatMsg } from './useChat'
 import { isMobile } from '../../composables/useBreakpoint'
 import type { ToolCard } from '../../services/api'
 
 const {
-  messages, sending, tick, models, currentModel,
-  loadModels, selectModel, refreshSessions, send, stop,
+  sending, tick, models, currentModel, displayMessages,
+  loadModels, selectModel, refreshSessions, restoreRuns, send, stop,
 } = useChat()
 
 const draft = ref('')
 const listEl = ref<HTMLElement>()
 const panelOpen = ref(false)
 
-onMounted(() => { loadModels(); refreshSessions() })
-onUnmounted(() => { if (sending.value) stop() })
+// M17.1：displayMessages（历史 + 活动 run 实时气泡）由 useChat 共享导出，
+// 与创造模式浮窗同源渲染
+
+// M17：离开页面不再终止——run 在服务端常驻执行，过程面板全程可见；
+// 刷新页面后 restoreRuns 重挂活动 run 并重放事件重建现场
+onMounted(() => { loadModels(); refreshSessions(); restoreRuns() })
 
 watch(tick, scrollBottom)
 
@@ -38,13 +43,36 @@ function textOf(b: Block): string {
   return b.kind === 'text' ? b.text : ''
 }
 
-function toolOf(b: Block): ToolCard | null {
-  return b.kind === 'tool' ? b.tool : null
+/** 截屏修改消息解析：元信息（插件/选区）与指令分层显示（M17.5）。
+ *  兼容历史消息：剥离旧版附带的整屏 DOM 摘要（无价值噪音）。 */
+function parseShotMsg(text: string): { meta: string; body: string } | null {
+  if (!text.startsWith('[截屏修改')) return null
+  const end = text.indexOf(']')
+  if (end < 0) return null
+  let body = text.slice(end + 1).trim()
+  for (const marker of ['\n\n整屏 DOM 结构：', '\n\n选区 DOM 结构：']) {
+    const i = body.indexOf(marker)
+    if (i >= 0) body = body.slice(0, i).trim()
+  }
+  return { meta: text.slice(1, end), body }
 }
 
-function toolCmd(args?: Record<string, unknown>): string {
-  if (!args) return ''
-  return (args.command as string) ?? (args.path as string) ?? JSON.stringify(args)
+// M17.3：连续工具块折叠为过程摘要组（对齐 DeepSeek Harness：
+// 中间过程收纳一行，点开看明细；最终回答正常气泡展示）
+type Seg = { kind: 'text'; text: string } | { kind: 'tools'; tools: ToolCard[] }
+
+function segmentsOf(m: ChatMsg): Seg[] {
+  const segs: Seg[] = []
+  for (const b of m.blocks) {
+    if (b.kind === 'text') {
+      segs.push({ kind: 'text', text: b.text })
+    } else {
+      const last = segs[segs.length - 1]
+      if (last && last.kind === 'tools') last.tools.push(b.tool)
+      else segs.push({ kind: 'tools', tools: [b.tool] })
+    }
+  }
+  return segs
 }
 </script>
 
@@ -72,27 +100,23 @@ function toolCmd(args?: Record<string, unknown>): string {
         <h1 class="text-[22px] font-bold tracking-tight">对话</h1>
       </header>
 
-      <BaseCard class="flex items-center gap-3 !p-3">
-        <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-brand-cyan text-white">
-          <Bot :size="18" />
-        </span>
-        <div class="min-w-0 flex-1">
-          <p class="text-sm font-medium">Agent 对话</p>
-          <p class="truncate text-xs text-ink-2">inject: llm, tools · provide: agents</p>
-        </div>
-        <select
-          v-model="currentModel"
-          class="max-w-[220px] cursor-pointer rounded-full border border-line bg-glass px-2.5 py-1 text-[11px] text-ink-1 outline-none transition-all duration-micro hover:border-brand/40"
-          aria-label="选择模型"
-          @change="selectModel(currentModel)"
-        >
-          <option v-for="m in models" :key="m.id" :value="m.id">{{ m.name }}</option>
-        </select>
-      </BaseCard>
+      <!-- 头部：右上角紧凑模型选择（M17.6：删标题/契约文案，宽度 1/3、高度压缩） -->
+      <div class="flex shrink-0 justify-end">
+        <BaseCard class="!rounded-full !p-1">
+          <select
+            v-model="currentModel"
+            class="h-8 max-w-[220px] cursor-pointer rounded-full border-0 bg-transparent px-3 text-[11px] text-ink-1 outline-none transition-all duration-micro hover:text-ink-0"
+            aria-label="选择模型"
+            @change="selectModel(currentModel)"
+          >
+            <option v-for="m in models" :key="m.id" :value="m.id">{{ m.name }}</option>
+          </select>
+        </BaseCard>
+      </div>
 
       <div ref="listEl" class="stagger flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
         <div
-          v-if="!messages.length"
+          v-if="!displayMessages.length"
           class="flex flex-1 flex-col items-center justify-center gap-2 text-center text-ink-2"
         >
           <Bot :size="26" class="opacity-60" />
@@ -100,7 +124,7 @@ function toolCmd(args?: Record<string, unknown>): string {
         </div>
 
         <div
-          v-for="m in messages"
+          v-for="m in displayMessages"
           :key="m.id"
           class="flex gap-2.5"
           :class="m.role === 'user' ? 'flex-row-reverse' : ''"
@@ -113,16 +137,33 @@ function toolCmd(args?: Record<string, unknown>): string {
             <Bot v-else :size="15" />
           </span>
           <div class="max-w-[78%] space-y-2">
+            <img
+              v-if="m.image"
+              :src="m.image"
+              alt="截屏"
+              class="max-h-44 rounded-xl border border-line"
+            />
             <p
-              v-if="!m.blocks.length && sending"
+              v-if="!m.blocks.length && m.role === 'assistant' && sending"
               class="rounded-2xl rounded-tl-md glass-panel px-3.5 py-2.5 text-sm text-ink-2"
             >
               …
             </p>
 
-            <template v-for="(b, i) in m.blocks" :key="i">
+            <template v-for="(seg, i) in segmentsOf(m)" :key="i">
+              <!-- 截屏修改消息（M17.5）：插件信息小字 + 指令气泡分层 -->
+              <template v-if="seg.kind === 'text' && seg.text && m.role === 'user' && parseShotMsg(seg.text)">
+                <p class="truncate text-right text-[10px] font-mono text-ink-2">
+                  {{ parseShotMsg(seg.text)?.meta }}
+                </p>
+                <div
+                  class="rounded-2xl rounded-tr-md bg-gradient-to-r from-brand to-brand-cyan px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap text-white"
+                >
+                  {{ parseShotMsg(seg.text)?.body }}
+                </div>
+              </template>
               <div
-                v-if="textOf(b)"
+                v-else-if="seg.kind === 'text' && seg.text"
                 class="rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap"
                 :class="
                   m.role === 'user'
@@ -130,20 +171,9 @@ function toolCmd(args?: Record<string, unknown>): string {
                     : 'rounded-tl-md glass-panel text-ink-0'
                 "
               >
-                {{ textOf(b) }}
+                {{ seg.text }}
               </div>
-              <BaseCard
-                v-else-if="toolOf(b)"
-                class="!rounded-xl !p-3 text-xs"
-              >
-                <p class="flex items-center gap-1.5 font-medium text-warn">
-                  <Wrench :size="13" /> 工具调用 · {{ toolOf(b)?.name }}
-                </p>
-                <p class="mt-2 flex items-center gap-1.5 rounded-lg bg-bg-0 px-2.5 py-1.5 font-mono text-ink-1">
-                  <SquareTerminal :size="13" class="text-brand-cyan" /> $ {{ toolCmd(toolOf(b)?.args) }}
-                </p>
-                <p class="mt-1.5 font-mono whitespace-pre-wrap break-all text-ink-2">{{ toolOf(b)?.result }}</p>
-              </BaseCard>
+              <ToolGroup v-else-if="seg.kind === 'tools'" :tools="seg.tools" />
             </template>
 
             <p v-if="m.stopped" class="text-right text-[11px] text-ink-2">已终止</p>

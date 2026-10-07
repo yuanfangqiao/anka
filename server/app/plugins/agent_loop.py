@@ -60,7 +60,7 @@ class AgentLoop(Service):
         super().__init__(ctx, 'agents')
 
     def run(self, user_input, max_turns=100, on_event=None, model='default',
-            system=None, history=None, cancel=None):
+            system=None, history=None, cancel=None, image=None):
         emit = on_event or (lambda _ev: None)
         messages = []
         if system is None:
@@ -70,7 +70,15 @@ class AgentLoop(Service):
         for m in (history or []):
             if m.get('role') != 'system':      # system 由本轮重新注入，避免重复
                 messages.append(m)
-        messages.append({'role': 'user', 'content': user_input})
+        # M17：截屏修改 —— 附带截图时走 OpenAI vision 消息格式（content 数组）
+        if image:
+            content = [
+                {'type': 'text', 'text': user_input},
+                {'type': 'image_url', 'image_url': {'url': image}},
+            ]
+        else:
+            content = user_input
+        messages.append({'role': 'user', 'content': content})
 
         def cancelled() -> bool:
             return cancel is not None and cancel.is_set()
@@ -84,6 +92,8 @@ class AgentLoop(Service):
             text_parts = []
             tool_calls = []
             stopped = False
+            # M17：过程可视化 —— 显式「思考中」相位事件（供前端过程面板）
+            emit({'type': 'status', 'phase': 'thinking', 'turn': turn + 1})
 
             for chunk in self.ctx.llm.stream(messages, model=model, tools=tools):
                 if cancelled():

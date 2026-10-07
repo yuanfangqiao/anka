@@ -71,6 +71,23 @@ class ChatRequest(BaseModel):
     model: str = 'default'
     max_turns: int = 100              # 插件开发类任务需要多轮工具调用（M16：5→20→100）
     session_id: str | None = None     # M15：多会话（缺省则新建）
+    image: str | None = None          # M17：截屏修改（data URL，随首条用户消息发给视觉模型）
+
+
+class ChatStarted(BaseModel):
+    """POST /api/chat 的响应（M17）：run 已启动，事件走 /api/runs/{id}/stream"""
+    run_id: str
+    session_id: str
+
+
+class RunInfo(BaseModel):
+    """GET /api/runs —— run 摘要（活动 run 可供页面刷新后重挂）"""
+    id: str
+    session_id: str
+    preview: str
+    model: str
+    active: bool
+    created_at: float
 
 
 class SessionSummary(BaseModel):
@@ -86,6 +103,7 @@ class ChatMessage(BaseModel):
     role: str
     text: str = ''
     tools: list[dict] = []
+    image: str | None = None          # M17：用户消息附带的截屏（data URL）
 
 
 class SessionDetail(BaseModel):
