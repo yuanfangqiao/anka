@@ -113,3 +113,23 @@ export async function cropRegion(shot: ScreenShot, rect: Region): Promise<string
   ctx.drawImage(img, cx, cy, cw, ch, 0, 0, cw, ch)
   return canvas.toDataURL('image/jpeg', 0.85)
 }
+
+/** 粘贴/拖入的图片压缩：宽度超限时按比例缩到 maxW（JPEG 重编码控体积）。 */
+export async function downscaleImage(dataUrl: string, maxW = 1600, quality = 0.85): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      if (img.width <= maxW) return resolve(dataUrl)
+      const canvas = document.createElement('canvas')
+      canvas.width = maxW
+      canvas.height = Math.max(1, Math.round((img.height / img.width) * maxW))
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return resolve(dataUrl)
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      resolve(canvas.toDataURL('image/jpeg', quality))
+    }
+    img.onerror = () => resolve(dataUrl)
+    img.src = dataUrl
+  })
+}
+

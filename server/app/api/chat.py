@@ -44,7 +44,7 @@ async def chat(req: ChatRequest) -> ChatStarted:
             history = session_log.derive_messages(session_id)
             agents.run(req.message, max_turns=req.max_turns, on_event=run.emit,
                        model=model, history=history, cancel=run.cancel,
-                       image=req.image)
+                       images=req.images)
         except Exception as e:  # 内核异常必须转成事件，不能让客户端干等
             run.emit({'type': 'error', 'content': str(e)})
         finally:

@@ -60,7 +60,7 @@ class AgentLoop(Service):
         super().__init__(ctx, 'agents')
 
     def run(self, user_input, max_turns=100, on_event=None, model='default',
-            system=None, history=None, cancel=None, image=None):
+            system=None, history=None, cancel=None, images=None):
         emit = on_event or (lambda _ev: None)
         messages = []
         if system is None:
@@ -70,12 +70,11 @@ class AgentLoop(Service):
         for m in (history or []):
             if m.get('role') != 'system':      # system 由本轮重新注入，避免重复
                 messages.append(m)
-        # M17：截屏修改 —— 附带截图时走 OpenAI vision 消息格式（content 数组）
-        if image:
-            content = [
-                {'type': 'text', 'text': user_input},
-                {'type': 'image_url', 'image_url': {'url': image}},
-            ]
+        # M17.9：图片输入（支持多张）—— 走 OpenAI vision 消息格式（content 数组）
+        if images:
+            content: list | str = [{'type': 'text', 'text': user_input}]
+            content += [{'type': 'image_url', 'image_url': {'url': img}}
+                        for img in images]
         else:
             content = user_input
         messages.append({'role': 'user', 'content': content})

@@ -2,6 +2,25 @@
 
 记录每次核心修改。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，最新在上。
 
+## [M17.9] 图片输入支持多张 · 2026-10-09
+
+- 全链路多图：粘贴多图/「+」号多选（file input multiple）→ 预览条多缩略图（逐张移除）
+  → `ChatRequest.images: list` → `agent_loop.run(images=)` vision content 数组多 image_url
+  → 会话日志权威记录多图、投影 `SessionMessage.images`、气泡多缩略图渲染；
+  截屏修改/创造模式同步适配数组签名；实测双图粘贴发送、vision 请求含 2 张 image_url
+
+## [M17.8] 对话输入框「+」号添加图片（双端）· 2026-10-09
+
+- 输入框左侧新增「+」附件按钮：唤起系统文件选择器（accept=image/*，移动端 = 相册/相机），
+  选中即进粘贴共用的预览条 → downscaleImage 压缩 → vision 链路发送；
+  隐藏 file input，选中后重置 value（可连续选同一文件）；桌面 + 移动双端实测
+
+## [M17.7] 对话输入框支持粘贴图片 · 2026-10-08
+
+- 输入框 `@paste` 捕获剪贴板图片 → downscaleImage 压缩（宽 ≤1600 JPEG 重编码）→
+  预览条（缩略图 + 移除）→ 随下一条消息走既有 vision 链路（与截屏修改同管线）；
+  placeholder 动态切换、有图即可发送、空文案兜底「请根据这张图片进行修改」
+
 ## [M17.6] 对话页头部精简 · 2026-10-08
 
 - 删除「Agent 对话」标题与「inject: llm, tools · provide: agents」契约文案；头部改为

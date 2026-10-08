@@ -169,17 +169,17 @@ def derive_messages(session_id: str) -> list:
     return messages
 
 
-def _split_content(content) -> tuple[str, str | None]:
-    """OpenAI content 兼容拆解：纯文本原样返回；vision 数组拆出文本与首图。"""
+def _split_content(content) -> tuple[str, list]:
+    """OpenAI content 兼容拆解：纯文本原样返回；vision 数组拆出文本与全部图片。"""
     if isinstance(content, list):
         text = ' '.join(str(p.get('text', ''))
                         for p in content
                         if isinstance(p, dict) and p.get('type') == 'text').strip()
-        image = next((p.get('image_url', {}).get('url')
-                      for p in content
-                      if isinstance(p, dict) and p.get('type') == 'image_url'), None)
-        return text, image
-    return (content or ''), None
+        images = [p.get('image_url', {}).get('url')
+                  for p in content
+                  if isinstance(p, dict) and p.get('type') == 'image_url']
+        return text, [i for i in images if i]
+    return (content or ''), []
 
 
 def _project(messages: list) -> list:
@@ -189,10 +189,10 @@ def _project(messages: list) -> list:
     for m in messages:
         role = m.get('role')
         if role == 'user':
-            text, image = _split_content(m.get('content'))
+            text, images = _split_content(m.get('content'))
             entry = {'role': 'user', 'text': text}
-            if image:
-                entry['image'] = image
+            if images:
+                entry['images'] = images
             ui.append(entry)
         elif role == 'assistant':
             entry = {'role': 'assistant', 'text': m.get('content') or '', 'tools': []}

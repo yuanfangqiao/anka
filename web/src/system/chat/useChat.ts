@@ -24,7 +24,7 @@ export interface ChatMsg {
   id: number
   role: 'user' | 'assistant'
   blocks: Block[]
-  image?: string | null
+  images?: string[]       // M17.9：用户消息附带图片（支持多张，vision）
   stopped?: boolean
   error?: boolean
 }
@@ -91,7 +91,7 @@ function toMsg(m: SessionMessage): ChatMsg {
     id: nextId(),
     role: m.role === 'user' ? 'user' : 'assistant',
     blocks,
-    image: m.image ?? null,
+    images: m.images ?? [],
   }
 }
 
@@ -322,24 +322,25 @@ async function restoreRuns() {
 
 // ─── 发送与终止 ─────────────────────────────────────────────
 
-async function send(text: string, image?: string) {
+async function send(text: string, images?: string[]) {
   const msg = text.trim()
-  if ((!msg && !image) || sending.value) return
+  const pics = images ?? []
+  if ((!msg && !pics.length) || sending.value) return
 
   messages.value.push({
     id: nextId(), role: 'user',
     blocks: msg ? [{ kind: 'text', text: msg }] : [],
-    image: image ?? null,
+    images: pics,
   })
   bump()
 
   pending.value = true
   try {
     const started = await api.startChat({
-      message: msg || '请根据这张截图进行修改',
+      message: msg || '请根据这些图片进行修改',
       model: currentModel.value || undefined,
       session_id: activeSessionId.value || undefined,
-      image,
+      images: pics.length ? pics : undefined,
     })
     activeSessionId.value = started.session_id
     const run = newRunView(started.run_id, started.session_id, msg)

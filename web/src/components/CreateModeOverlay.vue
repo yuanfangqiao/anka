@@ -109,9 +109,9 @@ async function submit() {
   busy.value = true
   try {
     const sel = selection.value
-    let image: string | undefined
+    let images: string[] | undefined
     if (shot.value) {
-      image = sel ? await cropRegion(shot.value, sel) : shot.value.dataUrl
+      images = [sel ? await cropRegion(shot.value, sel) : shot.value.dataUrl]
     }
     const loc = sel
       ? `选区(${Math.round(sel.x)},${Math.round(sel.y)},${Math.round(sel.w)}×${Math.round(sel.h)})`
@@ -123,7 +123,7 @@ async function submit() {
       ? `插件 ${app.id}（${app.title}）· 文件根目录 plugins/${app.id}/`
       : `界面 ${route.path}（非 app 插件——如需修改请先让 Agent 做成 plugins/ 下的应用插件）`
     const msg = `[截屏修改 · ${target} · ${loc}] ${text}`
-    send(msg, image)
+    send(msg, images)
     draft.value = ''
     close()
     if (route.path !== '/chat') router.push('/chat')

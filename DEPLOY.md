@@ -26,7 +26,7 @@ rsync -avz \
   --exclude node_modules --exclude .venv --exclude reference \
   --exclude 'plugins/quickdraw/apps' --exclude 'plugins/quickdraw/packages' \
   --exclude 'plugins/quickdraw/examples' --exclude 'plugins/quickdraw-0.1.3.tar.gz' \
-  ./ ubuntu@106.55.101.165:/home/ubuntu/anka
+  ./ ubuntu@106.55.121.165:/home/ubuntu/anka
 ```
 
 注意 rsync **不受 gitignore 影响**，`web/dist` 和 `.plugin-dist` 会带上（这正是不能纯 git 部署的原因）。

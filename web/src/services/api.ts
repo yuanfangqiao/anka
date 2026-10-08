@@ -91,7 +91,7 @@ export interface SessionMessage {
   role: string
   text: string
   tools: ToolCard[]
-  image?: string | null      // M17：用户消息附带的截屏（data URL）
+  images?: string[]          // M17.9：用户消息附带的图片（data URL，支持多张）
 }
 
 export interface SessionDetail {
@@ -196,7 +196,7 @@ export const api = {
     message: string
     model?: string
     session_id?: string
-    image?: string
+    images?: string[]
   }) =>
     request<ChatStarted>('/api/chat', {
       method: 'POST',
