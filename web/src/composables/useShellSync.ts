@@ -10,6 +10,7 @@ import { ref } from 'vue'
 import { api } from '../services/api'
 import { syncInstalled, unloadApp } from '../services/pluginHost'
 import { useChat } from '../system/chat/useChat'
+import { reloadHomeApp } from '../system/settings/useHomeApp'
 
 /** 壳层配置共享态（/api/config；settings 变更后重拉，DockBar 等消费） */
 export const shellConfig = ref<Record<string, number>>({})
@@ -55,6 +56,7 @@ function onEvent(msg: ShellEvent) {
   } else if (msg.type === 'settings-changed') {
     void refreshConfig()
     void loadModels()
+    void reloadHomeApp()          // M17.12：首页偏好与其他终端同步
   }
 }
 

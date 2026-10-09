@@ -122,9 +122,11 @@ class ModelInfo(BaseModel):
 
 
 class SettingsPayload(BaseModel):
-    """POST /api/settings —— 只写：api_key 或 default_model"""
+    """POST /api/settings —— 只写：api_key / default_model / home_app"""
     api_key: str | None = None
     default_model: str | None = None
+    # M17.12：首页应用 id；'' = 清除偏好（跟随默认）
+    home_app: str | None = None
 
 
 class SettingsView(BaseModel):
@@ -134,6 +136,8 @@ class SettingsView(BaseModel):
     base_url: str
     has_key: bool
     api_key_masked: str | None = None
+    # M17.12：首页应用 id（未设置时为 None）
+    home_app: str | None = None
 
 
 class ErrorBody(BaseModel):

@@ -2,6 +2,30 @@
 
 记录每次核心修改。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，最新在上。
 
+## [M17.12] 首页设置：自选启动应用 · 2026-10-10
+
+**背景**：打开 PWA 默认硬编码跳「对话」，无法把笔记/游戏等应用插件设为第一入口。
+
+### 新增
+- **首页设置面板**（控制台 · 通用 · 首页，`system/settings/sections/HomeSection.vue`）：
+  列出全部 dock 应用（系统应用 + 已安装应用插件）单选，含「默认」清除项；
+  点击即存（乐观切换 + 失败回滚 + toast），无确认按钮
+- **首页偏好存储**：后端 `data/settings.json` 的 `home_app` 字段，走既有
+  `GET/POST /api/settings`；改动经 M17.10 的 `settings-changed` WS 广播，各终端即时同步
+- **启动解析**（EmptyHome）：偏好应用 → 对话 → 首个 dock 应用 → 停留空态页；
+  偏好指向已卸载应用时提示一次并回退，不会卡在空页
+
+### 变更
+- `registry` 导出 `byId`，消除 EmptyHome / TopBar 等处散落的 `apps.find`
+- `SettingsPayload`/`SettingsView` 只增不改加 `home_app`；POST 的 default_model 与
+  home_app 合并为**一次 read-modify-write**（save_user_settings 覆盖整文件，分次写会互相踩掉）
+- `useShellSync` 的 settings-changed 分支补「重载首页偏好」
+
+### 验证
+- 双端：桌面选「俄罗斯方块」→ `/` 跳 `/tetris`；恢复默认 → `/chat`；
+  偏好指向不存在应用 → 警告 + 回退 `/chat`；移动端钻取选「clock」→ `/app/clock`
+- settings.json 写入后 `default_model` 完好；控制台 0 报错
+
 ## [M17.11] 控制台 master-detail 化 · 插件管理并入设置 · 2026-10-10
 
 **背景**：设置项将增多（用户/Agent/MCP/Skills…），Tab 分段不扩展；插件管理也不该是独立子页。

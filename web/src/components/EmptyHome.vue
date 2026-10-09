@@ -3,13 +3,28 @@ import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Blocks, Sparkles } from 'lucide-vue-next'
 import BaseButton from './ui/BaseButton.vue'
+import { useToast } from '../composables/useToast'
 import { registry } from '../registry/appRegistry'
+import { ensureHomeApp, homeApp } from '../system/settings/useHomeApp'
 
 const router = useRouter()
+const { warn } = useToast()
 
-// 装了应用插件 → 跳到主应用「对话」；
-// 只剩系统插件（空系统）→ 停留本空态页
-onMounted(() => {
+// M17.12：启动跳转 —— 按首页偏好解析，回退链：
+// 偏好应用（仍注册且在 dock）→ 对话 → 首个 dock 应用 → 停留本空态页。
+// 未设置偏好时沿用原逻辑：装了应用插件才跳，只剩系统插件则停留空态引导。
+onMounted(async () => {
+  await ensureHomeApp()
+  const preferredId = homeApp.value
+  if (preferredId) {
+    const app = registry.byId(preferredId)
+    if (app?.inDock) {
+      // route 可能带可选参数（/settings/:section?），剥掉参数段只留具体路径
+      router.replace(app.route.replace(/\/:.*$/, ''))
+      return
+    }
+    warn(`首页应用「${preferredId}」已不可用，已回到对话`)
+  }
   if (registry.firstUserApp.value) {
     const chat = registry.apps.find((a) => a.id === 'chat')
     router.replace(chat?.route ?? registry.dockApps.value[0]?.route ?? '/chat')

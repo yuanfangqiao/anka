@@ -67,6 +67,8 @@ export interface SettingsView {
   base_url: string
   has_key: boolean
   api_key_masked?: string | null
+  /** M17.12：首页应用 id（未设置时为 undefined/null） */
+  home_app?: string | null
 }
 
 export interface ConnectionTest {
@@ -176,7 +178,7 @@ export const api = {
     }),
   // M13：TokenHub 模型服务
   settings: () => request<SettingsView>('/api/settings'),
-  saveSettings: (payload: { api_key?: string; default_model?: string }) =>
+  saveSettings: (payload: { api_key?: string; default_model?: string; home_app?: string }) =>
     request<SettingsView>('/api/settings', {
       method: 'POST',
       body: JSON.stringify(payload),

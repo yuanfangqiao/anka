@@ -72,4 +72,6 @@ export const registry = {
   addApp,
   removeApp,
   resolveIcon,
+  /** M17.12：按 id 查找已注册应用（消除各调用方散落的 apps.find） */
+  byId: (id: string) => apps.find((a) => a.id === id),
 }
