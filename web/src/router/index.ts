@@ -13,6 +13,8 @@ const routes: RouteRecordRaw[] = [
     // 空态首页也是整页内容，不套空 TopBar
     meta: { title: '首页', fullscreen: true },
   },
+  // M17.11：插件管理已并入控制台，旧路由重定向
+  { path: '/plugins-manager', redirect: '/settings/plugins' },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]
 

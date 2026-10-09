@@ -5,7 +5,6 @@ import { createAppRouter } from './router'
 import { createUiCtx } from './registry/uiCtx'
 import { syncAppPlugins } from './services/pluginHost'
 import { setup as setupChat } from './system/chat'
-import { setup as setupPluginsManager } from './system/plugins-manager'
 import { setup as setupSettings } from './system/settings'
 import { notifySwUpdate, setSwApplyer, startUpdateWatch } from './system/useAppUpdate'
 import './styles/tokens.css'
@@ -80,7 +79,6 @@ async function bootstrap() {
 
   // 系统插件（静态捆入）与应用插件（动态 import）走同一 uiCtx
   setupChat(uiCtx)
-  setupPluginsManager(uiCtx)
   setupSettings(uiCtx)
   await syncAppPlugins(uiCtx)
 

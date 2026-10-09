@@ -65,43 +65,53 @@ export function useAppUpdate() {
 }
 
 let started = false
+let primed = false
+let baseApi: string | null = null
+
+/**
+ * 执行一次版本巡检，返回是否发现更新。
+ * ① front_build ≠ 本页构建号 → 前端已重新部署 → 走 SW 更新流程
+ * ② api_build 相对页面加载基线变化 → 仅后端重新部署 → 提示整页刷新
+ */
+async function runCheck(): Promise<boolean> {
+  try {
+    const h = await api.health()
+    if (!primed) {
+      primed = true
+      baseApi = h.api_build ?? null
+    }
+    if (h.front_build && h.front_build !== selfBuild) {
+      notify('front', () => applySwUpdate())
+      return true
+    }
+    if (baseApi && h.api_build && h.api_build !== baseApi) {
+      notify('backend', () => location.reload())
+      return true
+    }
+    return false
+  } catch (e) {
+    // 网络异常静默，下轮重试
+    console.error('[update-watch]', e)
+    return false
+  }
+}
+
+/** 「客户端 · 检查更新」按钮：立即巡检一次（M17.11） */
+export function checkForUpdatesNow(): Promise<boolean> {
+  return runCheck()
+}
 
 /**
  * 版本巡检（单例）：与 SW 的 update() 互补。
- * 切回前台 + 定时两个时机拉 /api/health：
- * ① front_build ≠ 本页构建号 → 前端已重新部署 → 走 SW 更新流程
- * ② api_build 相对页面加载基线变化 → 仅后端重新部署 → 提示整页刷新
+ * 切回前台 + 定时两个时机拉 /api/health 比对版本戳。
  */
 export function startUpdateWatch(intervalMs = 60_000) {
   if (started) return
   started = true
 
-  let primed = false
-  let baseApi: string | null = null
-
-  const check = async () => {
-    try {
-      const h = await api.health()
-      if (!primed) {
-        primed = true
-        baseApi = h.api_build ?? null
-      }
-      if (h.front_build && h.front_build !== selfBuild) {
-        notify('front', () => applySwUpdate())
-        return
-      }
-      if (baseApi && h.api_build && h.api_build !== baseApi) {
-        notify('backend', () => location.reload())
-      }
-    } catch (e) {
-      // 网络异常静默，下轮重试
-      console.error('[update-watch]', e)
-    }
-  }
-
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') void check()
+    if (document.visibilityState === 'visible') void runCheck()
   })
-  window.setInterval(() => void check(), intervalMs)
-  void check()
+  window.setInterval(() => void runCheck(), intervalMs)
+  void runCheck()
 }

@@ -31,7 +31,7 @@ onMounted(() => {
         系统现在只有内核和系统插件。去插件管理安装应用，让系统「长」出来。
       </p>
     </div>
-    <BaseButton @click="router.push('/plugins-manager')">
+    <BaseButton @click="router.push('/settings/plugins')">
       <Blocks :size="15" /> 浏览插件
     </BaseButton>
     <p class="flex items-center gap-1.5 text-[11px] text-ink-2">

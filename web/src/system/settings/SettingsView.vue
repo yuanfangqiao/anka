@@ -1,201 +1,169 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { Blocks, Download, Info, Key, Moon, Sun, Waves, Zap } from 'lucide-vue-next'
-import AppFrame from '../../components/AppFrame.vue'
-import BaseCard from '../../components/ui/BaseCard.vue'
-import BaseSwitch from '../../components/ui/BaseSwitch.vue'
-import { useTheme } from '../../composables/useTheme'
+/**
+ * M17.11：控制台 —— master-detail 容器。
+ * - 桌面：左侧一级菜单（分组侧栏）+ 右侧二级内容
+ * - 移动：一级整页菜单 → iOS 钻取二级（自带返回，壳层 chrome 不参与）
+ * - URL 即事实源：/settings/:section?，深链/刷新直达；桌面裸 /settings 重定向默认项
+ */
+import { computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import ThemeToggle from '../../components/ThemeToggle.vue'
 import { useBreakpoint } from '../../composables/useBreakpoint'
-import { api } from '../../services/api'
+import { DEFAULT_SECTION, SETTINGS_SECTIONS, findSection, type SettingsSection } from './sections'
 
+const route = useRoute()
 const router = useRouter()
-const { theme, setTheme } = useTheme()
 const { isMobile } = useBreakpoint()
 
-const dark = computed({
-  get: () => theme.value === 'dark',
-  set: (v: boolean) => setTheme(v ? 'dark' : 'light'),
+const sectionParam = computed(() => {
+  const p = route.params.section
+  return (Array.isArray(p) ? p[0] : p) || ''
 })
+const active = computed(() => findSection(sectionParam.value))
 
-const standalone = ref(false)
-
-// ─── M13 TokenHub 模型服务 ───
-const keyInput = ref('')
-const keyMasked = ref<string | null>(null)
-const hasKey = ref(false)
-const testing = ref(false)
-const testResult = ref('')
-
-onMounted(async () => {
-  standalone.value =
-    window.matchMedia('(display-mode: standalone)').matches ||
-    (navigator as unknown as { standalone?: boolean }).standalone === true
-  try {
-    const s = await api.settings()
-    hasKey.value = s.has_key
-    keyMasked.value = s.api_key_masked ?? null
-  } catch { /* 后端未连接 */ }
-})
-
-async function saveKey() {
-  const v = keyInput.value.trim()
-  if (!v) return
-  try {
-    const s = await api.saveSettings({ api_key: v })
-    hasKey.value = s.has_key
-    keyMasked.value = s.api_key_masked ?? null
-    keyInput.value = ''
-  } catch (e) {
-    alert(`保存失败：${(e as Error).message}`)
+// 非法 section 回菜单；桌面裸 /settings 落默认项
+onMounted(normalize)
+watch([sectionParam, isMobile], normalize)
+function normalize() {
+  if (!sectionParam.value) {
+    if (!isMobile.value) router.replace(`/settings/${DEFAULT_SECTION}`)
+  } else if (!active.value) {
+    router.replace('/settings')
   }
 }
 
-async function testConn() {
-  testing.value = true
-  testResult.value = ''
-  try {
-    const r = await api.testConnection()
-    testResult.value = r.ok
-      ? `连接成功 · ${r.model ?? ''}${r.sample ? ' · ' + r.sample : ''}`
-      : `失败：${r.error}`
-  } catch (e) {
-    testResult.value = `失败：${(e as Error).message}`
-  } finally {
-    testing.value = false
-  }
+function select(id: string) {
+  router.push(`/settings/${id}`)
 }
+function back() {
+  router.push('/settings')
+}
+
+const groups = computed(() => {
+  const out: { name: string; items: SettingsSection[] }[] = []
+  for (const s of SETTINGS_SECTIONS) {
+    const g = out.find((x) => x.name === s.group)
+    if (g) g.items.push(s)
+    else out.push({ name: s.group, items: [s] })
+  }
+  return out
+})
+
+const sectionProps = (s: SettingsSection) => (s.id === 'plugins' ? { bare: true } : {})
 </script>
 
 <template>
-  <AppFrame>
-    <div class="flex flex-col gap-4 pb-2">
-      <header class="pt-2">
-        <h1 class="text-[30px] font-bold tracking-tight">控制台</h1>
-        <p class="mt-1 text-sm text-ink-2">外观、安装状态与关于</p>
-      </header>
-
-      <section class="space-y-2">
-        <p class="px-1 text-xs font-medium text-ink-2">外观</p>
-        <BaseCard class="flex items-center gap-3 !p-4">
-          <span class="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand/15 text-brand">
-            <Moon v-if="dark" :size="18" />
-            <Sun v-else :size="18" />
-          </span>
-          <div class="flex-1">
-            <p class="text-sm font-medium">暗色主题</p>
-            <p class="mt-0.5 text-[11px] text-ink-2">暗色优先的玻璃拟态，亮色为备选</p>
-          </div>
-          <BaseSwitch v-model="dark" />
-        </BaseCard>
-        <BaseCard class="flex items-center gap-3 !p-4 opacity-60">
-          <span class="flex h-10 w-10 items-center justify-center rounded-2xl bg-bg-2 text-ink-1">
-            <Waves :size="18" />
-          </span>
-          <div class="flex-1">
-            <p class="text-sm font-medium">外观密度</p>
-            <p class="mt-0.5 text-[11px] text-ink-2">紧凑 / 舒适 —— 后续版本提供</p>
-          </div>
-        </BaseCard>
-      </section>
-
-      <section class="space-y-2">
-        <p class="px-1 text-xs font-medium text-ink-2">管理</p>
-        <BaseCard
-          class="flex cursor-pointer items-center gap-3 !p-4 transition-all duration-micro hover:border-brand/30"
-          @click="router.push('/plugins-manager')"
-        >
-          <span class="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-cyan/15 text-brand-cyan">
-            <Blocks :size="18" />
-          </span>
-          <div class="flex-1">
-            <p class="text-sm font-medium">插件管理</p>
-            <p class="mt-0.5 text-[11px] text-ink-2">查看依赖、热启停、安装与卸载</p>
-          </div>
-          <span class="text-ink-2">›</span>
-        </BaseCard>
-      </section>
-
-      <section class="space-y-2">
-        <p class="px-1 text-xs font-medium text-ink-2">模型服务</p>
-        <BaseCard class="!p-4">
-          <div class="flex items-center gap-3">
-            <span class="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand/15 text-brand">
-              <Key :size="18" />
-            </span>
-            <div class="flex-1">
-              <p class="text-sm font-medium">TokenHub API Key</p>
-              <p class="mt-0.5 text-[11px] text-ink-2">
-                {{ hasKey ? `已配置（${keyMasked}）· 只写存储，不回读` : '尚未配置 · 填入 sk-tp- 开头的密钥' }}
-              </p>
-            </div>
-          </div>
-          <div class="mt-3 flex items-center gap-2">
-            <input
-              v-model="keyInput"
-              type="password"
-              autocomplete="off"
-              placeholder="sk-tp-…"
-              class="h-9 flex-1 rounded-xl border border-line bg-bg-0 px-3 text-sm text-ink-0 outline-none focus:border-brand/50"
-            />
-            <button
-              type="button"
-              :disabled="!keyInput.trim()"
-              class="h-9 rounded-xl bg-gradient-to-r from-brand to-brand-cyan px-4 text-sm font-medium text-white shadow-glow transition-all duration-micro hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
-              @click="saveKey"
-            >保存</button>
-          </div>
-          <div class="mt-3 flex items-center gap-2">
-            <button
-              type="button"
-              :disabled="testing"
-              class="flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-line bg-glass px-4 text-sm text-ink-1 transition-all duration-micro hover:border-brand/40 disabled:opacity-50"
-              @click="testConn"
-            >
-              <Zap :size="14" class="text-brand-cyan" /> {{ testing ? '测试中…' : '连通性测试' }}
-            </button>
-            <span v-if="testResult" class="min-w-0 truncate text-[11px] text-ink-2">{{ testResult }}</span>
-          </div>
-        </BaseCard>
-      </section>
-
-      <section class="space-y-2">
-        <p class="px-1 text-xs font-medium text-ink-2">PWA</p>
-        <BaseCard class="flex items-center gap-3 !p-4">
-          <span class="flex h-10 w-10 items-center justify-center rounded-2xl bg-ok/15 text-ok">
-            <Download :size="18" />
-          </span>
-          <div class="flex-1">
-            <p class="text-sm font-medium">安装状态</p>
-            <p class="mt-0.5 text-[11px] text-ink-2">
-              {{ standalone ? '已安装为独立应用' : '浏览器访问中——可从地址栏安装到桌面/主屏幕' }}
-            </p>
-          </div>
-          <span
-            class="rounded-full px-2.5 py-1 text-[11px]"
-            :class="standalone ? 'bg-ok/15 text-ok' : 'bg-warn/15 text-warn'"
+  <div class="mx-auto w-full max-w-5xl px-4 pb-6">
+    <!-- ═══ 桌面：侧栏 + 内容 ═══ -->
+    <div v-if="!isMobile" class="flex gap-6">
+      <aside class="w-60 shrink-0">
+        <h1 class="px-3 pt-2 text-[26px] font-bold tracking-tight">控制台</h1>
+        <p class="mb-2 mt-1 px-3 text-xs text-ink-2">外观、账号、服务与集成</p>
+        <div v-for="g in groups" :key="g.name" class="mt-4">
+          <p v-if="g.name" class="px-3 pb-1.5 text-[11px] font-medium tracking-wide text-ink-2">{{ g.name }}</p>
+          <button
+            v-for="s in g.items"
+            :key="s.id"
+            type="button"
+            class="flex h-[38px] w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 text-left text-[13.5px] transition-all duration-micro"
+            :class="active?.id === s.id
+              ? 'bg-brand/15 font-medium text-ink-0 shadow-[inset_0_0_0_1px_rgba(99,102,241,0.25)]'
+              : 'text-ink-1 hover:bg-glass hover:text-ink-0'"
+            @click="select(s.id)"
           >
-            {{ standalone ? '已安装' : '未安装' }}
-          </span>
-        </BaseCard>
-      </section>
+            <span
+              class="flex h-[26px] w-[26px] items-center justify-center rounded-lg"
+              :class="active?.id === s.id
+                ? 'bg-gradient-to-br from-brand to-brand-cyan text-white'
+                : 'bg-bg-2 text-ink-1'"
+            >
+              <component :is="s.icon" :size="14" />
+            </span>
+            {{ s.title }}
+          </button>
+        </div>
+      </aside>
 
-      <section class="space-y-2">
-        <p class="px-1 text-xs font-medium text-ink-2">关于</p>
-        <BaseCard class="!p-4">
-          <div class="flex items-center gap-3">
-            <span class="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-brand to-brand-cyan font-bold text-white shadow-glow">A</span>
-            <div>
-              <p class="text-sm font-semibold">Anka</p>
-              <p class="mt-0.5 text-[11px] text-ink-2">v0.1.0 · M1 双布局壳 + PWA</p>
-            </div>
+      <main v-if="active" class="min-w-0 flex-1">
+        <header class="flex items-start justify-between gap-3 pt-2">
+          <div>
+            <h2 class="text-[22px] font-bold tracking-tight">{{ active.title }}</h2>
+            <p class="mt-0.5 text-xs text-ink-2">{{ active.desc }}</p>
           </div>
-          <p class="mt-3 flex items-start gap-2 text-[12px] leading-relaxed text-ink-1">
-            <Info :size="13" class="mt-0.5 shrink-0 text-brand" />
-            一切皆插件的 Agent 演示：后端 cordis 内核（Service 仓库 / inject 拓扑 / 五种事件分发 / 可逆副作用），前端应用注册表驱动的双布局壳。
-          </p>
-        </BaseCard>
-      </section>
+          <ThemeToggle />
+        </header>
+        <div class="mt-4">
+          <component :is="active.component" v-bind="sectionProps(active)" />
+        </div>
+      </main>
     </div>
-  </AppFrame>
+
+    <!-- ═══ 移动端：菜单 ↔ 钻取 ═══ -->
+    <Transition v-else name="page" mode="out-in">
+      <div v-if="!active" key="menu" class="pt-2">
+        <header class="flex items-start justify-between gap-3">
+          <div>
+            <h1 class="text-[30px] font-bold tracking-tight">控制台</h1>
+            <p class="mt-1 text-sm text-ink-2">外观、账号、服务与集成</p>
+          </div>
+          <ThemeToggle class="mt-1.5" />
+        </header>
+        <div v-for="g in groups" :key="g.name" class="mt-5">
+          <p v-if="g.name" class="px-1 pb-2 text-xs font-medium text-ink-2">{{ g.name }}</p>
+          <div class="overflow-hidden rounded-2xl border border-line bg-glass">
+            <button
+              v-for="(s, i) in g.items"
+              :key="s.id"
+              type="button"
+              class="flex h-12 w-full cursor-pointer items-center gap-3 px-3.5 text-left text-[14.5px] text-ink-0 transition-colors duration-micro active:bg-bg-2"
+              :class="i > 0 ? 'border-t border-line' : ''"
+              @click="select(s.id)"
+            >
+              <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-bg-2 text-ink-1">
+                <component :is="s.icon" :size="16" />
+              </span>
+              {{ s.title }}
+              <ChevronRight :size="15" class="ml-auto text-ink-2" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div v-else :key="active.id" class="pt-2">
+        <div class="flex items-center gap-2.5">
+          <button
+            type="button"
+            aria-label="返回"
+            class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-line bg-glass text-ink-0 transition-all duration-micro active:scale-90"
+            @click="back"
+          >
+            <ChevronLeft :size="16" />
+          </button>
+          <div>
+            <h2 class="text-xl font-bold tracking-tight">{{ active.title }}</h2>
+            <p class="text-[11px] text-ink-2">{{ active.desc }}</p>
+          </div>
+        </div>
+        <div class="mt-4">
+          <component :is="active.component" v-bind="sectionProps(active)" />
+        </div>
+      </div>
+    </Transition>
+  </div>
 </template>
+
+<style scoped>
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateX(14px);
+}
+.page-leave-to {
+  opacity: 0;
+  transform: translateX(-10px);
+}
+</style>

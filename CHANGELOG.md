@@ -2,6 +2,35 @@
 
 记录每次核心修改。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，最新在上。
 
+## [M17.11] 控制台 master-detail 化 · 插件管理并入设置 · 2026-10-10
+
+**背景**：设置项将增多（用户/Agent/MCP/Skills…），Tab 分段不扩展；插件管理也不该是独立子页。
+定稿 macOS 系统设置式 master-detail（设计稿 `design/settings-master-detail.html`）：
+桌面侧栏 + 内容，移动端 iOS 钻取，声明式 sections 注册表承载未来扩展。
+
+### 新增
+- **设置项注册表**（`system/settings/sections.ts`）：新增设置项 = 注册表加一行 + 一个组件；
+  未来 agent/mcp/skills 乃至插件贡献设置面板同此入口
+- **SettingsView master-detail 重写**：桌面 240px 分组侧栏（通用/服务/集成 + 关于）+ 内容区；
+  移动端整页分组菜单 → 右滑钻取（自带玻璃返回键，壳层 chrome 不参与）；
+  路由 `/settings/:section?`（URL 即事实源，深链/刷新直达；桌面裸 /settings 落默认项，
+  非法 section 回菜单）
+- **section 组件**：外观 / 客户端 / 模型服务 / 关于（自原长页抽取）；
+  「客户端」新增**版本与更新卡**（展示 __APP_BUILD__ + 手动检查更新 → `useAppUpdate.checkForUpdatesNow()`）；
+  「模型服务」新增**默认模型下拉**（POST /api/settings default_model 的前端入口，
+  保存经 M17.10 WS 广播同步各端）
+- **PluginsManagerView bare 模式**：去 AppFrame 外壳/大标题/自带滚动，刷新按钮移入统计卡，
+  嵌入「插件管理」section；装/卸/启停/侧栏分组/store 逻辑零改动
+- **主题快捷切换**（`components/ThemeToggle.vue`）：控制台主页右上角日/月图标按钮
+  （旋转微动画），桌面详情头部与移动菜单主页均有；外观 section 内正式开关保留
+
+### 变更
+- plugins-manager 独立 app 注册移除（`inDock:false` 本就无 dock 图标，现连子页也消失）；
+  `/plugins-manager` → `/settings/plugins` 重定向；EmptyHome「浏览插件」改指；
+  systemApps 自指条目修正
+- Playwright 双端验证：桌面侧栏分组与 bare 嵌入、移动端菜单/钻取/返回、
+  旧路由重定向、控制台 0 报错
+
 ## [M17.10] PWA 更新一致性（版本戳巡检 + 统一更新横幅 + shell 事件推送）· 2026-10-09
 
 **背景**：服务器更新前端/后端版本后，各端 PWA（尤其 iOS/Android 后台切回不重载页面）不刷新，

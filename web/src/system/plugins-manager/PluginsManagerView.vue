@@ -18,16 +18,19 @@ import { pmState } from './store'
 const router = useRouter()
 const toast = useToast()
 
+/** M17.11：bare 模式 —— 嵌入控制台「插件管理」section 时去掉外壳（AppFrame/大标题/自带滚动） */
+defineProps<{ bare?: boolean }>()
+
 const plugins = ref<PluginInfo[]>([])
 const available = ref<AvailablePlugin[]>([])
 const online = ref(false)
 const busy = ref('')
 const confirming = ref<PluginInfo | null>(null)
 
+// M17.11：plugins-manager 已并入控制台（settings），不再单列
 const systemApps = [
   { id: 'chat', name: '对话', desc: '与插件化 Agent 对话' },
-  { id: 'plugins-manager', name: '插件管理', desc: '管理插件的插件（self-hosting）' },
-  { id: 'settings', name: '控制台', desc: '主题、安装状态与关于' },
+  { id: 'settings', name: '控制台', desc: '外观、服务与集成（含插件管理）' },
 ]
 
 const total = computed(() => plugins.value.length)
@@ -113,22 +116,22 @@ async function uninstall() {
 
 <template>
   <!-- 单一根节点：Transition out-in 要求子组件单元素根，Fragment 会导致切页永久空白 -->
-  <div class="h-full">
-    <div class="flex h-full gap-3 p-3">
+  <div :class="bare ? '' : 'h-full'">
+    <div :class="bare ? 'flex gap-3' : 'flex h-full gap-3 p-3'">
     <!-- 分类栏由 App 自绘（桌面左栏 / 手机 chips） -->
     <aside v-if="!isMobile" class="w-56 shrink-0">
-      <BasePanel title="插件管理">
+      <BasePanel :title="bare ? undefined : '插件管理'">
         <PluginsManagerSidebar />
       </BasePanel>
     </aside>
 
-    <div class="min-w-0 flex-1 overflow-y-auto">
-      <AppFrame>
+    <div class="min-w-0 flex-1" :class="bare ? '' : 'overflow-y-auto'">
+      <component :is="bare ? 'div' : AppFrame">
         <div class="flex flex-col gap-4 pb-2">
           <div v-if="isMobile" class="flex gap-2 pt-1">
             <PluginsManagerSidebar compact />
           </div>
-          <header class="flex items-end justify-between pt-1">
+          <header v-if="!bare" class="flex items-end justify-between pt-1">
         <div>
           <h1 class="text-[30px] font-bold tracking-tight">插件管理</h1>
           <p class="mt-1 text-sm text-ink-2">一切皆插件——包括这个页面自己</p>
@@ -156,6 +159,15 @@ async function uninstall() {
           class="rounded-full px-2.5 py-1 text-[11px] border border-line"
           :class="online ? 'text-ok bg-ok/10' : 'text-warn bg-warn/10'"
         >{{ online ? '已连接内核' : '离线' }}</span>
+        <button
+          v-if="bare"
+          type="button"
+          aria-label="刷新"
+          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-ink-2 transition-all duration-micro hover:text-ink-0 active:scale-90 cursor-pointer"
+          @click="refresh"
+        >
+          <RefreshCw :size="14" />
+        </button>
       </BaseCard>
 
       <section v-if="show('running')" class="space-y-2">
@@ -266,7 +278,7 @@ async function uninstall() {
         </BaseCard>
       </div>
     </Teleport>
-      </AppFrame>
+      </component>
     </div>
     </div>
   </div>
