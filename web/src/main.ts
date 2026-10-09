@@ -6,6 +6,7 @@ import { createUiCtx } from './registry/uiCtx'
 import { syncAppPlugins } from './services/pluginHost'
 import { setup as setupChat } from './system/chat'
 import { setup as setupSettings } from './system/settings'
+import { ensureHomeApp } from './system/settings/useHomeApp'
 import { notifySwUpdate, setSwApplyer, startUpdateWatch } from './system/useAppUpdate'
 import './styles/tokens.css'
 import './styles/base.css'
@@ -74,6 +75,10 @@ if (import.meta.env.DEV) {
 }
 
 async function bootstrap() {
+  // M17.12.1：首页偏好与 syncAppPlugins 并行预取——
+  // 不让 /api/settings 网络往返卡在 EmptyHome 的跳转关键路径上（移动端 1~3s 白等）
+  void ensureHomeApp()
+
   const router = createAppRouter()
   const uiCtx = createUiCtx(router)
 

@@ -2,6 +2,17 @@
 
 记录每次核心修改。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，最新在上。
 
+## [M17.12.1] 首页跳转延迟修复（移动端 1~3s 停留空态）· 2026-10-10
+
+**问题**：M17.12 把 `await ensureHomeApp()`（一次 /api/settings 网络往返）放进了
+EmptyHome 跳转关键路径，移动端冷启动会白等 1~3s 并闪现「你的 AgentOS 还是空的」误导页。
+
+### 修复
+- `main.ts` bootstrap 起始即与 `syncAppPlugins` **并行**发起 `ensureHomeApp()`，
+  挂载完成时偏好已解析，跳转回到即时（网络请求移出关键路径）
+- EmptyHome 解析期间只显示 spinner，不再闪现空系统误导内容（慢网络兜底）
+- 验证：设置首页为 tetris 后打开 `/`，无空态闪现、无停留，直接落地 `/tetris`
+
 ## [M17.12] 首页设置：自选启动应用 · 2026-10-10
 
 **背景**：打开 PWA 默认硬编码跳「对话」，无法把笔记/游戏等应用插件设为第一入口。
