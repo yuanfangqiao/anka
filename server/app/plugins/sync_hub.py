@@ -86,6 +86,29 @@ class SyncHub(Service):
         with self._lock:
             return seq, list(self._rooms.get((app_id, room_id, file_id), ()))
 
+    # ─── 广播（M17.10：补齐 put_index 的调用缺口 + shell 事件通道）─────────
+
+    def max_seq(self, app_id: str, room_id: str, file_id: str) -> int:
+        return sync_store.max_seq(app_id, room_id, file_id)
+
+    async def broadcast(self, app_id: str, room_id: str, file_id: str,
+                        payload: dict) -> int:
+        """向房间内所有连接广播一帧，返回送达数。
+
+        不排除发起者——shell 事件由 HTTP 端点发起，房间内全是接收方。
+        """
+        frame = json.dumps(payload, ensure_ascii=False)
+        with self._lock:
+            peers = list(self._rooms.get((app_id, room_id, file_id), ()))
+        sent = 0
+        for p in peers:
+            try:
+                await p.send_text(frame)
+                sent += 1
+            except Exception:
+                log.debug('broadcast 发送失败，跳过')
+        return sent
+
     # ─── 快照 / 追帧 / 回放 ──────────────────────────────
 
     def snapshot(self, app_id: str, room_id: str, file_id: str):

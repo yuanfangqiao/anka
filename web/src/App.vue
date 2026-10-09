@@ -3,22 +3,27 @@ import { onMounted } from 'vue'
 import MobileShell from './layouts/MobileShell.vue'
 import DesktopShell from './layouts/DesktopShell.vue'
 import AppToast from './components/AppToast.vue'
+import UpdateNotice from './components/UpdateNotice.vue'
 import BackgroundTaskIndicator from './components/BackgroundTaskIndicator.vue'
 import CreateModeOverlay from './components/CreateModeOverlay.vue'
 import { useBreakpoint } from './composables/useBreakpoint'
 import { useTheme } from './composables/useTheme'
 import { bindCreateModeGestures } from './composables/useCreateMode'
+import { startShellSync } from './composables/useShellSync'
 import { useChat } from './system/chat/useChat'
 
 const { isMobile } = useBreakpoint()
 const { apply } = useTheme()
-const { restoreRuns } = useChat()
+const { restoreRuns, refreshSessions } = useChat()
 
 onMounted(() => {
   apply()
   bindCreateModeGestures()
   // 刷新/PWA 重启后无论落在哪个页面，都重挂服务端仍在执行的 run（M17）
   restoreRuns()
+  // M17.10：打开即对账（会话列表）+ shell 级 WS 同步（插件装卸/配置变更推送）
+  refreshSessions()
+  startShellSync()
 })
 </script>
 
@@ -33,6 +38,7 @@ onMounted(() => {
     <MobileShell v-if="isMobile" />
     <DesktopShell v-else />
     <AppToast />
+    <UpdateNotice />
     <BackgroundTaskIndicator />
     <CreateModeOverlay />
   </div>

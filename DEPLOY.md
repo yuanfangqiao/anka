@@ -109,3 +109,22 @@ systemctl reload caddy
 以后更新只需：本地 `npm run build` → 重跑第 2 步 rsync → `systemctl restart anka`。
 
 需要我把这份部署步骤写进 `README.md`（或单独 `DEPLOY.md`）吗？
+## 8. 更新一致性约定（M17.10，长期维护必须遵守）
+
+PWA 各端「每次打开都收敛到最新」靠三条约定，不靠运气：
+
+1. **任何改动都走完整构建部署**：前端 / 后端 / `plugins/` 下插件的任何改动，提交后执行
+   `npm run build` → rsync → `systemctl restart anka`。构建会把 git sha 写进
+   `dist/version.json`（前端版本）与 `/api/health` 的 `api_build`（后端版本）——
+   版本号必变，各端 PWA 才能感知并提示更新。**只改插件不重新构建 = 各端感知不到**。
+2. **API 只增不改 + 宽限期**：可加字段；改/删旧字段须等最老在线客户端刷新后（≥24h）。
+   灰度/重启间隙新旧终端并存，这是不炸的唯一保障。
+3. **缓存头约定**：`sw.js` / `index.html` / `manifest.webmanifest` / `workbox-*` 由后端
+   强制 no-cache（已内置）；`/assets/*` 为 hash 文件名可长缓存；若前面再套 CDN，
+   不要给 `sw.js` 配置缓存规则。
+
+运行机制（排障参考）：
+- 代码级变化 → 顶部横幅「发现新版本 / 前端已更新 / 服务端已更新」→ 用户点击整页重载
+  （有活跃 agent 任务时不会被打断，横幅只是提示）
+- 数据级变化（插件装卸、配置变更、会话）→ WS 实时推送，各端局部刷新不重载
+- 兜底：旧版 hash 资源 404（回滚翻车）→ 自动清缓存强制刷新

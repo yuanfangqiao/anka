@@ -2,6 +2,9 @@ export interface Health {
   status: string
   plugins_total: number
   plugins_active: number
+  /** M17.10：当前部署的前端构建号 / 后端构建号（PWA 版本巡检） */
+  front_build?: string
+  api_build?: string
 }
 
 export interface PluginInfo {

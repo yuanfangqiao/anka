@@ -7,6 +7,9 @@ class Health(BaseModel):
     status: str
     plugins_total: int
     plugins_active: int
+    # M17.10 新增（只增不改，向后兼容）：PWA 版本巡检
+    front_build: str | None = None   # 当前伺服的前端构建号（dist/version.json）
+    api_build: str | None = None     # 后端自身构建号（git sha）
 
 
 class PluginInfo(BaseModel):

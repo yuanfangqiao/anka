@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ChevronDown } from 'lucide-vue-next'
 import { appTileStyle, registry, type AppMeta } from '../registry/appRegistry'
-import { api } from '../services/api'
+import { shellConfig } from '../composables/useShellSync'
 
 const props = defineProps<{ desktop?: boolean }>()
 
@@ -11,8 +11,8 @@ const route = useRoute()
 const router = useRouter()
 const { apps, dockApps, resolveIcon } = registry
 
-// 手机 dock 每页槽位数（内核 /api/config 下发）
-const maxVisible = ref(5)
+// 手机 dock 每页槽位数（内核 /api/config 下发；M17.10 共享态，settings 变更即时生效）
+const maxVisible = computed(() => shellConfig.value.mobile_dock_max ?? 5)
 
 // ---- 每页容量：桌面完全按浏览器宽度测算，尽可能多展示 ---------------------------
 // 胶囊最大宽 = 92% 视口宽（1000px 兜底防超宽屏）；槽位 = 瓷贴 36 + 间距 6 = 42px。
@@ -24,11 +24,8 @@ function onResize() {
   winWidth.value = window.innerWidth
 }
 
-onMounted(async () => {
+onMounted(() => {
   window.addEventListener('resize', onResize, { passive: true })
-  try {
-    maxVisible.value = (await api.config()).mobile_dock_max ?? 5
-  } catch { /* 后端离线时用默认值 */ }
 })
 
 const maxWidthPx = computed(() => Math.min(Math.round(winWidth.value * 0.92), MAX_DOCK_W))

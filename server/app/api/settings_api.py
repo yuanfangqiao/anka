@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException
 from .. import settings
 from ..plugins.llm_tokenhub import TokenHubAdapter
 from ..schemas import ModelInfo, SettingsPayload, SettingsView
+from ..shell_events import broadcast_shell_event
 
 log = logging.getLogger('agentos.api.settings')
 router = APIRouter(tags=['settings'])
@@ -47,7 +48,10 @@ async def post_settings(payload: SettingsPayload) -> SettingsView:
         data = settings.load_user_settings()
         data['default_model'] = payload.default_model
         settings.save_user_settings(data)
-    return await get_settings()
+    view = await get_settings()
+    # M17.10：配置变更广播（模型清单/默认模型），其他终端局部刷新
+    await broadcast_shell_event({'type': 'settings-changed'})
+    return view
 
 
 @router.post('/settings/test')

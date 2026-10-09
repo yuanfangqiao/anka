@@ -3,8 +3,39 @@ import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 import fs from 'node:fs'
 import path from 'node:path'
+import { execSync } from 'node:child_process'
 
 const APP_PLUGINS_DIR = path.resolve(__dirname, '../plugins')
+
+/** M17.10 构建号：git sha 优先，回退时间戳。
+ *  前端经 define 注入（__APP_BUILD__），并写入 dist/version.json 供后端下发，
+ *  两端同源，版本巡检以此为唯一事实源。 */
+const APP_BUILD = (() => {
+  try {
+    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim()
+  } catch {
+    return Date.now().toString(36)
+  }
+})()
+
+/** M17.10：构建产物写 version.json —— 后端 /api/health 读它下发 front_build，
+ *  保证「后端报告的版本」就是「当前正在伺服的前端构建」。 */
+function emitVersionJson(): Plugin {
+  return {
+    name: 'emit-version-json',
+    apply: 'build',
+    closeBundle() {
+      const out = path.resolve(__dirname, 'dist')
+      fs.mkdirSync(out, { recursive: true })
+      fs.writeFileSync(
+        path.join(out, 'version.json'),
+        JSON.stringify({ front_build: APP_BUILD }),
+      )
+    },
+  }
+}
 
 /**
  * 开发态 /plugins/* 伺服（与应用插件 URL 契约一致）：
@@ -87,12 +118,17 @@ function serveAppPlugins(): Plugin {
 }
 
 export default defineConfig({
+  // M17.10：注入构建号，供版本巡检（与 dist/version.json 同源）
+  define: { __APP_BUILD__: JSON.stringify(APP_BUILD) },
   plugins: [
     vue(),
     serveAppPlugins(),
+    emitVersionJson(),
     VitePWA({
-      registerType: 'autoUpdate',
-      injectRegister: 'auto',
+      // M17.10：prompt 由用户确认后更新，不再静默 reload 打断进行中的 agent run
+      registerType: 'prompt',
+      // M17.10：关闭自动注入注册，改由 main.ts 单点手动注册（消除双重注册）
+      injectRegister: null,
       includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],
       manifest: {
         name: 'Anka',

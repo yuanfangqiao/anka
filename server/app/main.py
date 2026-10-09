@@ -32,8 +32,10 @@ async def lifespan(app: FastAPI):
             settings.PLUGIN_CONFIG,
             settings.PLUGINS_PACKAGE,
         )
-    log.info('AgentOS ready, dist=%s (exists=%s)',
-             settings.DIST_DIR, settings.DIST_DIR.is_dir())
+    # M17.10：启动时记录版本戳，便于排查多终端版本偏斜
+    log.info('AgentOS ready, dist=%s (exists=%s), front_build=%s, api_build=%s',
+             settings.DIST_DIR, settings.DIST_DIR.is_dir(),
+             health.get_front_build(), health.API_BUILD)
     yield
 
 
@@ -101,6 +103,9 @@ async def serve_plugin_html(plugin_id: str, page_path: str):
 app.mount('/plugins', StaticFiles(directory=settings.APP_PLUGINS_DIR),
           name='plugins')
 
+# M17.10：SW 入口文件禁用 HTTP 缓存（见 spa_fallback）
+_NO_CACHE = {'Cache-Control': 'no-cache, no-store, must-revalidate'}
+
 
 @app.get('/{full_path:path}', include_in_schema=False)
 async def spa_fallback(full_path: str):
@@ -113,10 +118,15 @@ async def spa_fallback(full_path: str):
         if full_path:
             target = _DIST / full_path
             if target.is_file():
+                # M17.10：入口三件套与 SW 运行时禁缓存——浏览器/CDN 缓存住
+                # sw.js 就永远检测不到新版本；hash 资源（/assets/*）不受影响
+                if (target.name in ('sw.js', 'index.html', 'manifest.webmanifest')
+                        or target.name.startswith('workbox-')):
+                    return FileResponse(target, headers=_NO_CACHE)
                 return FileResponse(target)
         index = _DIST / 'index.html'
         if index.is_file():
-            return FileResponse(index)
+            return FileResponse(index, headers=_NO_CACHE)
     return JSONResponse({
         'detail': '前端未构建：cd web && npm run build；开发态请用 vite dev（localhost:5173）',
     })

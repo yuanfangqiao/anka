@@ -2,6 +2,33 @@
 
 记录每次核心修改。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，最新在上。
 
+## [M17.10] PWA 更新一致性（版本戳巡检 + 统一更新横幅 + shell 事件推送）· 2026-10-09
+
+**背景**：服务器更新前端/后端版本后，各端 PWA（尤其 iOS/Android 后台切回不重载页面）不刷新，
+需手动清缓存。根因有三：SW 只在导航时检查更新；autoUpdate 静默 reload 会打断进行中的
+agent run；仅后端发版时 sw.js 不变，SW 机制天生不可见。
+策略「一版本 · 两通道 · 一动作」：Pull 管代码、Push 管数据、代码级变化一次整页重载、
+数据级变化 WS 局部刷新；不做插件 URL 版本化（NetworkFirst + 整页重载已保证取新）。
+
+### 新增
+- **SW 单点 prompt 注册**（vite.config + main.ts）：registerType 改 prompt、injectRegister
+  改 null（消除双重注册）；「切回前台 + 60s 定时」主动 registration.update()
+- **版本戳基建**：构建注入 __APP_BUILD__（git sha 回退时间戳）+ 写 dist/version.json；
+  /api/health 下发 front_build（读 version.json，30s 缓存）/ api_build（git sha），版本单一来源
+- **统一更新横幅**（system/useAppUpdate + components/UpdateNotice.vue）：sw/front/backend
+  三来源同一 notify/apply；autoApply 保证点击后必然生效（4s 超时兜底 reload）
+- **不可恢复兜底**：vite:preloadError（部署后旧 hash chunk 404）→ 清缓存 + 注销 SW + 强制 reload
+- **shell 级 WS 推送**（composables/useShellSync + server/shell_events.py）：插件装卸/启停、
+  settings 变更经 M16 通道（shell/main/__shell__ 房间）广播 → 各终端局部刷新不 reload；
+  断线指数退避重连，重连即对账（插件清单 → 配置 → 会话 → runs）；
+  SyncHub 补 broadcast/max_seq（顺带修复 PUT /api/sync/index 的现存调用缺口）
+- DockBar 配置改共享态 shellConfig（settings 变更即时生效）；App.vue 启动对账补 refreshSessions
+
+### 变更
+- main.py spa_fallback：sw.js / index.html / manifest.webmanifest / workbox-* 返回 no-cache
+- Health 模型只增不改加 front_build/api_build；启动日志记录版本戳
+- 部署约定见 DEPLOY.md「更新一致性约定」
+
 ## [M17.9] 图片输入支持多张 · 2026-10-09
 
 - 全链路多图：粘贴多图/「+」号多选（file input multiple）→ 预览条多缩略图（逐张移除）

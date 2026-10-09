@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException
 from .. import deps
 from ..schemas import (AvailablePlugin, InstallResult, PluginActionResult,
                        PluginInfo)
+from ..shell_events import broadcast_shell_event
 
 log = logging.getLogger('agentos.api.plugins')
 router = APIRouter(tags=['plugins'])
@@ -38,7 +39,7 @@ async def list_available() -> list[AvailablePlugin]:
 async def install_plugin(name: str) -> InstallResult:
     async with deps.kernel_lock:
         try:
-            return await asyncio.to_thread(_locked, deps.manager.install, name)
+            result = await asyncio.to_thread(_locked, deps.manager.install, name)
         except KeyError:
             raise HTTPException(
                 status_code=404,
@@ -48,25 +49,33 @@ async def install_plugin(name: str) -> InstallResult:
             raise HTTPException(
                 status_code=400,
                 detail={'error': 'manifest_invalid', 'message': str(e)})
+    # M17.10：广播 shell 事件，其他终端即时增量加载（不持内核锁发网络帧）
+    await broadcast_shell_event(
+        {'type': 'plugins-changed', 'action': 'install', 'name': name})
+    return result
 
 
 @router.post('/{name}/uninstall', response_model=PluginActionResult)
 async def uninstall_plugin(name: str) -> PluginActionResult:
     async with deps.kernel_lock:
         try:
-            return await asyncio.to_thread(_locked, deps.manager.uninstall, name)
+            result = await asyncio.to_thread(_locked, deps.manager.uninstall, name)
         except KeyError:
             raise HTTPException(
                 status_code=404,
                 detail={'error': 'plugin_not_installed',
                         'message': f'插件 "{name}" 未安装'})
+    # M17.10：广播 shell 事件，其他终端即时移除
+    await broadcast_shell_event(
+        {'type': 'plugins-changed', 'action': 'uninstall', 'name': name})
+    return result
 
 
 async def _run_action(name: str, action: str) -> PluginActionResult:
     fn = deps.manager.enable if action == 'enable' else deps.manager.disable
     async with deps.kernel_lock:
         try:
-            return await asyncio.to_thread(_locked, fn, name)
+            result = await asyncio.to_thread(_locked, fn, name)
         except KeyError:
             raise HTTPException(
                 status_code=404,
@@ -77,6 +86,10 @@ async def _run_action(name: str, action: str) -> PluginActionResult:
             raise HTTPException(
                 status_code=500,
                 detail={'error': f'{action}_failed', 'message': str(e)})
+    # M17.10：启停也影响 dock 可见性，广播给其他终端
+    await broadcast_shell_event(
+        {'type': 'plugins-changed', 'action': action, 'name': name})
+    return result
 
 
 @router.post('/{name}/enable', response_model=PluginActionResult)
