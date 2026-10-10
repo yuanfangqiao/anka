@@ -22,6 +22,31 @@ const LABEL: Record<UpdateSource, string> = {
 /** 本页加载时注入的构建号（vite define） */
 const selfBuild = __APP_BUILD__
 
+/**
+ * M17.13：自动检查更新偏好（localStorage 持久，默认关）。
+ * localStorage 属 origin 存储——SW 版本更新、forceRefresh 清缓存都不触碰它，
+ * 因此该配置在主动更新后不会被替换（用户需求）。
+ */
+const AUTO_KEY = 'agentos.update.auto'
+export const autoUpdate = ref(localStorage.getItem(AUTO_KEY) === '1')
+
+export function setAutoUpdate(v: boolean) {
+  localStorage.setItem(AUTO_KEY, v ? '1' : '0')
+  autoUpdate.value = v
+  if (v) void runCheck() // 打开即检查一次
+}
+
+/** M17.13：强制刷新 —— 清全部缓存 + 注销 SW + reload。
+ *  用户主动触发（客户端设置）与不可恢复兜底（main.ts preloadError）共用；
+ *  只清 Cache API，不动 localStorage（更新偏好等本地配置保留）。 */
+export async function forceRefresh(): Promise<void> {
+  const regs = await navigator.serviceWorker?.getRegistrations()
+  await Promise.all((regs ?? []).map((r) => r.unregister()))
+  const keys = await caches.keys()
+  await Promise.all(keys.map((k) => caches.delete(k)))
+  location.reload()
+}
+
 const source = ref<UpdateSource | null>(null)
 const available = computed(() => source.value !== null)
 const label = computed(() => (source.value ? LABEL[source.value] : ''))
@@ -109,9 +134,13 @@ export function startUpdateWatch(intervalMs = 60_000) {
   if (started) return
   started = true
 
+  // M17.13：仅在「自动检查更新」开启时巡检；手动「检查更新」不受此开关约束
+  const tick = () => {
+    if (autoUpdate.value) void runCheck()
+  }
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') void runCheck()
+    if (document.visibilityState === 'visible') tick()
   })
-  window.setInterval(() => void runCheck(), intervalMs)
-  void runCheck()
+  window.setInterval(tick, intervalMs)
+  tick()
 }

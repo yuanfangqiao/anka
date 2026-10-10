@@ -7,7 +7,7 @@ import { syncAppPlugins } from './services/pluginHost'
 import { setup as setupChat } from './system/chat'
 import { setup as setupSettings } from './system/settings'
 import { ensureHomeApp } from './system/settings/useHomeApp'
-import { notifySwUpdate, setSwApplyer, startUpdateWatch } from './system/useAppUpdate'
+import { autoUpdate, forceRefresh, notifySwUpdate, setSwApplyer, startUpdateWatch } from './system/useAppUpdate'
 import './styles/tokens.css'
 import './styles/base.css'
 
@@ -57,21 +57,18 @@ if (import.meta.env.DEV) {
   // 页面处于不可恢复态 → 无条件清缓存 + 注销 SW + 强制 reload 救活，不问用户。
   window.addEventListener('vite:preloadError', (e) => {
     e.preventDefault()
-    void (async () => {
-      const regs = await navigator.serviceWorker?.getRegistrations()
-      await Promise.all((regs ?? []).map((r) => r.unregister()))
-      const keys = await caches.keys()
-      await Promise.all(keys.map((k) => caches.delete(k)))
-      location.reload()
-    })()
+    void forceRefresh()
   })
 
   // 关键：移动端 PWA 从后台切回不会重载页面，SW 永远没机会检查更新。
   // 「切回前台」+「定时」两个时机主动 update()，是修复不刷新的核心。
+  // M17.13：受「自动检查更新」本地偏好约束（默认关；手动「检查更新」不受限）
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') void swRegistration?.update()
+    if (document.visibilityState === 'visible' && autoUpdate.value) void swRegistration?.update()
   })
-  window.setInterval(() => void swRegistration?.update(), 60_000)
+  window.setInterval(() => {
+    if (autoUpdate.value) void swRegistration?.update()
+  }, 60_000)
 }
 
 async function bootstrap() {
