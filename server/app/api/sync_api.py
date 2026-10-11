@@ -22,7 +22,7 @@ import logging
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
-from .. import deps, settings
+from .. import auth, deps, settings
 
 log = logging.getLogger('agentos.api.sync')
 
@@ -74,6 +74,11 @@ async def sync_socket(
     sync = deps.manager.ctx.get('sync')
     if sync is None:
         await ws.close(code=1011, reason='sync-hub 未激活')
+        return
+
+    # M18：WebSocket 握手鉴权（HTTP 中间件不覆盖 WS）——无有效会话直接拒绝
+    if auth.current_user(ws) is None:
+        await ws.close(code=4401, reason='unauthorized')
         return
 
     await ws.accept()

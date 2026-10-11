@@ -1,5 +1,11 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import DockBar from '../components/DockBar.vue'
+
+const route = useRoute()
+// M18：登录页不显示 dock（避免未登录时露出应用入口）
+const isLogin = computed(() => route.path === '/login')
 </script>
 
 <template>
@@ -15,7 +21,7 @@ import DockBar from '../components/DockBar.vue'
     </main>
 
     <!-- dock 条高度由 DockBar 自驱动（收窄时内容区自动变高） -->
-    <div class="flex shrink-0 justify-center">
+    <div v-if="!isLogin" class="flex shrink-0 justify-center">
       <DockBar desktop />
     </div>
   </div>

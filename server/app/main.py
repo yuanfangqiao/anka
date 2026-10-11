@@ -11,11 +11,14 @@ import logging
 import re
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from urllib.parse import quote
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
+                               RedirectResponse)
 from fastapi.staticfiles import StaticFiles
 
-from . import deps, settings
+from . import auth, deps, settings
 from .api import (apps, chat, health, plugins, runs, sessions, settings_api,
                  sync_api)
 from .logging_conf import setup_logging
@@ -41,6 +44,28 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title='AgentOS · PWA Agent 样例', lifespan=lifespan)
 
+# M18：应用层鉴权 —— 放行登录相关、健康检查（版本巡检需要且无敏感数据）、
+# 壳静态资源（登录页在壳内渲染）；保护其余 /api/* 与插件产物。
+# 注意：HTTP 中间件不覆盖 WebSocket，sync_api.py 单独校验。
+_PUBLIC = ('/api/auth/', '/api/health')
+_PROTECTED = ('/api/', '/plugins/', '/plugin-dist/')
+
+
+@app.middleware('http')
+async def auth_guard(request, call_next):
+    path = request.url.path
+    if (path.startswith(_PROTECTED) and not path.startswith(_PUBLIC)
+            and auth.current_user(request) is None):
+        return JSONResponse(
+            {'detail': {'error': 'unauthorized',
+                        'message': '未登录或会话已过期'}},
+            status_code=401)
+    return await call_next(request)
+
+
+app.include_router(auth.router, prefix='/api')
+# M18：登录页（后端直出，不走 SPA；置于 spa_fallback 之前）
+app.include_router(auth.page_router)
 app.include_router(health.router, prefix='/api')
 app.include_router(plugins.router, prefix='/api/plugins')
 app.include_router(apps.router, prefix='/api')
@@ -108,12 +133,17 @@ _NO_CACHE = {'Cache-Control': 'no-cache, no-store, must-revalidate'}
 
 
 @app.get('/{full_path:path}', include_in_schema=False)
-async def spa_fallback(full_path: str):
+async def spa_fallback(full_path: str, request: Request):
     """SPA 深链回退：已构建文件直接返回，其余回 index.html"""
     if full_path.startswith('api/'):
         raise HTTPException(status_code=404,
                             detail={'error': 'not_found',
                                     'message': f'/api/{full_path[4:]} 不存在'})
+    # M18：未登录的页面导航（无扩展名路径）直接 302 到登录页——
+    # 连空壳都不加载；静态资源（含 sw.js/manifest/icons）保持公开
+    if auth.current_user(request) is None and '.' not in full_path.rsplit('/', 1)[-1]:
+        back = quote('/' + full_path if full_path else '/', safe='')
+        return RedirectResponse(f'/login?redirect={back}', status_code=302)
     if _DIST.is_dir():
         if full_path:
             target = _DIST / full_path

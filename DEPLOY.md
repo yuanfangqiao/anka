@@ -72,9 +72,6 @@ WantedBy=multi-user.target
 
 ```caddyfile
 anka.vitcou.com {
-    basic_auth {
-        agent <bcrypt 哈希，用 caddy hash-password 生成>
-    }
     reverse_proxy 127.0.0.1:8100 {
         flush_interval -1
     }
@@ -86,14 +83,66 @@ sudo caddy validate --config /etc/caddy/Caddyfile
 systemctl reload caddy
 
 
-两个细节：
+三个细节：
 - **`flush_interval -1` 必须加**——chat 接口是 SSE 流式，不加会把输出攒成一坨
+- **不要加 `basic_auth`**——M18 起鉴权在应用层（见第 6 节），叠加会变成「浏览器弹窗 + 登录页」双重验证，
+  且 basic_auth 在 iOS 独立窗口（standalone PWA）有兼容坑
+- **不要加 `encode gzip`**（除非你确认 SSE 不卡）——gzip 与 SSE 流式是已知的踩坑组合，
+  压不动多少带宽却可能让流式输出攒批；前端资源是 hash 文件名、由 FastAPI 直出，需要压缩再单独处理
 - HTTPS 由 Caddy 自动签，PWA 的 SW/安装要求 secure context 自动满足
 - 将来加多端同步（IDEA §3.11）时 WS 无需改 Caddy 配置，原生支持
 
-## 6. ⚠️ 一个必须做的安全项
+## 6. ⚠️ 一个必须做的安全项：应用层登录鉴权（M18）
 
-内核里有 **`tool-bash` 插件**（能执行 shell 命令）。裸暴露到公网 = 任何人可在你服务器上跑命令。所以第 5 步的 `basic_auth` **不是可选项**，或者至少用防火墙/内网限制访问。你 water/dsh 项目已经用过 basic_auth，照搬即可。
+内核里有 **`tool-bash` 插件**（能执行 shell 命令）。裸暴露到公网 = 任何人可在你服务器上跑命令。
+
+**M18 起内置应用层会话鉴权**（不再依赖 Caddy basic_auth——basic_auth 在 iOS 独立窗口
+（standalone PWA）有兼容坑，且体验原始、难以登出）：
+
+### 6.1 创建账号（首次部署必做，无默认账号）
+
+```bash
+cd /home/ubuntu/anka/server
+mkdir -p ~/.anka && chmod 700 ~/.anka
+.venv/bin/python -m app.auth adduser vitcou        # 交互输入密码（不回显）
+.venv/bin/python -m app.auth list                  # 查看账号
+# 其他：deluser <name>（删号）
+```
+
+- 账号文件：`~/.anka/users.json`（pbkdf2_sha256 哈希，权限 600）
+- 签名密钥：`~/.anka/auth_secret`（首次访问自动生成，权限 600）
+- **放项目目录之外**：rsync 部署不会覆盖，账号不会被本地数据冲掉
+- 自定义位置：环境变量 `ANKA_USERS_FILE=/path/to/users.json`
+- **systemd 注意**：服务运行用户须有家目录（`~` 解析为运行用户 home）；
+  `anka.service` 用 `ubuntu` 用户运行即满足
+
+### 6.2 鉴权行为
+
+- 会话：HttpOnly + SameSite=Lax cookie，30 天；HTTPS 下自动加 Secure
+- 保护范围：全部 `/api/*`（含 SSE 对话流、会话、插件管理、设置）、`/plugins/`、
+  `/plugin-dist/`、WebSocket 同步通道
+- 放行：`/api/auth/*`、`/api/health`、壳静态资源（登录页在壳内渲染）
+- 防爆破：单账号 5 次失败锁 10 分钟；**单 IP 100 次失败封 24 小时**
+  （可用 `ANKA_ACCOUNT_MAX_FAILS` / `ANKA_IP_MAX_FAILS` / `ANKA_IP_BAN_SECONDS` 调整）
+- 登出：控制台 → 关于 → 登出
+
+### 6.3 Caddy 侧（最终形态）
+
+```caddyfile
+anka.vitcou.com {
+    reverse_proxy 127.0.0.1:8100 {
+        flush_interval -1
+    }
+}
+```
+
+- **`basic_auth` 必须删掉**：认证已由应用负责，叠加会双重验证且在 iOS PWA 上体验有问题
+- **顺序**：先 `adduser` 建好账号，再去掉 `basic_auth` 并 reload——否则中间会有一段「零鉴权」窗口，
+  而这个后端带 `tool-bash`（可执行 shell），不能有任何裸奔时间
+- **`X-Forwarded-For` 保持默认开启**（Caddy 默认带）:应用的单 IP 失败封禁靠它识别真实客户端；
+  若代理链丢了这个头，所有请求会被视为同一 IP，误伤全体
+- 想要边缘限流需自定义构建（`rate_limit` 是第三方模块，非 Caddy 标准库）；
+  应用已内置「单账号 5 次锁 10 分钟 + 单 IP 100 次封 24 小时」，个人部署够用
 
 ## 7. 上线验证清单
 
@@ -103,7 +152,8 @@ systemctl reload caddy
 [ ] 手机 Chrome/Safari →「安装应用」出现（PWA 生效）
 [ ] quickdraw / snake / notes 插件逐个打开
 [ ] chat 发消息流式输出不断流（验证 flush_interval）
-[ ] 未输密码时 401（basic_auth 生效）
+[ ] 未登录访问 / 被 302 到 /login（应用层鉴权生效）
+[ ] 登录后 WS 同步/插件加载正常；登出后接口 401
 ```
 
 以后更新只需：本地 `npm run build` → 重跑第 2 步 rsync → `systemctl restart anka`。

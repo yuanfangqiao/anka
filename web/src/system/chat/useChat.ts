@@ -201,6 +201,14 @@ async function attachStream(run: RunView) {
     let gone = false
     try {
       const res = await fetch(`/api/runs/${run.id}/stream?after=${run._cursor}`)
+      // M18：会话失效 → 停止重连并回登录页（否则每 1.5s 空转重试）
+      if (res.status === 401) {
+        if (location.pathname !== '/login') {
+          const back = encodeURIComponent(location.pathname + location.search)
+          location.assign(`/login?redirect=${back}`)
+        }
+        return
+      }
       if (res.status === 404) { gone = true }
       else if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`)
       else {

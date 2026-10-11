@@ -60,6 +60,13 @@ function onEvent(msg: ShellEvent) {
   }
 }
 
+/** M18：会话失效统一回登录页（已在登录页则忽略） */
+function toLogin() {
+  if (location.pathname === '/login') return
+  const back = encodeURIComponent(location.pathname + location.search)
+  location.assign(`/login?redirect=${back}`)
+}
+
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws'
   ws = new WebSocket(
@@ -75,8 +82,24 @@ function connect() {
       console.error('[shell-sync] 消息解析失败', err)
     }
   }
-  ws.onclose = () => {
+  ws.onclose = async (e) => {
     ws = null
+    // M18：会话失效 → 停止重连并回登录页。
+    // 注：服务端在 accept 前拒绝时客户端只会看到 1006（4401 传不到），
+    // 因此异常关闭时主动探测一次登录态，避免未登录下无限重连。
+    if (e.code === 4401) {
+      toLogin()
+      return
+    }
+    if (e.code !== 1000) {
+      try {
+        const r = await api.me()
+        if (!r.username) {
+          toLogin()
+          return
+        }
+      } catch { /* 网络异常：按普通断线退避重连 */ }
+    }
     const delay = Math.min(30_000, 1000 * 2 ** retry++)
     window.setTimeout(connect, delay)
   }

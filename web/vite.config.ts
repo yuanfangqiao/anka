@@ -152,7 +152,9 @@ export default defineConfig({
         // 关键：NavigationRoute 在生成的 sw.js 里注册在最前，会截胡所有
         // navigation 请求（含 iframe 加载插件页）→ iframe 拿到壳的 index.html
         // → 壳在 iframe 里递归启动（多层内嵌）。denylist 放行插件/接口路径。
-        navigateFallbackDenylist: [/^\/api\//, /^\/plugins\//, /^\/plugin-dist\//],
+        // M18：/login 由后端直出静态登录页，绝不能被 SW 的 navigateFallback
+        // 用缓存的 SPA 壳顶掉（否则未登录看不到登录页）
+        navigateFallbackDenylist: [/^\/api\//, /^\/plugins\//, /^\/plugin-dist\//, /^\/login/],
         cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         globIgnores: ['**/plugins/**'],
@@ -227,6 +229,12 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
         ws: true
+      },
+      // M18：登录页由后端直出（刻意不进 SPA）。dev 下必须代理，否则 Vite
+      // 用 SPA 兜底返回 index.html → 壳发现未登录 → 再跳 /login → 无限嵌套
+      '/login': {
+        target: 'http://localhost:8000',
+        changeOrigin: true
       }
     }
   }

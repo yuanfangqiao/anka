@@ -9,21 +9,18 @@ import CreateModeOverlay from './components/CreateModeOverlay.vue'
 import { useBreakpoint } from './composables/useBreakpoint'
 import { useTheme } from './composables/useTheme'
 import { bindCreateModeGestures } from './composables/useCreateMode'
-import { startShellSync } from './composables/useShellSync'
-import { useChat } from './system/chat/useChat'
+import { authUser } from './composables/useAuth'
+import { startAuthenticatedShell } from './system/shellBoot'
 
 const { isMobile } = useBreakpoint()
 const { apply } = useTheme()
-const { restoreRuns, refreshSessions } = useChat()
 
 onMounted(() => {
   apply()
   bindCreateModeGestures()
-  // 刷新/PWA 重启后无论落在哪个页面，都重挂服务端仍在执行的 run（M17）
-  restoreRuns()
-  // M17.10：打开即对账（会话列表）+ shell 级 WS 同步（插件装卸/配置变更推送）
-  refreshSessions()
-  startShellSync()
+  // M18：未登录（登录页）不发起业务请求，避免 401 噪音；
+  // 已登录则重挂 run / 会话对账 / 建立 shell WS 同步
+  if (authUser.value) startAuthenticatedShell()
 })
 </script>
 

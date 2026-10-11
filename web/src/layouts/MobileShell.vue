@@ -19,6 +19,9 @@ const needsChrome = computed(() => {
 
 const collapsed = ref(false)
 
+// M18：登录页不显示 dock（避免未登录时露出应用入口）
+const isLogin = computed(() => route.path === '/login')
+
 function onScroll(e: Event) {
   collapsed.value = (e.target as HTMLElement).scrollTop > 44
 }
@@ -53,6 +56,7 @@ onMounted(() => {
       </RouterView>
     </main>
     <div
+      v-if="!isLogin"
       class="shrink-0 px-3 pt-2"
       :style="{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }"
     >

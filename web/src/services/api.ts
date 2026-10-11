@@ -141,19 +141,35 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError('无法连接后端（M2 后可用）', 0)
   }
   if (!res.ok) {
-    console.error('api http error', res.status)
+    // 401 属「会话失效/未登录」的正常探测结果，不作为错误噪音
+    if (res.status !== 401) console.error('api http error', res.status)
     // 优先透出后端 detail.message（插件业务校验信息）
     let detail = ''
     try {
       const body = await res.json()
       detail = body?.detail?.message ?? ''
     } catch { /* 非 JSON 响应 */ }
+    // M18：会话失效统一落登录页（跳过 auth 接口与登录页自身，防重定向循环）
+    if (res.status === 401 && !path.startsWith('/api/auth/')
+        && location.pathname !== '/login') {
+      const redirect = encodeURIComponent(location.pathname + location.search)
+      location.assign(`/login?redirect=${redirect}`)
+    }
     throw new ApiError(detail || `请求失败（HTTP ${res.status}）`, res.status)
   }
   return (await res.json()) as T
 }
 
 export const api = {
+  // M18：鉴权（me 始终 200，username=null 表示未登录）
+  me: () => request<{ username: string | null }>('/api/auth/me'),
+  login: (username: string, password: string) =>
+    request<{ username: string }>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    }),
+  logout: () => request<{ ok: boolean }>('/api/auth/logout', { method: 'POST' }),
+
   health: () => request<Health>('/api/health'),
   // 壳层配置（内核所有，如 mobile_dock_max）
   config: () => request<Record<string, number>>('/api/config'),

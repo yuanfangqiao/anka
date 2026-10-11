@@ -2,6 +2,70 @@
 
 记录每次核心修改。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，最新在上。
 
+## [M18.1] 登录跳转修复（dev 代理缺失 + redirect 脏值死循环）· 2026-10-12
+
+**背景**：本地 dev 打开 `localhost:5173` 陷入无限重定向（地址栏 `redirect=%2Flogin%3Fredirect%3D…`
+逐层嵌套、页面黑屏），且**登录成功后仍停在登录页**。
+
+**根因**：dev 只代理了 `/api`，`/login` 被 Vite 用 SPA 兜底返回 `index.html` → 壳发现未登录
+→ 又跳 `/login?redirect=<当前URL>` → 当前 URL 本身就是 `/login?…` → 自引用嵌套。
+
+### 修复
+- **`web/vite.config.ts`**：dev 代理补 `/login`（根因）。生产不受影响——登录页由后端直出
+- **`web/src/main.ts`**：未登录跳转前先判断是否已在 `/login`，是则只报错不再跳，
+  从源头杜绝 redirect 自引用
+- **`server/app/auth.py`**：
+  - 新增 `_safe_redirect()`（Python）与 `safeRedirect()`（登录页 JS）：只接受站内绝对路径，
+    拒绝 `//evil.com`（**顺带修掉一个开放重定向**）与指回 `/login` 的脏值
+  - **已登录访问 `/login` → 302 回应用**，不再出现「登录成功却停在登录页」
+  - 登录页响应加 `Cache-Control: no-store`；前端 `replaceState` 当场清洗地址栏脏 URL
+
+### 顺带核实（非代码问题）
+- WS 鉴权与代理链路正常：带 cookie 握手 101、不带 403；已登录打开 `/app/quickdraw`
+  其 iframe（同源、无 sandbox）WS 正常加入房间
+- 日志中持续 403 的 quickdraw 连接来自**无有效会话的旧标签页**（不同 origin 的 cookie
+  jar 不通用，如 `127.0.0.1` vs `localhost`），关闭旧标签即止
+
+## [M18.0] 应用层会话鉴权（公网部署安全前提）· 2026-10-12
+
+**背景**：内核含 `tool-bash`（Agent 可执行 shell 命令），公网裸暴露 = 任何人可 RCE；
+原 DEPLOY 建议的 Caddy basic_auth 在 iOS 独立窗口（standalone PWA）有兼容坑且体验原始。
+拍板：本服务内置应用层会话鉴权（方案 B），Caddy 只保留 TLS/限流。
+
+### 新增
+- **`server/app/auth.py`**：零新增依赖（标准库 pbkdf2/hmac/base64）
+  - 账号存 `~/.anka/users.json`（`ANKA_USERS_FILE` 可覆盖；rsync 部署不会覆盖项目外账号）
+    ，pbkdf2_sha256 哈希、权限 600；签名密钥 `~/.anka/auth_secret` 首次自动生成
+  - 会话 = 自包含 HMAC 签名 cookie（HttpOnly + SameSite=Lax + 30 天；HTTPS 自动 Secure）
+  - 路由：`POST /api/auth/login`、`POST /api/auth/logout`、`GET /api/auth/me`（恒 200，username=null 表示未登录）
+  - **双层防爆破**：单账号 5 次失败锁 10 分钟；**单 IP 100 次失败封 24 小时**
+    （`ANKA_ACCOUNT_MAX_FAILS` / `ANKA_IP_MAX_FAILS` / `ANKA_IP_BAN_SECONDS` 可调）
+  - CLI：`python -m app.auth adduser <name> [password]` / `deluser` / `list`
+- **后端直出登录页** `GET /login`（深色玻璃拟态内联样式）：登录发生在 SPA 之外，
+  成功后 `location.replace()` 整页进入应用——彻底避开前端路由与懒加载模块状态竞态
+- **保护范围**：`main.py` HTTP 中间件拦截全部 `/api/*`（含 SSE 对话流）与 `/plugins/`、
+  `/plugin-dist/`；放行 `/api/auth/*`、`/api/health`、壳静态资源；
+  未登录的页面导航由 `spa_fallback` 直接 302 到 `/login?redirect=…`（连空壳都不闪）
+- **WS 握手单独校验**（HTTP 中间件不覆盖 WebSocket）：`sync_api.py` accept 前验证 cookie，
+  失败 close 4401
+- **前端**：`useAuth`（`/api/auth/me` 探测 + 登出）、路由守卫（未登录整页跳登录页）、
+  `api.ts` 401 统一处理（跳过 auth 接口与登录页，防循环）、
+  `shellBoot.ts`（登录态壳初始化：插件清单/首页偏好/run/会话/WS）、
+  控制台「关于」新增账号卡与登出按钮
+- **SW 排除**：`/login` 加入 `navigateFallbackDenylist`——否则 SW 会用缓存的 SPA 壳顶掉登录页
+- 回归修补（code-explorer 核查发现的缺口）：SSE 流 401 与 shell WS 异常关闭时
+  停止重连并回登录页（原先会无限空转重试）
+
+### 变更
+- `DEPLOY.md` 第 6 节重写：basic_auth → 应用层鉴权（adduser 流程、`~/.anka` 运维、
+  systemd 用户须有 home、Caddy 只留 TLS+限流）
+
+### 验证
+- 接口：`/api/health` 200、`/api/sessions` 401、`/plugins/*` 401、`/chat` 未登录 302 → `/login`
+- 封禁：单 IP 3 次失败（测试阈值）后**正确密码也被拒**（429 ip_banned）
+- 浏览器双端：未登录落静态登录页（0 报错）→ 登录 → `/chat` 且插件全部加载 →
+  WS 握手成功 → 关于页登出 → 回登录页
+
 ## [M17.13] 更新控制：本地自动检查开关 + 强制刷新 · 2026-10-10
 
 **需求**：默认不主动检查更新，由本地设置决定是否自动检查；配置存在本机，

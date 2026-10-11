@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { ensureAuthed } from '../composables/useAuth'
 
 /**
  * M6：路由分两类——
@@ -19,10 +20,20 @@ const routes: RouteRecordRaw[] = [
 ]
 
 export function createAppRouter() {
-  return createRouter({
+  const router = createRouter({
     history: createWebHistory(),
     routes,
   })
+
+  // M18：登录守卫——未登录整页跳后端登录页（登录不在 SPA 内进行，避免路由竞态）
+  router.beforeEach(async (to) => {
+    if (await ensureAuthed()) return true
+    const redirect = encodeURIComponent(to.fullPath)
+    window.location.replace(`/login?redirect=${redirect}`)
+    return false
+  })
+
+  return router
 }
 
 export default createAppRouter

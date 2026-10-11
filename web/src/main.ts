@@ -6,7 +6,8 @@ import { createUiCtx } from './registry/uiCtx'
 import { syncAppPlugins } from './services/pluginHost'
 import { setup as setupChat } from './system/chat'
 import { setup as setupSettings } from './system/settings'
-import { ensureHomeApp } from './system/settings/useHomeApp'
+import { loadAuthenticatedData, setShellUiCtx } from './system/shellBoot'
+import { ensureAuthed } from './composables/useAuth'
 import { autoUpdate, forceRefresh, notifySwUpdate, setSwApplyer, startUpdateWatch } from './system/useAppUpdate'
 import './styles/tokens.css'
 import './styles/base.css'
@@ -72,17 +73,34 @@ if (import.meta.env.DEV) {
 }
 
 async function bootstrap() {
-  // M17.12.1：首页偏好与 syncAppPlugins 并行预取——
-  // 不让 /api/settings 网络往返卡在 EmptyHome 的跳转关键路径上（移动端 1~3s 白等）
-  void ensureHomeApp()
+  // M18：先探测登录态（与其余 setup 并行）；未登录不发起业务预取，避免 401 风暴
+  const authed = ensureAuthed()
 
   const router = createAppRouter()
   const uiCtx = createUiCtx(router)
+  setShellUiCtx(uiCtx)
 
   // 系统插件（静态捆入）与应用插件（动态 import）走同一 uiCtx
   setupChat(uiCtx)
   setupSettings(uiCtx)
-  await syncAppPlugins(uiCtx)
+
+  if (await authed) {
+    // M18：已登录 → 加载应用插件清单与首页偏好（挂载前完成，
+    // 否则 EmptyHome 找不到应用、dock 缺插件）
+    await loadAuthenticatedData()
+  } else {
+    // M18：已在 /login 却走到这里 → 说明登录页没被后端直出（dev 缺代理、
+    // 或后端没起）。此时若再跳一次，redirect 参数会 `%2F` 逐层嵌套成死循环，
+    // 故只报错不跳转。
+    if (location.pathname === '/login') {
+      console.error('[auth] /login 未被后端直出：检查 Vite 代理与后端进程')
+      return
+    }
+    // 未登录 → 整页跳后端直出的登录页（不挂载应用壳，避免闪一下空壳）
+    const back = encodeURIComponent(location.pathname + location.search)
+    location.replace(`/login?redirect=${back}`)
+    return
+  }
 
   // M17.10：版本巡检仅生产启用（dev 无 SW，且 dist 可能是旧构建会误报）
   if (import.meta.env.PROD) startUpdateWatch()
