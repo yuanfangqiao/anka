@@ -129,7 +129,7 @@ export default defineConfig({
       registerType: 'prompt',
       // M17.10：关闭自动注入注册，改由 main.ts 单点手动注册（消除双重注册）
       injectRegister: null,
-      includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],
+      includeAssets: ['favicon.ico', 'icons/apple-touch-icon.png'],
       manifest: {
         name: 'Anka',
         short_name: 'AgentOS',

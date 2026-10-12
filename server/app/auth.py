@@ -276,8 +276,7 @@ _LOGIN_PAGE = """<!DOCTYPE html>
   @keyframes in { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
   .brand { display:flex; flex-direction:column; align-items:center; }
   .logo {
-    width:80px; height:80px; border-radius:28px; display:flex; align-items:center; justify-content:center;
-    background:linear-gradient(135deg,#6366F1,#22D3EE); color:#fff; font-size:30px; font-weight:700;
+    width:80px; height:80px; border-radius:28px; display:block; object-fit:cover;
     box-shadow:0 8px 32px rgba(99,102,241,.45);
   }
   h1 { margin-top:20px; font-size:24px; font-weight:700; letter-spacing:-.02em; }
@@ -315,7 +314,7 @@ _LOGIN_PAGE = """<!DOCTYPE html>
   <div class="glow g1"></div><div class="glow g2"></div>
   <div class="wrap">
     <div class="brand">
-      <div class="logo">A</div>
+      <img class="logo" src="/icons/icon-192.png" alt="Anka" />
       <h1>Anka</h1>
       <p class="sub"></p>
     </div>
