@@ -97,6 +97,8 @@ export interface SessionMessage {
   text: string
   tools: ToolCard[]
   images?: string[]          // M17.9：用户消息附带的图片（data URL，支持多张）
+  reasoning?: string         // M19：该轮模型的思考链（DeepSeek harness 式折叠展示）
+  reasoning_ms?: number      // 思考耗时（毫秒），无则前端按块内计时兜底
 }
 
 export interface SessionDetail {

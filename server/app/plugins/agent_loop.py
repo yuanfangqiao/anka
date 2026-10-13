@@ -103,6 +103,10 @@ class AgentLoop(Service):
                     content = chunk.get('content', '')
                     text_parts.append(content)
                     emit({'type': 'text_delta', 'content': content})
+                elif ctype == 'reasoning':
+                    # 思考链透传：不回灌 messages（多数 OpenAI 兼容 API 不收、
+                    # 且省 token），仅作过程可视化事件广播
+                    emit({'type': 'reasoning_delta', 'content': chunk.get('content', '')})
                 elif ctype == 'tool_call':
                     tool_calls.append(chunk)
 

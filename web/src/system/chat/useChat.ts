@@ -18,6 +18,7 @@ const toast = useToast()
 
 export type Block =
   | { kind: 'text'; text: string }
+  | { kind: 'think'; text: string; ts: number; doneTs?: number; ms?: number }
   | { kind: 'tool'; tool: ToolCard }
 
 export interface ChatMsg {
@@ -85,6 +86,10 @@ const displayMessages = computed(() =>
 
 function toMsg(m: SessionMessage): ChatMsg {
   const blocks: Block[] = []
+  // M19：历史思考链（折叠展示）——ts 占位，耗时用持久化的 reasoning_ms
+  if (m.role !== 'user' && m.reasoning) {
+    blocks.push({ kind: 'think', text: m.reasoning, ts: 0, doneTs: 0, ms: m.reasoning_ms })
+  }
   if (m.text) blocks.push({ kind: 'text', text: m.text })
   for (const t of m.tools ?? []) blocks.push({ kind: 'tool', tool: t })
   return {
@@ -124,6 +129,22 @@ function applyEvent(run: RunView, ev: Record<string, unknown>) {
 
   if (type === 'status' && ev.phase === 'thinking') {
     run.steps.push({ kind: 'think', text: '', turn: ev.turn as number, done: false, ts: Date.now() })
+  } else if (type === 'reasoning_delta') {
+    // M19：思考链流式增量（不回灌上下文，仅展示）——先起新气泡（与 text_delta 同规则）
+    const chunk = ev.content as string
+    if (chunk) {
+      if (run._newTurn) {
+        run.bubbles.push({ id: nextId(), role: 'assistant', blocks: [] })
+        run._newTurn = false
+      }
+      const msg = current()
+      const last = msg.blocks[msg.blocks.length - 1]
+      if (last && last.kind === 'think' && !last.doneTs) last.text += chunk
+      else msg.blocks.push({ kind: 'think', text: chunk, ts: Date.now() })
+      // 过程面板：思考步骤喂真实 reasoning 文本（取代旧的正文镜像 hack）
+      const step = [...run.steps].reverse().find((s) => s.kind === 'think' && !s.done)
+      if (step) step.text = ((step.text ?? '') + chunk).slice(-2000)
+    }
   } else if (type === 'text_delta') {
     if (run._newTurn) {
       run.bubbles.push({ id: nextId(), role: 'assistant', blocks: [] })
@@ -131,8 +152,10 @@ function applyEvent(run: RunView, ev: Record<string, unknown>) {
     }
     const chunk = ev.content as string
     appendText(current(), chunk)
-    const think = [...run.steps].reverse().find((s) => s.kind === 'think' && !s.done)
-    if (think) think.text = ((think.text ?? '') + chunk).slice(-2000)
+    // 首个正文到达 = 本轮思考结束：给未完结的思考块补 doneTs（「已思考 N 秒」）
+    const openThink = [...current().blocks].reverse().find(
+      (b) => b.kind === 'think' && !b.doneTs)
+    if (openThink && openThink.kind === 'think') openThink.doneTs = Date.now()
   } else if (type === 'tool_call') {
     for (const s of run.steps) if (s.kind === 'think' && !s.done) { s.done = true; s.doneTs = Date.now() }
     current().blocks.push({
@@ -169,6 +192,12 @@ function applyEvent(run: RunView, ev: Record<string, unknown>) {
 function finalizeRun(run: RunView) {
   run.active = false
   for (const s of run.steps) if (!s.done) { s.done = true; s.doneTs = Date.now() }
+  // 思考块收尾：无正文打断（纯思考 / 被终止）的补 doneTs，避免永远「思考中」
+  for (const b of run.bubbles) {
+    for (const bl of b.blocks) {
+      if (bl.kind === 'think' && bl.ts && !bl.doneTs) bl.doneTs = Date.now()
+    }
+  }
   const hasContent = run.bubbles.some((b) =>
     b.blocks.some((bl) => bl.kind === 'tool' || (bl.kind === 'text' && bl.text)))
   if (!hasContent) {

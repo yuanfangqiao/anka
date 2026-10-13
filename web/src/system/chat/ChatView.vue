@@ -4,6 +4,7 @@ import { Bot, ImagePlus, Loader2, PanelLeftOpen, Plus, Send, Square, User, X } f
 import BaseCard from '../../components/ui/BaseCard.vue'
 import BasePanel from '../../components/ui/BasePanel.vue'
 import ChatSidebar from './ChatSidebar.vue'
+import ThinkingBlock from './ThinkingBlock.vue'
 import ToolGroup from './ToolGroup.vue'
 import { useChat, type Block, type ChatMsg } from './useChat'
 import { isMobile } from '../../composables/useBreakpoint'
@@ -111,13 +112,19 @@ function parseShotMsg(text: string): { meta: string; body: string } | null {
 
 // M17.3：连续工具块折叠为过程摘要组（对齐 DeepSeek Harness：
 // 中间过程收纳一行，点开看明细；最终回答正常气泡展示）
-type Seg = { kind: 'text'; text: string } | { kind: 'tools'; tools: ToolCard[] }
+// M19：思考链同样折叠成一行（思考中… / 已思考 N 秒），点开展开全文
+type Seg =
+  | { kind: 'text'; text: string }
+  | { kind: 'think'; text: string; ts: number; doneTs?: number; ms?: number }
+  | { kind: 'tools'; tools: ToolCard[] }
 
 function segmentsOf(m: ChatMsg): Seg[] {
   const segs: Seg[] = []
   for (const b of m.blocks) {
     if (b.kind === 'text') {
       segs.push({ kind: 'text', text: b.text })
+    } else if (b.kind === 'think') {
+      segs.push({ kind: 'think', text: b.text, ts: b.ts, doneTs: b.doneTs, ms: b.ms })
     } else {
       const last = segs[segs.length - 1]
       if (last && last.kind === 'tools') last.tools.push(b.tool)
@@ -228,6 +235,13 @@ function segmentsOf(m: ChatMsg): Seg[] {
               >
                 {{ seg.text }}
               </div>
+              <ThinkingBlock
+                v-else-if="seg.kind === 'think'"
+                :text="seg.text"
+                :ts="seg.ts"
+                :done-ts="seg.doneTs"
+                :ms="seg.ms"
+              />
               <ToolGroup v-else-if="seg.kind === 'tools'" :tools="seg.tools" />
             </template>
 

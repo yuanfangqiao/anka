@@ -86,7 +86,7 @@ class TokenHubAdapter:
             yield {'type': 'text', 'content': f'TokenHub 网络错误: {e}'}
 
     def _parse_sse(self, resp):
-        """逐行解析 SSE，text 即时 yield，tool_call 在收尾时聚合 yield。"""
+        """逐行解析 SSE，text/reasoning 即时 yield，tool_call 在收尾时聚合 yield。"""
         tool_acc = {}   # index -> {id, name, args}
         finish = None
 
@@ -109,6 +109,12 @@ class TokenHubAdapter:
                 content = delta.get('content')
                 if content:
                     yield {'type': 'text', 'content': content}
+
+                # 思考链（DeepSeek/OpenAI 兼容）：reasoning_content 优先，
+                # 兼容部分 provider 的 reasoning 字段名
+                reasoning = delta.get('reasoning_content') or delta.get('reasoning')
+                if reasoning:
+                    yield {'type': 'reasoning', 'content': reasoning}
 
                 for tc in delta.get('tool_calls') or []:
                     idx = tc.get('index', 0)

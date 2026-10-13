@@ -78,13 +78,23 @@ def _record_stream(options, next_fn):
         'messages': messages,       # 模型可见即已记录（权威快照）
     })
 
-    acc = {'text': '', 'tool_calls': []}
+    acc = {'text': '', 'tool_calls': [], 'reasoning': ''}
+    clock = {'reasoning': None, 'text': None, 'last': None}
 
     def _tap(source):
         for chunk in source:
             ctype = chunk.get('type')
             if ctype == 'text':
+                if clock['text'] is None:
+                    clock['text'] = time.time()
                 acc['text'] += chunk.get('content', '')
+            elif ctype == 'reasoning':
+                # 思考链：仅记录展示，不回灌模型上下文
+                now = time.time()
+                if clock['reasoning'] is None:
+                    clock['reasoning'] = now
+                clock['last'] = now
+                acc['reasoning'] += chunk.get('content', '')
             elif ctype == 'tool_call':
                 acc['tool_calls'].append({
                     'tool': chunk.get('tool'),
@@ -95,11 +105,19 @@ def _record_stream(options, next_fn):
 
     yield from _tap(next_fn())
 
-    _append(session, {
+    response = {
         'event': 'response',
         'text': acc['text'],
         'tool_calls': acc['tool_calls'],
-    })
+    }
+    if acc['reasoning']:
+        response['reasoning'] = acc['reasoning']
+        # 思考耗时：首段思考 → 首段正文（纯思考无正文时取末段思考）
+        if clock['reasoning'] is not None:
+            end = clock['text'] if clock['text'] is not None else clock['last']
+            if end is not None:
+                response['reasoning_ms'] = int((end - clock['reasoning']) * 1000)
+    _append(session, response)
 
 
 def _record_tool(exec_ctx, result):
@@ -132,11 +150,11 @@ def _read_events(session_id: str) -> list:
     return events
 
 
-def derive_messages(session_id: str) -> list:
-    """从会话日志投影模型历史（权威源）。
+def _derive(session_id: str) -> tuple[list, dict | None]:
+    """从会话日志投影模型历史（权威源）+ 收尾 response 事件。
 
     取最后一条 request 的完整 messages，再补上其后的最终 assistant 回复
-    （文本或收尾 tool_calls），得到可直接续聊的 OpenAI 格式历史。
+    （文本或收尾 tool_calls）。返回 (messages, pending_response)。
     """
     messages: list = []
     pending = None
@@ -149,7 +167,7 @@ def derive_messages(session_id: str) -> list:
             pending = ev
 
     if not pending:
-        return messages
+        return messages, None
 
     text = pending.get('text') or ''
     tool_calls = pending.get('tool_calls') or []
@@ -163,10 +181,15 @@ def derive_messages(session_id: str) -> list:
             },
         } for i, tc in enumerate(tool_calls)]
         return messages + [{'role': 'assistant', 'content': text or None,
-                            'tool_calls': calls}]
+                            'tool_calls': calls}], pending
     if text:
-        return messages + [{'role': 'assistant', 'content': text}]
-    return messages
+        return messages + [{'role': 'assistant', 'content': text}], pending
+    return messages, pending
+
+
+def derive_messages(session_id: str) -> list:
+    """可直接续聊的 OpenAI 格式历史（模型上下文，不含 reasoning 展示字段）。"""
+    return _derive(session_id)[0]
 
 
 def _split_content(content) -> tuple[str, list]:
@@ -215,8 +238,24 @@ def _project(messages: list) -> list:
 
 
 def session_messages(session_id: str) -> list:
-    """会话的 UI 气泡列表（切换历史会话时加载）。"""
-    return _project(derive_messages(session_id))
+    """会话的 UI 气泡列表（切换历史会话时加载，含各轮思考链）。"""
+    messages, pending = _derive(session_id)
+    ui = _project(messages)
+    # 各轮 response 的 reasoning 按回合顺序挂到 assistant 气泡
+    reasonings = [ev for ev in _read_events(session_id)
+                  if ev.get('event') == 'response' and ev.get('reasoning')]
+    if reasonings:
+        for i, entry in enumerate(m for m in ui if m.get('role') == 'assistant'):
+            if i < len(reasonings):
+                entry['reasoning'] = reasonings[i].get('reasoning')
+                entry['reasoning_ms'] = reasonings[i].get('reasoning_ms')
+    # 收尾 response（pending）的 reasoning 挂到最后一条 assistant 气泡
+    if (pending and pending.get('reasoning')
+            and (pending.get('text') or pending.get('tool_calls'))
+            and ui and ui[-1].get('role') == 'assistant'):
+        ui[-1]['reasoning'] = pending.get('reasoning')
+        ui[-1]['reasoning_ms'] = pending.get('reasoning_ms')
+    return ui
 
 
 def _title_of(events: list) -> str:
