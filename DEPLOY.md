@@ -24,9 +24,8 @@ cd web && npm run build          # → web/dist（SW 已含 M11.1 denylist 修�
 ```bash
 rsync -avz \
   --exclude node_modules --exclude .venv --exclude reference \
-  --exclude 'plugins/quickdraw/apps' --exclude 'plugins/quickdraw/packages' \
-  --exclude 'plugins/quickdraw/examples' --exclude 'plugins/quickdraw-0.1.3.tar.gz' \
-  ./ ubuntu@106.55.121.165:/home/ubuntu/anka
+  --exclude 'plugins/' \
+  ./ ubuntu@<IP>:/home/ubuntu/anka
 ```
 
 注意 rsync **不受 gitignore 影响**，`web/dist` 和 `.plugin-dist` 会带上（这正是不能纯 git 部署的原因）。
@@ -59,6 +58,8 @@ Environment=HOST=127.0.0.1
 Environment=PORT=8100
 ExecStart=/home/ubuntu/anka/server/.venv/bin/python run_dev.py --prod
 Restart=always
+User=ubuntu
+Group=ubuntu
 
 [Install]
 WantedBy=multi-user.target

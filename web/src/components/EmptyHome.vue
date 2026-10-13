@@ -51,7 +51,7 @@ onMounted(async () => {
       </div>
     </div>
     <div>
-      <h1 class="text-2xl font-semibold tracking-tight">你的 AgentOS 还是空的</h1>
+      <h1 class="text-2xl font-semibold tracking-tight">你的 Anka 还是空的</h1>
       <p class="mx-auto mt-2 max-w-xs text-sm leading-relaxed text-ink-1">
         系统现在只有内核和系统插件。去插件管理安装应用，让系统「长」出来。
       </p>

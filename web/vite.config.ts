@@ -132,7 +132,7 @@ export default defineConfig({
       includeAssets: ['favicon.ico', 'icons/apple-touch-icon.png'],
       manifest: {
         name: 'Anka',
-        short_name: 'AgentOS',
+        short_name: 'Anka',
         description: '一切皆插件的 Agent 演示：可安装的 PWA 双布局壳',
         start_url: '/',
         scope: '/',

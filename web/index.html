@@ -7,7 +7,9 @@
     <meta name="theme-color" content="#0B0E14" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- iPadOS 27 废弃 black-translucent（叠加状态栏 + 安装期快照错乱）；black 为实体条，
+         webview 起于状态栏下方，无需再处理顶部遮挡 -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="apple-mobile-web-app-title" content="AgentOS" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <script type="importmap">
