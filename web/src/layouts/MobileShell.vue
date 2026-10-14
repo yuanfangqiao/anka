@@ -5,6 +5,7 @@ import TopBar from '../components/TopBar.vue'
 import DockBar from '../components/DockBar.vue'
 import { registry } from '../registry/appRegistry'
 import { useToast } from '../composables/useToast'
+import { detectStandalone } from '../system/useInstallPrompt'
 
 const route = useRoute()
 const { warn } = useToast()
@@ -27,14 +28,14 @@ function onScroll(e: Event) {
 }
 
 // iOS：浏览器内打开（非主屏图标启动）时，顶栏域名/底栏分享按钮是宿主浏览器的 UI，
-// 页面代码无法去除——提示一次正确打开方式
+// 页面代码无法去除；且摄像头/麦克风授权为会话级、每次使用都要重新允许。
+// 每会话提示一次正确打开方式（安装后授权只问一次）
 onMounted(() => {
-  const standalone =
-    window.matchMedia('(display-mode: standalone)').matches ||
-    (window.navigator as { standalone?: boolean }).standalone === true
-  if (standalone || sessionStorage.getItem('pwa-standalone-hint')) return
+  if (detectStandalone() || sessionStorage.getItem('pwa-standalone-hint')) return
   sessionStorage.setItem('pwa-standalone-hint', '1')
-  window.setTimeout(() => warn('当前在浏览器内打开——从主屏幕图标进入才是全屏应用'), 800)
+  window.setTimeout(() => {
+    warn('建议添加到主屏幕——从图标启动才是全屏应用，拍照/录音也只需授权一次')
+  }, 800)
 })
 </script>
 

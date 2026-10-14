@@ -71,6 +71,9 @@ function serveAppPlugins(): Plugin {
           return
         }
         const ext = path.extname(file)
+        // 开发态插件产物一律禁缓存：本中间件不走 vite 自身管线（vite 会给模块设 no-cache），
+        // 缺省头部会被 Safari 启发式缓存——手机端于是长期拿着旧插件代码/样式（改了不生效）
+        res.setHeader('Cache-Control', 'no-store, must-revalidate')
         // page 类插件 HTML：改写绝对路径（构建时 base="/" 的产物，如 excalidraw
         // dist/index.html 引用 /assets/x.js → 挂上 /plugins/<id>/ 后会去站点根
         // 找 → 404。改写为 /plugins/<id>/<dir>/x.js；与 FastAPI 侧 serve_plugin_html 一致）

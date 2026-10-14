@@ -9,6 +9,8 @@ import { setup as setupSettings } from './system/settings'
 import { loadAuthenticatedData, setShellUiCtx } from './system/shellBoot'
 import { ensureAuthed } from './composables/useAuth'
 import { autoUpdate, forceRefresh, notifySwUpdate, setSwApplyer, startUpdateWatch } from './system/useAppUpdate'
+// 首行时机注册：beforeinstallprompt 只触发一次，晚导入会错过
+import './system/useInstallPrompt'
 import './styles/tokens.css'
 import './styles/base.css'
 
