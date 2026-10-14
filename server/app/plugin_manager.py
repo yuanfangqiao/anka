@@ -92,7 +92,7 @@ class PluginManager:
             except Exception as e:
                 log.error('安装 app 插件 %s 失败: %s', app_id, e)
             if not settings.AGENT_DEV and m.ok and m.ui_entry \
-                    and not plugin_builder.has_dist(app_id):
+                    and plugin_builder.is_stale(app_id):
                 plugin_builder.build_web(app_id)
         log.info('bootstrap: %s', ', '.join(
             f'{i.name}={i.state}' for i in self.list_plugins()))

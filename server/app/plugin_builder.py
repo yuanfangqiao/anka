@@ -10,16 +10,53 @@ PluginBuilder —— 应用插件前端的「安装时编译」（M9）。
 插件源码由 vite 中间件按需编译并直接伺服。
 """
 
+import hashlib
 import logging
+import os
 import subprocess
 
 from . import settings
 
 log = logging.getLogger('agentos.plugin_builder')
 
+_HASH_FILE = '.src-hash'
+
 
 def has_dist(app_id: str) -> bool:
     return (settings.PLUGIN_DIST_DIR / app_id / 'index.js').is_file()
+
+
+def _src_hash(app_id: str) -> str:
+    """插件 web/ 源码内容指纹（sha1）：git pull 引入任何源码变化都会改变它。"""
+    d = settings.APP_PLUGINS_DIR / app_id / 'web'
+    h = hashlib.sha1()
+    if not d.is_dir():
+        return ''
+    for root, dirs, files in os.walk(d):
+        dirs.sort()
+        for name in sorted(files):
+            p = os.path.join(root, name)
+            h.update(os.path.relpath(p, d).encode())
+            try:
+                with open(p, 'rb') as f:
+                    h.update(f.read())
+            except OSError:
+                pass
+    return h.hexdigest()
+
+
+def is_stale(app_id: str) -> bool:
+    """dist 缺失、指纹缺失或指纹已变化（git pull 后）→ 需要重建。
+    此前 has_dist 只看文件存在：git pull 后旧产物永久续命，
+    是「部署端插件一直是旧版 UI」的根因。"""
+    dist = settings.PLUGIN_DIST_DIR / app_id
+    if not (dist / 'index.js').is_file():
+        return True
+    try:
+        saved = (dist / _HASH_FILE).read_text().strip()
+    except OSError:
+        return True
+    return saved != _src_hash(app_id)
 
 
 def build_web(app_id: str) -> bool:
@@ -37,6 +74,11 @@ def build_web(app_id: str) -> bool:
     if r.returncode != 0:
         log.error('插件 %s 前端构建失败:\n%s', app_id, (r.stderr or r.stdout)[-2000:])
         return False
+    # 构建成功后写入源码指纹，供下次启动比对（emptyOutDir 会清掉旧指纹）
+    try:
+        (settings.PLUGIN_DIST_DIR / app_id / _HASH_FILE).write_text(_src_hash(app_id))
+    except OSError:
+        pass
     log.info('插件 %s 前端已构建: %s', app_id,
              settings.PLUGIN_DIST_DIR / app_id / 'index.js')
     return True
