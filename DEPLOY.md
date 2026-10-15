@@ -126,6 +126,11 @@ mkdir -p ~/.anka && chmod 700 ~/.anka
 - 防爆破：单账号 5 次失败锁 10 分钟；**单 IP 100 次失败封 24 小时**
   （可用 `ANKA_ACCOUNT_MAX_FAILS` / `ANKA_IP_MAX_FAILS` / `ANKA_IP_BAN_SECONDS` 调整）
 - 登出：控制台 → 关于 → 登出
+- **开发后门 `DEBUG_DISABLE_AUTH`**（仅本地开发）：置 `1` 且同时满足
+  `AGENTOS_DEV=1`（`run_dev.py` 非 `--prod` 自动带上）时鉴权全局关闭
+  （`current_user()` 返回合成用户 `dev`，前端零改动）。**双条件设计：生产
+  `--prod`/systemd 永远免疫**——环境变量忘删也不会误开。开启时启动日志有
+  WARNING 提示。生产环境严禁依赖此变量
 
 ### 6.3 Caddy 侧（最终形态）
 
