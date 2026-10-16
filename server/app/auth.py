@@ -48,7 +48,19 @@ ACCOUNT_LOCK_SECONDS = int(os.environ.get('ANKA_ACCOUNT_LOCK_SECONDS') or 600)  
 IP_MAX_FAILS = int(os.environ.get('ANKA_IP_MAX_FAILS') or 100)                  # 单 IP
 IP_BAN_SECONDS = int(os.environ.get('ANKA_IP_BAN_SECONDS') or 24 * 3600)        # 24 小时
 
+#: 开发调试：DEBUG_DISABLE_AUTH=1 且 AGENTOS_DEV=1 时全局放行
+#: （current_user 返回合成用户 'dev'）。AGENTOS_DEV 仅 run_dev.py dev 模式
+#: 设置，--prod/systemd 永远免疫——防生产误开。见 DEPLOY.md。
+DEBUG_DISABLE_AUTH = (
+    os.environ.get('DEBUG_DISABLE_AUTH', '').lower() in ('1', 'true', 'yes')
+    and os.environ.get('AGENTOS_DEV', '') == '1'
+)
+
 router = APIRouter(prefix='/auth', tags=['auth'])
+
+if DEBUG_DISABLE_AUTH:
+    log.warning('DEBUG_DISABLE_AUTH=1 已生效：鉴权全局关闭（合成用户 dev）'
+                '——仅限开发调试，严禁生产环境！')
 
 
 # ─── 密码哈希（pbkdf2_sha256） ────────────────────────────────────────
@@ -143,6 +155,8 @@ def client_ip(request) -> str:
 
 def current_user(request) -> str | None:
     """HTTP Request 与 WebSocket 通用：从 cookies 取会话校验。"""
+    if DEBUG_DISABLE_AUTH:
+        return 'dev'
     return verify_session(request.cookies.get(COOKIE_NAME))
 
 
@@ -268,6 +282,8 @@ _LOGIN_PAGE = """<!DOCTYPE html>
     background:#0B0E14; color:#F3F4F6; padding:24px;
     font-family:"PingFang SC",-apple-system,"Helvetica Neue",sans-serif; font-size:14px;
     -webkit-font-smoothing:antialiased; overflow:hidden;
+    /* M20：禁用双击缩放（iOS PWA 双击放大问题），保留滚动/双指缩放 */
+    touch-action: manipulation;
   }
   .glow { position:fixed; border-radius:50%; filter:blur(120px); pointer-events:none; }
   .g1 { top:-120px; left:-96px; width:384px; height:384px; background:rgba(99,102,241,.22); }

@@ -5,11 +5,16 @@
 @layer base {
   * {
     -webkit-tap-highlight-color: transparent;
+    /* M20：禁用双击缩放（iOS PWA 双击放大问题）。touch-action 非继承，
+       靠「命中元素+祖先链交集」生效——全局通配双保险，规避引擎 quirks；
+       manipulation 保留滚动/双指缩放，仅禁双击放大 */
+    touch-action: manipulation;
   }
   html,
   body,
   #app {
     height: 100%;
+    touch-action: manipulation;
   }
   body {
     margin: 0;
