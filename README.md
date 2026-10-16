@@ -16,6 +16,7 @@
 
 - Python 3.11+（内核使用 `ExceptionGroup`）
 - Node.js 18+ 与 npm（前端构建）
+- 使用 Jot 的服务端图片/视频封面补生成时需要 FFmpeg（`brew install ffmpeg` 或 `sudo apt-get install ffmpeg`），详见插件 README
 
 ## 依赖清单
 

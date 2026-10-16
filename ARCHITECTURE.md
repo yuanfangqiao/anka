@@ -373,7 +373,7 @@ main.ts → 静态注册系统插件（同一 uiCtx，dogfooding）
 
 ### 8.11 Jot 媒体恢复与同步（2026-10-17）
 
-- 插件 `useMedia.ts` / `MediaPreview.vue` 持有各自 object URL，替换/卸载后释放；图片大图优先，失败依序回退，视频无海报时加载原片。
+- 插件 `useMedia.ts` / `MediaPreview.vue` 仅用 480px JPEG 展示图片/视频列表，接近视口时加载；点击后才加载原文件，URL 替换/卸载后释放。`thumbnails.ts` 本地补图，服务端 `ensure_thumbnail` 使用 FFmpeg 补生成历史/不可解码封面，秒传也返回小图路径。封面内容哈希命名、原子落盘，修复更新附件 rev。
 - `visibilitychange` / `pageshow` / 联网 / 冷启动与下拉刷新触发媒体重建和元数据全量对账，不依赖 note rev 变化。
 - Jot 单一 outbox 写路径，媒体先上传，失败队列保留；相同 rev 也修复匹配附件的缺失路径，不覆盖本地待传正文。
 - `api.callApp` 增加可选第四参数 `{ signal }`，插件同步调用可设超时，防挂起请求阻塞后续同步；现有调用兼容。

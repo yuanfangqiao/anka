@@ -2,6 +2,12 @@
 
 记录每次核心修改。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，最新在上。
 
+## [Unreleased] Jot 缩略图生成与性能 · 2026-10-17
+
+- 列表改为 480px JPEG 缩略图，点击后才请求原图/原片；前端生成、后端 FFmpeg 补生成、历史封面修复和秒传封面地址闭环。
+- 小图缓存不再下载原图，接近视口时才加载；服务端补生成需要 FFmpeg，缺少解码器保留原文件并明确报错。
+- 更新架构及开发文档；验证与命令见 Jot 独立仓库 README/tests。
+
 ## [Unreleased] Android 返回与 Jot 媒体恢复 · 2026-10-17
 
 - 系统返回复用已有历史记录，避免 pop 后 push 导致 Chromium 跳过；切应用同步底部边界 URL。
