@@ -1,7 +1,7 @@
 # AGENT.md · AI Agent 工作守则
 
 > 本仓库的使用者是人 + AI Agent。修改代码前先读这份文件，再读 `ARCHITECTURE.md` 与 `PROJECT.md`。
-> 最后更新：2026-10-16（应用导航与系统返回契约）
+> 最后更新：2026-10-17（Android 返回边界修复）
 
 ## 1. 仓库真相表（Ground Truth）
 
@@ -88,7 +88,8 @@ plugins/<name>/
 3. URL 镜像用 `navigation.setHash(appId, hash)`；深链解析只接受自己的应用路径
 4. 注册返回的注销函数须在组件卸载/插件 teardown 调用；宿主卸载也会兜底清理
 5. 检查 A→B 后返回仍为 B、B 内返回、根页连续返回、深链刷新、切回恢复位置
-6. iframe 内部返回需专门消息桥；本次接口不能自动适配任意第三方页面
+6. 原生返回后复用已有历史记录（go 恢复），禁止在 popstate 后 pushState 重建哨兵；Chrome 会跳过无新用户激活的记录。切应用须同步底部边界 URL，不留旧插件路径。
+7. iframe 内部返回需专门消息桥；本次接口不能自动适配任意第三方页面
 
 ## 5. 命令速查（详细见 README）
 

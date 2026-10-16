@@ -362,14 +362,21 @@ main.ts → 静态注册系统插件（同一 uiCtx，dogfooding）
 - 启停：page 类无 fiber，enable/disable 为 no-op；卸载 = 移出 installed.json
 - 样例：`plugins/clock`（单文件时钟，演示同源调 API）、`plugins/snake/dist`（分离资源贪吃蛇，演示 dist 形态）、`plugins/excalidraw/dist`（完整第三方 React SPA，演示绝对路径改写；接入实录见 CHANGELOG M11.1）
 
-### 8.10 应用导航与系统返回（2026-10-16）
+### 8.10 应用导航与系统返回（2026-10-17）
 
-- `router/appHistory.ts` 在 Vue Router History 层维护底部边界与当前应用记录，原生返回先恢复当前 URL，再分发给当前插件；所有历史写入保留路由器状态。
+- `router/appHistory.ts` 维护底部边界与当前应用两条记录，原生返回以 go 恢复已有 active 后分发给插件，禁止 pop 后 push 触发 Chromium 历史跳过。跨应用路由完成后同步边界 URL；恢复期间写入合并，保留 Vue Router 状态。
 - `services/navigation.ts` 维护每个 `appId` 的逻辑路由栈与返回处理器；`uiCtx.navigation` 提供 `switchApp / push / replace / back / register / setHash`。切应用恢复其栈顶；根页面不回到其他插件。
 - 壳层弹层优先，再处理当前插件的内部栈，最后处理本插件路由栈。未接入自绘导航的插件保持当前应用。
 - Jot 接入内部栈；控制台接入手机二级返回；Dock/后台任务/创造模式统一切应用。插件宿主等待异步 setup，并在卸载时执行 teardown、清理导航。
 - 导航位置保存于页面内存，刷新依当前 URL 恢复。iframe 内部返回尚无消息桥，不承诺任意 iframe 的联合历史行为。
 - 具体协议、插件示例、生命周期与验证方式见 [`docs/NAVIGATION.md`](docs/NAVIGATION.md)。此节取代旧章节中基于全局浏览器历史的应用切换说明。
+
+### 8.11 Jot 媒体恢复与同步（2026-10-17）
+
+- 插件 `useMedia.ts` / `MediaPreview.vue` 持有各自 object URL，替换/卸载后释放；图片大图优先，失败依序回退，视频无海报时加载原片。
+- `visibilitychange` / `pageshow` / 联网 / 冷启动与下拉刷新触发媒体重建和元数据全量对账，不依赖 note rev 变化。
+- Jot 单一 outbox 写路径，媒体先上传，失败队列保留；相同 rev 也修复匹配附件的缺失路径，不覆盖本地待传正文。
+- `api.callApp` 增加可选第四参数 `{ signal }`，插件同步调用可设超时，防挂起请求阻塞后续同步；现有调用兼容。
 
 ## 9. 模型接入与自我插件开发（M13/M14）
 

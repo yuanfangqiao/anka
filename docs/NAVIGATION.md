@@ -1,6 +1,6 @@
 # Anka 应用导航与系统返回
 
-更新：2026-10-16。对应宿主 `web/src/services/navigation.ts` 与
+更新：2026-10-17。对应宿主 `web/src/services/navigation.ts` 与
 `web/src/router/appHistory.ts`。本契约适用于系统插件与 App 插件。
 
 ## 1. 用户行为
@@ -22,8 +22,13 @@
 - `createAppHistory()` 包装 Vue Router 的 `createWebHistory()`。
 - 首次导航成功后创建两条同文档记录：底部边界与当前应用；刷新复用已有边界。
 - 后续 `push/replace` 更新当前物理记录，由导航服务分别维护每个应用的逻辑路由栈。
-- 原生返回到边界时，在 RouterHistory 监听层先恢复当前 URL，再调用统一 `back()`。
-  Vue Router 不会先挂载上一个插件，历史记录也不会随着反复返回无限增长。
+- 原生返回到边界时，在 RouterHistory 层使用 `go(1)` 恢复已有 active 记录后调用统一 `back()`。
+  禁止在 popstate 后 pushState：Chrome 在返回后未获新用户激活时会将新插入记录标为可跳过。
+  旧实现的 `history.back()` 脚本回归无法覆盖这一浏览器 UI 行为。
+- 跨应用路由完成后，宿主暂时移动至底部边界，将其 URL 改成当前插件，再回 active 记录。
+  此过程不通知 Vue Router、不销毁插件；期间路由写入合并到目标状态。两个物理记录都不留上个插件 URL。
+- 网页没有清空全部浏览器历史的 API；这里清理的是宿主维护的同文档插件切换路径。
+  旧版本已留下的跨文档历史、系统关闭或第三方 iframe 历史不能承诺全部接管。
 - 更新历史一律经路由器的 history 实现，保留 `position/current/back/forward` 等字段。
 - 桌面浏览器后退同样采用应用内返回语义；浏览器前进不承担跨应用切换功能。
 - 这管理的是浏览器同文档返回，不能阻止系统强制关闭、回桌面、进程回收，不能控制
@@ -141,3 +146,10 @@ Playwright 不在项目模块路径时，将 `ANKA_PLAYWRIGHT_MODULE` 设为其 
 
 发布前仍须 Android 已安装 PWA 真机验证：A→B 返回、B 内多级返回、根页连续返回、
 弹层、刷新深链、切后台恢复；iOS PWA 验证边缘返回。自动化历史返回不能替代系统手势。
+
+### 2026-10-17 真机回归重点（待执行）
+
+- Android 已安装 PWA：A→B，连续右滑至少三次，中途不再点击页面；保持 B，B 内页面逐级返回。
+- A→B→C 快速切换、B 详情→切出→切回、刷新深链、根页返回。
+- 必须包含 Android 系统 Back / 浏览器 UI 后退，不能仅用 `history.back()` 代替。
+- Chromium 依据：[History manipulation intervention](https://chromium.googlesource.com/chromium/src/+/main/docs/history_manipulation_intervention.md)。

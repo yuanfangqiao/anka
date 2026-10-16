@@ -35,6 +35,9 @@ export function createAppRouter() {
     window.location.replace(`/login?redirect=${redirect}`)
     return false
   })
+  router.afterEach((to, from, failure) => {
+    if (!failure && to.meta.appId !== from.meta.appId) appHistory.alignBoundary()
+  })
   // 初始路由完成后再建立同文档返回边界，保留深链与登录守卫语义。
   void router.isReady().then(() => appHistory.start(() => {
     void navigation.back().catch(e => console.error('[navigation] back', e))

@@ -189,10 +189,11 @@ export const api = {
   apps: () => request<AppInfo[]>('/api/apps'),
   getAppState: (id: string) =>
     request<Record<string, unknown>>(`/api/apps/${encodeURIComponent(id)}/state`),
-  callApp: (id: string, method: string, args: Record<string, unknown> = {}) =>
+  callApp: (id: string, method: string, args: Record<string, unknown> = {}, options?: { signal?: AbortSignal }) =>
     request<{ ok: boolean; result: unknown }>(`/api/apps/${encodeURIComponent(id)}/call`, {
       method: 'POST',
       body: JSON.stringify({ method, args }),
+      signal: options?.signal,
     }),
   // M13：TokenHub 模型服务
   settings: () => request<SettingsView>('/api/settings'),

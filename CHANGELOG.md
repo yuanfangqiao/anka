@@ -2,6 +2,13 @@
 
 记录每次核心修改。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，最新在上。
 
+## [Unreleased] Android 返回与 Jot 媒体恢复 · 2026-10-17
+
+- 系统返回复用已有历史记录，避免 pop 后 push 导致 Chromium 跳过；切应用同步底部边界 URL。
+- Jot 原图预览、组件独立 URL 生命周期、前台恢复重试、附件地址修复、保留失败同步队列及下拉刷新（详见插件独立仓库）。
+- 插件 callApp 支持可选 AbortSignal，Jot 同步请求超时可恢复。
+- 本轮仅进行构建；未运行自动化测试，Android/iOS PWA 手势、熄屏恢复待真机验收。
+
 ## [Unreleased] 应用内部返回与插件导航契约 · 2026-10-16
 
 - 壳层统一维护浏览器返回边界与每应用逻辑路由栈：Dock 切 A→B 后返回保持 B，内部页面可退回，根页面不切到其他插件；刷新复用边界。
