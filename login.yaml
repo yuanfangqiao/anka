@@ -1,0 +1,13 @@
+- generic [ref=f7e2]:
+  - generic [ref=f7e3]:
+    - img "Anka" [ref=f7e4]
+    - heading "Anka" [level=1] [ref=f7e5]
+    - paragraph
+  - generic [ref=f7e6]:
+    - textbox [ref=f7e11]:
+      - /placeholder: 用户名
+    - textbox [ref=f7e16]:
+      - /placeholder: 密码
+    - paragraph
+    - button "登录" [ref=f7e17] [cursor=pointer]
+  - paragraph
