@@ -2,6 +2,16 @@
 
 记录每次核心修改。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，最新在上。
 
+## [Unreleased] 应用内部返回与插件导航契约 · 2026-10-16
+
+- 壳层统一维护浏览器返回边界与每应用逻辑路由栈：Dock 切 A→B 后返回保持 B，内部页面可退回，根页面不切到其他插件；刷新复用边界。
+- `uiCtx.navigation` 新增应用切换、内部导航、返回处理器注册与 hash 镜像；弹层优先；卸载清理处理器与导航位置。
+- 控制台手机二级页面、Dock 展开、后台任务气泡、创造模式接入统一返回；后台任务与创造模式跳转使用统一应用切换。
+- Jot（独立仓库）接入内部栈与深链恢复，移除独立顶层 popstate；图片/视频预览与动作面板优先关闭，录音返回先停止保存；宿主等待异步 setup 并执行卸载 teardown。
+- 开发契约写入 `AGENT.md`、`ARCHITECTURE.md`、`PROJECT.md` 与 `docs/NAVIGATION.md`；新增隔离浏览器导航回归脚本。
+- 验证：宿主与 Jot 构建通过；Chrome 开发源码/生产构建导航回归通过（应用隔离、内部栈、深链、连续返回、弹层、实际卸载重装）；生产 SW 激活与 manifest 可读；390×844 / 1440×900 界面检查通过。
+- `tsc --noEmit` 与 HEAD 原始版本对照，仍为既有的 Vue 模块声明/注册类型等错误，无本次新增错误。Android/iOS 已安装 PWA 系统手势、真实录音保存待真机验证；任意 iframe 内部返回尚未接入。
+
 ## [M18.1] 登录跳转修复（dev 代理缺失 + redirect 脏值死循环）· 2026-10-12
 
 **背景**：本地 dev 打开 `localhost:5173` 陷入无限重定向（地址栏 `redirect=%2Flogin%3Fredirect%3D…`

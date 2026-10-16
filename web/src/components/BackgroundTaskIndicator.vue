@@ -9,17 +9,24 @@
  * useChat 的 run 订阅模型（服务端常驻 / 断线重连 / 刷新重挂）全部复用，零改动。
  */
 import { computed, onUnmounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
+import { useAppNavigation } from '../services/navigation'
 import {
   Brain, ChevronDown, Loader2, MessageSquareText, Square, SquareTerminal, Wrench,
 } from 'lucide-vue-next'
 import { useChat, type RunView, type Step } from '../system/chat/useChat'
 
 const route = useRoute()
-const router = useRouter()
+const navigation = useAppNavigation()
 const { runs, loadSession, activeSessionId, stopRun } = useChat()
 
 const expanded = ref(false)
+const unregisterBack = navigation.registerOverlay({
+  canGoBack: () => expanded.value,
+  back: () => { expanded.value = false },
+  priority: 10,
+})
+onUnmounted(unregisterBack)
 
 /** 对话页内不显示（页面内已有过程展示） */
 const activeRuns = computed(() => runs.value.filter((r) => r.active))
@@ -57,7 +64,7 @@ function stepLine(s: Step | null): string {
 // ─── 动作 ─────────────────────────────────────────────
 function openChat(run: RunView) {
   if (activeSessionId.value !== run.sessionId) loadSession(run.sessionId)
-  router.push('/chat')
+  void navigation.switchApp('chat')
   expanded.value = false
 }
 

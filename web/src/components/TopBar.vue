@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { ChevronLeft } from 'lucide-vue-next'
 import { registry } from '../registry/appRegistry'
+import { useAppNavigation } from '../services/navigation'
 
 const props = defineProps<{ collapsed: boolean }>()
 
 const route = useRoute()
-const router = useRouter()
+const navigation = useAppNavigation()
 
 const title = computed(() => (route.meta.title as string) ?? '')
 const appId = computed(() => route.meta.appId as string | undefined)
@@ -17,8 +18,7 @@ const currentApp = computed(() => registry.apps.find((a) => a.id === appId.value
 const showBack = computed(() => Boolean(currentApp.value && !currentApp.value.inDock))
 
 function goBack() {
-  if (window.history.length > 1) router.back()
-  else router.push('/')
+  void navigation.back()
 }
 </script>
 

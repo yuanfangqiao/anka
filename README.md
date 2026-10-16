@@ -143,6 +143,10 @@ pwa-demo/
 
 ## 约定
 
+应用切换与系统返回的插件开发接口见 [`docs/NAVIGATION.md`](docs/NAVIGATION.md)。
+导航回归可运行 `cd web && node scripts/check-navigation.mjs`：需要可选 Playwright
+与已安装 Chrome；模块不在项目路径时设置 `ANKA_PLAYWRIGHT_MODULE`，详见导航文档。
+
 - `reference/` **只读**：不修改、不作为运行时 import 路径
 - 业务能力一律写成插件（后端 `server/app/plugins/`，前端 `useAppRegistry` 元数据）
 - 单文件 ≤300 行；改内核须同步记录 `server/app/cordis/PATCHES.md`

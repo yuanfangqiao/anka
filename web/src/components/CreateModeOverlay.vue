@@ -7,8 +7,9 @@
  * （对已有 canvas 裁剪，无二次捕获）→ 底部指令输入 →
  * 截图 + 选区 DOM 结构摘要 + 指令一次性发给 Agent。
  */
-import { computed, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, onUnmounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
+import { useAppNavigation } from '../services/navigation'
 import { ImageOff, Loader2, Send, Sparkles, X } from 'lucide-vue-next'
 import { useCreateMode } from '../composables/useCreateMode'
 import { cropRegion } from '../services/screenCapture'
@@ -17,8 +18,14 @@ import { registry } from '../registry/appRegistry'
 
 const { state, isActive, shot, selection, close, setSelection } = useCreateMode()
 const { send, sending } = useChat()
-const router = useRouter()
+const navigation = useAppNavigation()
 const route = useRoute()
+const unregisterBack = navigation.registerOverlay({
+  canGoBack: () => isActive.value,
+  back: close,
+  priority: 20,
+})
+onUnmounted(unregisterBack)
 
 const draft = ref('')
 
@@ -126,7 +133,7 @@ async function submit() {
     send(msg, images)
     draft.value = ''
     close()
-    if (route.path !== '/chat') router.push('/chat')
+    if (route.path !== '/chat') void navigation.switchApp('chat')
   } finally {
     busy.value = false
   }
