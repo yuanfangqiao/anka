@@ -5,15 +5,17 @@
  * - 移动：一级整页菜单 → iOS 钻取二级（自带返回，壳层 chrome 不参与）
  * - URL 即事实源：/settings/:section?，深链/刷新直达；桌面裸 /settings 重定向默认项
  */
-import { computed, onMounted, watch } from 'vue'
+import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import ThemeToggle from '../../components/ThemeToggle.vue'
 import { useBreakpoint } from '../../composables/useBreakpoint'
 import { DEFAULT_SECTION, SETTINGS_SECTIONS, findSection, type SettingsSection } from './sections'
+import { useAppNavigation } from '../../services/navigation'
 
 const route = useRoute()
 const router = useRouter()
+const navigation = useAppNavigation()
 const { isMobile } = useBreakpoint()
 
 const sectionParam = computed(() => {
@@ -34,11 +36,18 @@ function normalize() {
 }
 
 function select(id: string) {
-  router.push(`/settings/${id}`)
+  void navigation.push(`/settings/${id}`)
 }
 function back() {
-  router.push('/settings')
+  void navigation.back()
 }
+// 包括直接打开 /settings/client：手机返回一级菜单，桌面保持 master-detail。
+const unregisterBack = navigation.register({
+  appId: 'settings',
+  canGoBack: () => isMobile.value && Boolean(sectionParam.value),
+  back: () => navigation.replace('/settings'),
+})
+onUnmounted(unregisterBack)
 
 const groups = computed(() => {
   const out: { name: string; items: SettingsSection[] }[] = []

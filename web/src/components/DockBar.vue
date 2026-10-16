@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { ChevronDown } from 'lucide-vue-next'
 import { appTileStyle, registry, type AppMeta } from '../registry/appRegistry'
 import { shellConfig } from '../composables/useShellSync'
+import { useAppNavigation } from '../services/navigation'
 
 const props = defineProps<{ desktop?: boolean }>()
 
 const route = useRoute()
-const router = useRouter()
+const navigation = useAppNavigation()
 const { apps, dockApps, resolveIcon } = registry
 
 // 手机 dock 每页槽位数（内核 /api/config 下发；M17.10 共享态，settings 变更即时生效）
@@ -72,10 +73,10 @@ function goPage(i: number) {
 }
 
 function isActive(path: string) {
-  return route.path === path
+  return registry.byId(route.meta.appId as string)?.route === path
 }
 function open(app: AppMeta) {
-  router.push(app.route)
+  void navigation.switchApp(app.id)
 }
 
 // ---- 当前应用指示（移动端底轨） ----------------------------------------------
@@ -90,6 +91,10 @@ const markerLeft = computed(() =>
 
 // ---- 全部应用：dock 向上拉伸展开（半屏，竖向分页） ---------------------------
 const expanded = ref(false)
+const unregisterBack = navigation.registerOverlay({
+  canGoBack: () => expanded.value,
+  back: () => { expanded.value = false },
+})
 // 收窄态：dock 缩成一根 iOS 式白线（下滑手势或点底边触发，点白线/空白恢复）
 const minimized = ref(false)
 const allApps = computed(() => [...apps].sort((a, b) => a.order - b.order))
@@ -126,7 +131,7 @@ function goGridPage(i: number) {
 }
 
 function openFromGrid(app: AppMeta) {
-  router.push(app.route)
+  void navigation.switchApp(app.id)
   expanded.value = false
 }
 
@@ -198,6 +203,7 @@ watch(expanded, (v) => {
   else window.removeEventListener('keydown', onKey)
 })
 onBeforeUnmount(() => {
+  unregisterBack()
   document.documentElement.style.overflow = ''
   window.removeEventListener('keydown', onKey)
   window.removeEventListener('resize', onResize)

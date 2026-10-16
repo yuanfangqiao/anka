@@ -25,6 +25,7 @@ import { isMobile, isWide } from '../composables/useBreakpoint'
 import { useToast } from '../composables/useToast'
 import { api } from '../services/api'
 import { registry, type AppMeta } from './appRegistry'
+import { useAppNavigation, type AppNavigation } from '../services/navigation'
 
 export interface UiCtx {
   vue: {
@@ -49,6 +50,7 @@ export interface UiCtx {
   toast: ReturnType<typeof useToast>
   /** 形态判断（内核共享同一份 matchMedia 监听） */
   layout: { isMobile: ComputedRef<boolean>; isWide: ComputedRef<boolean> }
+  navigation: AppNavigation
   registerApp: (meta: AppMeta) => void
   unregisterApp: (appId: string) => void
 }
@@ -63,6 +65,7 @@ export function createUiCtx(router: Router): UiCtx {
     api,
     toast,
     layout: { isMobile, isWide },
+    navigation: useAppNavigation(),
 
     registerApp(meta: AppMeta) {
       // 默认进 dock、非系统插件；显式声明 inDock:false/system:true 才覆盖
@@ -78,6 +81,7 @@ export function createUiCtx(router: Router): UiCtx {
     },
 
     unregisterApp(appId) {
+      useAppNavigation().removeApp(appId)
       registry.removeApp(appId)
       const name = `app:${appId}`
       if (router.hasRoute(name)) router.removeRoute(name)

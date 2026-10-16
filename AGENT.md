@@ -1,7 +1,7 @@
 # AGENT.md · AI Agent 工作守则
 
 > 本仓库的使用者是人 + AI Agent。修改代码前先读这份文件，再读 `ARCHITECTURE.md` 与 `PROJECT.md`。
-> 最后更新：2026-09-30（M0 文档阶段）
+> 最后更新：2026-10-16（应用导航与系统返回契约）
 
 ## 1. 仓库真相表（Ground Truth）
 
@@ -30,6 +30,7 @@
 7. **局部修改优先**：已有文件用最小 diff 改，禁止为了加一个小功能重写整个文件。
 8. **页面组件必须单一元素根**：壳层 `<RouterView>` 外套了 `<Transition>`，Fragment 根（如「布局 div + Teleport」两个根）会导致切换页面永久空白。需要 Teleport 时，把它包进唯一根 div 里。
 9. **路由过渡禁用 `mode="out-in"`**：本项目路由组件为动态注册 + 跨模块 plain object，out-in 的 enter 会被永久卡住（leave 移除后只剩注释占位）。统一用默认模式，leave 元素已由 `.page-leave-active { position:absolute; inset:0 }` 兜底防堆叠。
+10. **应用导航统一归宿主**：切应用用 `uiCtx.navigation.switchApp(appId)`；内部路由用 `push/replace`，已有内部栈注册 `canGoBack/back`。禁止插件监听顶层 `popstate` 或直接改顶层 history；系统返回不得切回其他插件，根页保持当前应用。完整接口见 `docs/NAVIGATION.md`。
 
 ## 3. 标准工作流
 
@@ -81,6 +82,14 @@ plugins/<name>/
 2. 在 `server/app/cordis/PATCHES.md` 追加一行：改了什么、为什么要改、相对 `reference/cordis-mini` 的差异
 3. 不允许「顺手重构」未经讨论的内核代码
 
+### 4.4 插件内部导航与返回
+1. 阅读 `docs/NAVIGATION.md`，在 `setup(uiCtx)` 或页面组件中注册本插件的返回处理器
+2. 弹层处理器优先级高于内部页面；只操作本插件栈，不调用 `history.back()`
+3. URL 镜像用 `navigation.setHash(appId, hash)`；深链解析只接受自己的应用路径
+4. 注册返回的注销函数须在组件卸载/插件 teardown 调用；宿主卸载也会兜底清理
+5. 检查 A→B 后返回仍为 B、B 内返回、根页连续返回、深链刷新、切回恢复位置
+6. iframe 内部返回需专门消息桥；本次接口不能自动适配任意第三方页面
+
 ## 5. 命令速查（详细见 README）
 
 ```bash
@@ -99,6 +108,7 @@ npm run build                           # 产出 web/dist（含 manifest + sw）
 - 前端改动：至少确保 `npm run build` 通过 + 桌面/手机两个视口各看一眼（1440×900 / 390×844）
 - 后端改动：至少一个真实调用链路验证（curl 或脚本），不能只靠「看起来对」
 - PWA 相关改动：检查 Service Worker 注册与 manifest 可读
+- 导航改动：运行 `web/scripts/check-navigation.mjs`（可选 Playwright，详见导航文档）；Android/iOS 已安装 PWA 系统手势须另做真机验证，不得把浏览器自动化写成真机通过
 - 不允许把「未验证」写成「已完成」
 
 ## 7. 术语对照（避免沟通歧义）

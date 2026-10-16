@@ -1,5 +1,7 @@
-import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { createRouter, type RouteRecordRaw } from 'vue-router'
 import { ensureAuthed } from '../composables/useAuth'
+import { createAppHistory } from './appHistory'
+import { createAppNavigation } from '../services/navigation'
 
 /**
  * M6：路由分两类——
@@ -20,11 +22,12 @@ const routes: RouteRecordRaw[] = [
 ]
 
 export function createAppRouter() {
+  const appHistory = createAppHistory()
   const router = createRouter({
-    history: createWebHistory(),
+    history: appHistory.history,
     routes,
   })
-
+  const navigation = createAppNavigation(router)
   // M18：登录守卫——未登录整页跳后端登录页（登录不在 SPA 内进行，避免路由竞态）
   router.beforeEach(async (to) => {
     if (await ensureAuthed()) return true
@@ -32,7 +35,10 @@ export function createAppRouter() {
     window.location.replace(`/login?redirect=${redirect}`)
     return false
   })
-
+  // 初始路由完成后再建立同文档返回边界，保留深链与登录守卫语义。
+  void router.isReady().then(() => appHistory.start(() => {
+    void navigation.back().catch(e => console.error('[navigation] back', e))
+  }))
   return router
 }
 

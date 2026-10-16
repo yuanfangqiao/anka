@@ -9,6 +9,7 @@ import WebViewPage from '../components/WebViewPage.vue'
 import { api } from './api'
 
 const loadedIds = new Set<string>()
+const teardowns = new Map<string, () => void>()
 let _uiCtx: UiCtx | null = null
 
 /** page 类应用：用内核 WebViewPage 包裹静态入口 */
@@ -53,7 +54,10 @@ export async function syncAppPlugins(uiCtx: UiCtx): Promise<SyncResult> {
         registerPageApp(uiCtx, app)        // M11：静态页应用
       } else {
         const mod = await import(/* @vite-ignore */ app.entry)
-        mod.setup(uiCtx)
+        const lifecycle = await mod.setup(uiCtx)
+        if (typeof lifecycle?.teardown === 'function') {
+          teardowns.set(app.id, () => lifecycle.teardown())
+        }
       }
       loadedIds.add(app.id)
       loaded.push(app.title || app.id)
@@ -67,6 +71,9 @@ export async function syncAppPlugins(uiCtx: UiCtx): Promise<SyncResult> {
 
 export function unloadApp(appId: string) {
   loadedIds.delete(appId)
+  const teardown = teardowns.get(appId)
+  teardowns.delete(appId)
+  try { teardown?.() } catch (e) { console.error(`插件 ${appId} teardown 失败`, e) }
   _uiCtx?.unregisterApp(appId)
 }
 
