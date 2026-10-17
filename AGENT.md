@@ -1,7 +1,7 @@
 # AGENT.md · AI Agent 工作守则
 
 > 本仓库的使用者是人 + AI Agent。修改代码前先读这份文件，再读 `ARCHITECTURE.md` 与 `PROJECT.md`。
-> 最后更新：2026-10-17（新增 plugins 独立仓库 / 核心仓库提交边界）
+> 最后更新：2026-10-17（新增 plugins 独立仓库 / design 设计目录与提交边界）
 
 ## 1. 仓库真相表（Ground Truth）
 
@@ -15,6 +15,7 @@
 | `AGENT.md` | 本文件 | Agent 行为规范 |
 | `reference/**` | **只读** | 参考资料（`cordis-mini` / `ComfyUI` / `ComfyUI_frontend`），禁止修改，禁止运行时 import |
 | `plugins/**` | **独立仓库** | 每个插件自带 `.git`（如 `anka-jot`、`anka-quickdraw`），独立提交与远程；核心仓库已忽略，不纳入核心提交 |
+| `design/**` | 设计过程 | 方案草案 / UI 线框 / 交互原型的**已提交**目录（`design/README.md` 为索引）；**非事实来源**，定稿后并入 `ARCHITECTURE.md` / `docs/`；`design/tmp-design/**` 是本机临时区，已被忽略、不入库 |
 | `server/**` | 后端 | FastAPI + 移植的 cordis 内核 |
 | `web/**` | 前端 | Vue 3（PWA 交付形态） |
 
@@ -32,11 +33,14 @@
 8. **页面组件必须单一元素根**：壳层 `<RouterView>` 外套了 `<Transition>`，Fragment 根（如「布局 div + Teleport」两个根）会导致切换页面永久空白。需要 Teleport 时，把它包进唯一根 div 里。
 9. **路由过渡禁用 `mode="out-in"`**：本项目路由组件为动态注册 + 跨模块 plain object，out-in 的 enter 会被永久卡住（leave 移除后只剩注释占位）。统一用默认模式，leave 元素已由 `.page-leave-active { position:absolute; inset:0 }` 兜底防堆叠。
 10. **应用导航统一归宿主**：切应用用 `uiCtx.navigation.switchApp(appId)`；内部路由用 `push/replace`，已有内部栈注册 `canGoBack/back`。禁止插件监听顶层 `popstate` 或直接改顶层 history；系统返回不得切回其他插件，根页保持当前应用。完整接口见 `docs/NAVIGATION.md`。
-11. **提交边界**：核心仓库（本仓库）只提交核心服务本身——`server/**`、`web/**`、`docs/**`、`scripts/**` 与根目录文档。`plugins/**` 已被 `.gitignore` 忽略，每个插件是**独立 git 仓库**，各自提交、各自推送：
+11. **提交边界**：核心仓库（本仓库）只提交核心服务本身——`server/**`、`web/**`、`docs/**`、`design/**`、`scripts/**` 与根目录文档。`plugins/**` 已被 `.gitignore` 忽略，每个插件是**独立 git 仓库**，各自提交、各自推送：
     - 禁止在核心仓库里 `git add plugins/...` / `git add -f`，也不要把插件目录变成 submodule；
     - 禁止在插件目录内替用户执行 `commit` / `push` / `reset` 等写操作（需要时代码改完即止，由用户在插件仓库提交）；
     - 插件改动不计入核心仓库的 `CHANGELOG.md`；核心仓库的变更记录只描述内核与宿主服务。
     - 排查注意：插件目录的 `git status` 要看**独立仓库**的状态，不要因为核心仓库 `git status` 干净就认为插件也已提交。
+    - `design/**` 属于核心仓库，**照常提交与推送**（设计稿是决策记录，需要进远程）；
+    - `design/tmp-design/**` 是**本机临时设计目录**，已在 `.gitignore` 忽略：不得提交、不得 `git add -f`、
+      不得改名搬到别处绕过；要长期留存的草案移到 `design/<主题>/` 再提交。
 
 ## 3. 标准工作流
 
@@ -56,6 +60,7 @@
 - 若新增了**命令或依赖**，更新 `README.md`
 - 在总结中说明：改了哪些文件、验证方式、遗留风险
 - **提交前**确认 `git status` 里没有 `plugins/` 内容（红线 #11）；核心提交只含核心服务
+- 在 `design/tmp-design/` 里试验的内容不随提交：有价值的设计定稿后移入 `design/<主题>/`，临时文件留在原处不清也无妨
 
 ### 3.4 截图与视觉验证（本地评审用）
 

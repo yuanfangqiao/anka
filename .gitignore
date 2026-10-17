@@ -80,6 +80,7 @@ Thumbs.db
 # 临时
 /tmp
 /bak
+/design/tmp-design
 
 # 参考项目
 /reference
