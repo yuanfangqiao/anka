@@ -262,6 +262,9 @@ infra 扁平插件与 folder 插件是两类插件源，共存于同一个 `_plu
 
 ### 8.2 插件包契约
 
+> 正典：**[`docs/PLUGIN-SPEC.md`](docs/PLUGIN-SPEC.md)**（manifest v2 字段表、kind 判定、
+> 状态机、错误码、build 白名单）。本节只保留最小示意；两者冲突以 spec 为准。
+
 ```jsonc
 // plugins/notes/plugin.json
 {
@@ -280,10 +283,14 @@ infra 扁平插件与 folder 插件是两类插件源，共存于同一个 `_plu
 
 ### 8.3 安装 / 卸载 / 热语义
 
-- 发现：`FolderScanner` 扫描 `plugins/*/plugin.json` → 可安装清单（启动缓存，装卸后失效重建）
-- 持久化：`server/data/installed.json`（已安装 id 列表，默认 `["notes","explore"]`）
-- 安装：校验 → import → `extract_plugin_meta` → 注册进 `_plugin_metas` → `_load` → 写 installed.json；**同名曾加载过 → `requires_restart: true`**（in-memory `_ever_loaded` 判定，重启后清零）
-- 卸载：`disable`（含级联记录）→ 摘除 meta 与 fiber（`remove_fiber` + `discard_fiber`）→ 移出 installed.json；前端 `unregisterApp`（removeRoute + 注册表摘除），**刷新后彻底干净**
+- 分层：`PluginService`（扫描 / 安装决策 / ledger / 前端清单）+ `PluginManager`（装载 / 启停 / 重载），
+  后者保留同名 facade；`docs/PLUGIN-SPEC.md` §1.1 是唯一的 kind 判定规则
+- 发现：`FolderScanner` 扫描 `plugins/*/plugin.json` → 可安装清单（Service 缓存，装卸后失效重建）
+- 持久化：`server/data/ledger.jsonl`（append-only 事件 + `ledger.snapshot.json` 投影，
+  默认首次运行导入 `["notes","explore"]`）；`installed.json` 仅在迁移时读取，之后改名 `.json.bak`
+- 安装：校验 → import → `extract_plugin_meta` → 注册进 `_plugin_metas` → `_load` → 追加 `installed` 事件；**同名曾加载过 → `requires_restart: true`**（in-memory `_ever_loaded` 判定，重启后清零）
+- 卸载：`disable`（含级联记录）→ 摘除 meta 与 fiber（`remove_fiber` + `discard_fiber`）→ 追加 `uninstalled` 事件；前端 `unregisterApp`（removeRoute + 注册表摘除），**刷新后彻底干净**
+- 离线工具：`cd server && python -m app.cli doctor|verify|pack`（不启服务，退出码 0/1/2）
 - 启停（enable/disable）语义对 app 插件不变（保留 meta 仅 fiber 状态切换）
 
 ### 8.4 前端宿主启动链
@@ -315,7 +322,7 @@ main.ts → 静态注册系统插件（同一 uiCtx，dogfooding）
 
 ### 8.7 git 插件目录与设置项约定（M8）
 
-- **git 插件**：第三方插件是独立 git 仓库，clone 进 `plugins/<name>/`，内含 `server/`（python）+ `web/`（vue/ts 源码）；启动时按 `installed.json` 自动加载（生产管线见 §8.8）
+- **git 插件**：第三方插件是独立 git 仓库，clone 进 `plugins/<name>/`，内含 `server/`（python）+ `web/`（vue/ts 源码）；启动时按 ledger 投影的已安装集合自动加载（生产管线见 §8.8）
 - **设置项归处**：全局设置集中在 dock「设置」应用；插件设置推荐以声明式 schema 注册进设置应用的插件分区（iOS 风格，后续实现），当前阶段放插件自己页面内
 - **iframe 插件约定（M10.8 拍板）**：内嵌第三方站点的 iframe 一律加 `sandbox="allow-scripts allow-same-origin allow-forms"`——不给 `allow-popups`（外链新开页被拦截，不脱离 PWA）、不给 `allow-top-navigation`（顶层不可被导航走）。跨域 iframe 是黑盒，无法把外链改道进 iframe（对方 `target` 不可改 + 外站 XFO 双重锁），故「外链在应用内浏览」仅后端代理可解（暂不做）；站内自导航不受影响。工具条提供「新窗口打开」作为外链出口
 
@@ -359,7 +366,7 @@ main.ts → 静态注册系统插件（同一 uiCtx，dogfooding）
 - 伺服：dev 由 vite 中间件（mime 表含 `.html`）；prod 由 FastAPI `mount('/plugins')`——**两态 URL 一致**，page 类不需要 `.plugin-dist`
 - **绝对路径改写（M11.1）**：第三方构建产物常 `base="/"`（如 excalidraw dist 引用 `/assets/x.js`），挂上 `/plugins/<id>/` 后会去站点根找 → 404。两态伺服都对 `.html` 做改写：注入 `<base href="/plugins/<id>/<dir>/">` + `src|href="/X"` → `/plugins/<id>/<dir>/X`。FastAPI 侧是 `serve_plugin_html` 路由（须先于 `mount('/plugins')` 注册），vite 侧在 `serveAppPlugins` 中间件——**改一边不算修完**
 - **PWA 红线（M11.1）**：workbox `navigateFallback` 生成的 `NavigationRoute` 在 sw.js 里注册最前，会截胡 iframe 的 navigation 请求 → 插件页拿到壳的 index.html → 壳在 iframe 里递归嵌套。必须配 `navigateFallbackDenylist: [/^\/api\//, /^\/plugins\//, /^\/plugin-dist\//]`
-- 启停：page 类无 fiber，enable/disable 为 no-op；卸载 = 移出 installed.json
+- 启停：page 类无 fiber，enable/disable 为 no-op；卸载 = 追加 `uninstalled` 事件（ledger）
 - 样例：`plugins/clock`（单文件时钟，演示同源调 API）、`plugins/snake/dist`（分离资源贪吃蛇，演示 dist 形态）、`plugins/excalidraw/dist`（完整第三方 React SPA，演示绝对路径改写；接入实录见 CHANGELOG M11.1）
 
 ### 8.10 应用导航与系统返回（2026-10-17）

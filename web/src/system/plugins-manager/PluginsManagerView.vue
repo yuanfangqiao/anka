@@ -94,6 +94,24 @@ async function install(a: AvailablePlugin) {
   }
 }
 
+/** 源码型 page 插件：拉取源码后重跑 build.steps，再重挂 iframe（入口带产物 mtime） */
+async function rebuild(p: PluginInfo) {
+  if (busy.value) return
+  busy.value = p.name
+  try {
+    await api.buildPlugin(p.name)
+    unloadApp(p.name)
+    await syncInstalled()
+    await refresh()
+    toast.ok(`${p.name}${p.version ? ` v${p.version}` : ''} 已重新构建并加载`)
+  } catch (e) {
+    console.error(e)
+    toast.err(e instanceof Error ? `构建失败：${e.message}` : '构建失败')
+  } finally {
+    busy.value = ''
+  }
+}
+
 async function uninstall() {
   const p = confirming.value
   if (!p) return
@@ -181,13 +199,30 @@ async function uninstall() {
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-2">
                   <h3 class="truncate text-[15px] font-semibold">{{ p.name }}</h3>
+                  <span v-if="p.version" class="font-mono text-[11px] text-ink-2">v{{ p.version }}</span>
                   <StateBadge :state="p.state" />
                   <span v-if="p.source === 'app'" class="rounded-md bg-brand-cyan/15 px-1.5 py-0.5 text-[10px] text-brand-cyan">App</span>
                 </div>
                 <p class="mt-0.5 text-[11px] text-ink-2">
-                  {{ p.is_service ? 'Service 类插件' : '函数插件' }} · 副作用 {{ p.effects }}
+                  <template v-if="p.kind === 'page'">
+                    静态页{{ p.requires_build ? ' · 源码构建（dist 不入库，点「加载更新」重建）' : '' }}
+                  </template>
+                  <template v-else>
+                    {{ p.is_service ? 'Service 类插件' : '函数插件' }} · 副作用 {{ p.effects }}
+                  </template>
                 </p>
               </div>
+              <button
+                v-if="p.requires_build"
+                type="button"
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-ink-2 transition-all duration-micro hover:bg-brand/15 hover:text-brand active:scale-90 cursor-pointer disabled:opacity-40"
+                :disabled="busy === p.name"
+                aria-label="加载更新"
+                title="拉取源码后重新构建并加载"
+                @click="rebuild(p)"
+              >
+                <RefreshCw :size="15" :class="busy === p.name ? 'animate-spin' : ''" />
+              </button>
               <button
                 v-if="p.source === 'app'"
                 type="button"
@@ -198,6 +233,7 @@ async function uninstall() {
                 <Trash2 :size="15" />
               </button>
               <BaseSwitch
+                v-if="p.kind !== 'page'"
                 :model-value="p.state === 'ACTIVE'"
                 :disabled="busy === p.name"
                 @update:model-value="(v: boolean) => togglePlugin(p, v)"
@@ -235,7 +271,7 @@ async function uninstall() {
               <p v-if="a.errors.length" class="mt-0.5 text-[11px] text-err">{{ a.errors.join('；') }}</p>
             </div>
             <BaseButton size="sm" :disabled="busy === a.id || a.errors.length > 0" @click="install(a)">
-              安装
+              {{ a.requires_build ? '构建并安装' : '安装' }}
             </BaseButton>
           </BaseCard>
         </div>

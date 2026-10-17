@@ -32,12 +32,19 @@ PORT = int(os.environ.get('PORT', '8000'))
 # web/dist 相对 server/app/settings.py：parents[2] = 项目根
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DIST_DIR = PROJECT_ROOT / 'web' / 'dist'
+DATA_DIR = PROJECT_ROOT / 'server' / 'data'
 
 # App 插件模型（M6）
 APP_PLUGINS_DIR = PROJECT_ROOT / 'plugins'            # 应用插件（前后端一体，可装卸）
 SYSTEM_PLUGINS_DIR = PROJECT_ROOT / 'system-plugins'  # 系统插件标记（UI 静态捆入内核）
-INSTALLED_FILE = PROJECT_ROOT / 'server' / 'data' / 'installed.json'
+INSTALLED_FILE = PROJECT_ROOT / 'server' / 'data' / 'installed.json'  # 仅作迁移来源
 DEFAULT_INSTALLED = ['notes', 'explore']              # 首次运行的默认安装集
+
+# 插件安装事件源（P1）：JSONL append-only + 快照，唯一事实来源
+LEDGER_FILE = DATA_DIR / 'ledger.jsonl'
+LEDGER_SNAPSHOT = DATA_DIR / 'ledger.snapshot.json'
+LEDGER_COMPACT_EVERY = int(os.environ.get('ANKA_LEDGER_COMPACT_EVERY', '500'))
+PACKAGE_DIR = PROJECT_ROOT / 'dist-packages'          # CLI pack 产物目录
 
 # 插件前端管线（M9）
 WEB_DIR = PROJECT_ROOT / 'web'
@@ -53,7 +60,6 @@ SHELL_CONFIG = {
 
 # ─── TokenHub 模型服务（M13）──────────────────────────────
 # 凭据 seam：Key 只写存储 + 脱敏视图 + 每次请求解析（轮换下一请求即时生效）
-DATA_DIR = PROJECT_ROOT / 'server' / 'data'
 CREDENTIALS_FILE = DATA_DIR / 'credentials.json'   # API Key（不入日志、不回传明文）
 USER_SETTINGS_FILE = DATA_DIR / 'settings.json'    # 用户偏好（默认模型等）
 

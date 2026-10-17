@@ -24,6 +24,10 @@ class PluginInfo(BaseModel):
     source: str = 'infra'         # infra | app（system 插件不走 cordis，不进本列表）
     has_ui: bool = False
     requires_restart: bool = False
+    # P2 新增（只增不改）：page 类也进列表，便于展示版本与「加载更新」
+    version: str = ''
+    kind: str = 'app'             # infra | app | page
+    requires_build: bool = False  # 声明了 build.steps（安装/更新时现场构建）
 
 
 class AvailablePlugin(BaseModel):
@@ -34,6 +38,10 @@ class AvailablePlugin(BaseModel):
     icon: str
     description: str = ''
     errors: list[str] = []
+    # P1 新增（只增不改）：manifest v2 视图
+    kind: str = 'app'             # infra | app | page
+    codes: list[str] = []         # 稳定错误码，与 errors 一一对应
+    requires_build: bool = False  # manifest 声明了 build.steps
 
 
 class InstallResult(BaseModel):
@@ -42,6 +50,7 @@ class InstallResult(BaseModel):
     state: str = ''
     requires_restart: bool = False
     message: str | None = None
+    code: str | None = None       # P1：稳定错误码（E_*），成功时为 None
 
 
 class AppInfo(BaseModel):

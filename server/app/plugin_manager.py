@@ -1,27 +1,29 @@
 """
-PluginManager —— cordis Loader 的服务端封装（M6：支持 folder 形态 App 插件）。
+PluginManager —— cordis Loader 的服务端封装（内核装载职责）。
 
-职责：
-- bootstrap：infra 扁平插件 → 已安装 App 插件（installed.json）
-- discover/available：FolderScanner 扫描「可安装」清单
-- install/uninstall：动态装卸（首次安装即时生效；同名重装 → requires_restart）
-- enable/disable：启停与级联（对 infra 与 app 插件一致）
+职责（P1 收窄）：
+- bootstrap：infra 扁平插件 + 已安装 App 插件（ledger 投影）
+- _install_loaded：import → meta → fiber（供 PluginService 回调）
+- enable/disable：启停与级联
+- reload_plugin：备份 → 卸载 → 模块驱逐 → 重载 → 回滚
 - list_plugins：fiber 快照（同名取最新 fiber，按拓扑序输出）
 - app_service：App 插件后端 Service 的通用数据通道（snapshot/call）
+
+扫描、可安装清单、安装决策、ledger 写入、前端应用清单已下沉到
+`plugin_service.PluginService`；本类保留同名 facade 以兼容既有调用点。
 
 并发约定：所有方法都是同步的，调用方（api 层）必须经
 asyncio.Lock 串行化 + asyncio.to_thread 执行（见 AGENT.md 红线 #3）。
 """
 
-import json
 import logging
 import shutil
 import time
-from pathlib import Path
 
 from . import folder_loader, plugin_builder, settings
 from .cordis import FiberState, Loader, RootContext
-from .folder_scanner import FolderManifest, scan
+from .folder_scanner import FolderManifest
+from .plugin_service import PluginService
 from .schemas import (AppInfo, AvailablePlugin, InstallResult,
                       PluginActionResult, PluginInfo)
 
@@ -29,53 +31,61 @@ log = logging.getLogger('agentos.plugins')
 
 
 class PluginManager:
-    def __init__(self):
+    def __init__(self) -> None:
         self.ctx = RootContext()
         self.loader = Loader(self.ctx)
         self._disabled: set[str] = set()
         self._ever_loaded: set[str] = set()     # 进程内加载过的 app 插件 id
-        self._scan_cache: dict[str, FolderManifest] | None = None
-        self._installed: list[str] = self._read_installed()
+        self.service = PluginService(
+            on_load=self._install_loaded,
+            on_uninstall=self._uninstall_kernel,
+            state_probe=self._fiber_state,
+            was_loaded=self._was_loaded,
+        )
 
-    # ─── installed.json 持久化 ──────────────────────────────────
+    # ─── 内核回调（注入 PluginService）──────────────────
 
-    def _read_installed(self) -> list[str]:
-        f = settings.INSTALLED_FILE
-        if f.is_file():
-            try:
-                return list(json.loads(f.read_text(encoding='utf-8')))
-            except Exception as e:
-                log.error('installed.json 解析失败，用默认值: %s', e)
-        f.parent.mkdir(parents=True, exist_ok=True)
-        f.write_text(json.dumps(settings.DEFAULT_INSTALLED, indent=2),
-                     encoding='utf-8')
-        return list(settings.DEFAULT_INSTALLED)
+    def _install_loaded(self, name: str, manifest: FolderManifest) -> str:
+        """加载并启动一个从未加载过的 app 插件，返回状态名"""
+        meta = folder_loader.load_meta(manifest)
+        self._ever_loaded.add(name)
+        self.loader._plugin_metas[meta.name] = meta
+        self.loader._plugin_configs.setdefault(meta.name, {})
+        self.loader._load(meta, self.loader._plugin_configs[meta.name])
+        return self._latest_fibers()[name].state.name
 
-    def _write_installed(self) -> None:
-        settings.INSTALLED_FILE.write_text(
-            json.dumps(self._installed, indent=2, ensure_ascii=False),
-            encoding='utf-8')
+    def _was_loaded(self, name: str) -> bool:
+        return name in self._ever_loaded or folder_loader.was_loaded(name)
 
-    # ─── 扫描与发现 ──────────────────────────────────
+    def _fiber_state(self, name: str) -> str | None:
+        f = self._latest_fibers().get(name)
+        return f.state.name if f else None
 
-    def discover(self) -> dict[str, FolderManifest]:
-        if self._scan_cache is None:
-            self._scan_cache = scan(settings.APP_PLUGINS_DIR)
-        return self._scan_cache
+    def _uninstall_kernel(self, name: str) -> PluginActionResult:
+        """级联 disable → 摘 meta/fiber → 清内存启用态（不含 ledger）"""
+        res = self.disable(name)
+        self.loader._plugin_metas.pop(name, None)
+        self.loader._plugin_configs.pop(name, None)
+        for f in list(self.ctx.registry['fibers']):
+            if f.name == name:
+                self.loader.remove_fiber(f)
+                self.ctx.reflect.discard_fiber(f)
+        self._disabled.discard(name)
+        return res
+
+    # ─── 扫描与发现（facade）──────────────────────────
+
+    def discover(self):
+        return self.service.discover()
 
     def _invalidate_scan(self) -> None:
-        self._scan_cache = None
+        self.service.invalidate()
 
     def available(self) -> list[AvailablePlugin]:
-        """可安装 = 扫描发现但未安装"""
-        result = []
-        for m in self.discover().values():
-            if m.id in self._installed:
-                continue
-            result.append(AvailablePlugin(
-                id=m.id, name=m.name, version=m.version, icon=m.icon,
-                description=m.description, errors=m.errors))
-        return result
+        return self.service.available()
+
+    def apps(self) -> list[AppInfo]:
+        return self.service.apps()
 
     # ─── 生命周期 ──────────────────────────────────
 
@@ -83,7 +93,7 @@ class PluginManager:
                   plugins_dir: str = None) -> None:
         self.loader.bootstrap(config, package=package,
                               plugins_dir=plugins_dir)
-        for app_id in list(self._installed):
+        for app_id in self.service.installed_ids():
             m = self.discover().get(app_id)
             if m is None or m.page:
                 continue                    # page 类无后端（M11）
@@ -91,6 +101,7 @@ class PluginManager:
                 self._install_loaded(app_id, m)
             except Exception as e:
                 log.error('安装 app 插件 %s 失败: %s', app_id, e)
+                continue
             if not settings.AGENT_DEV and m.ok and m.ui_entry \
                     and plugin_builder.is_stale(app_id):
                 plugin_builder.build_web(app_id)
@@ -124,133 +135,40 @@ class PluginManager:
                 effects=len(f._disposables) if f else 0,
                 source='app' if m else 'infra',
                 has_ui=bool(m and m.ui_entry),
+                version=m.version if m else '',
+                kind=m.kind if m else 'infra',
+                requires_build=bool(m and m.build),
             ))
+
+        # page 类不进 cordis（无 fiber），但需要出现在插件管理页：
+        # 展示版本 + 提供「加载更新」（重跑 build.steps 并重挂 iframe）
+        for pid in self.service.installed_ids():
+            m = manifests.get(pid)
+            if m and m.page:
+                infos.append(PluginInfo(
+                    name=pid, state='PAGE', inject=[], provide=[],
+                    is_service=False, effects=0, source='app', has_ui=False,
+                    version=m.version, kind='page',
+                    requires_build=bool(m.build)))
+
         infos.sort(key=lambda i: order.get(i.name, 999))
         return infos
-
-    def apps(self) -> list[AppInfo]:
-        """前端宿主加载清单：已安装且有 UI 的 app 插件"""
-        result = []
-        for app_id in self._installed:
-            m = self.discover().get(app_id)
-            if not m:
-                continue
-            if m.page:
-                # M11：page 类——静态页 iframe 加载，无后端、无编译产物，
-                # entry 即静态路径（dev 由 vite 中间件伺服、prod 由 FastAPI mount 伺服）
-                result.append(AppInfo(
-                    id=m.id, title=m.name, icon=m.icon, route=m.route,
-                    entry=f'/plugins/{m.id}/{m.page_entry}',
-                    dock_order=m.dock_order, has_sidebar=False, kind='page'))
-                continue
-            if not m.ui_entry:
-                continue
-            f = self._latest_fibers().get(app_id)
-            if f and f.state != FiberState.ACTIVE:
-                continue                # 被禁用的 app 不出现在 dock
-            # M9：生产态优先用安装时编译产物；开发态用 vite 即时编译的源码
-            entry = (
-                f'/plugin-dist/{m.id}/index.js'
-                if not settings.AGENT_DEV and plugin_builder.has_dist(m.id)
-                else f'/plugins/{m.id}/{m.ui_entry}'
-            )
-            result.append(AppInfo(
-                id=m.id, title=m.name, icon=m.icon, route=m.route,
-                entry=entry,
-                dock_order=m.dock_order, has_sidebar=m.has_sidebar))
-        result.sort(key=lambda a: a.dock_order)
-        return result
 
     def app_service(self, app_id: str):
         """App 插件后端 Service（约定 provide 默认 [id]，故 ctx.<id> 即服务）"""
         return self.ctx.get(app_id)
 
-    # ─── 安装 / 卸载 ──────────────────────────────────
-
-    def _install_loaded(self, name: str, manifest: FolderManifest) -> str:
-        """加载并启动一个从未加载过的 app 插件，返回状态名"""
-        meta = folder_loader.load_meta(manifest)
-        self._ever_loaded.add(name)
-        self.loader._plugin_metas[meta.name] = meta
-        self.loader._plugin_configs.setdefault(meta.name, {})
-        self.loader._load(meta, self.loader._plugin_configs[meta.name])
-        return self._latest_fibers()[name].state.name
+    # ─── 安装 / 卸载（facade）──────────────────────────
 
     def install(self, name: str) -> InstallResult:
-        manifest = self.discover().get(name)
-        if manifest is None:
-            raise KeyError(name)
-        if not manifest.ok:
-            raise ValueError('；'.join(manifest.errors))
-        if name in self._installed:
-            return InstallResult(name=name, ok=True, state='ACTIVE',
-                                 message='插件已安装')
-        if manifest.page:
-            # M11：page 类无后端无编译，装上即生效
-            self._installed.append(name)
-            self._write_installed()
-            self._invalidate_scan()
-            log.info('install page %s', name)
-            return InstallResult(name=name, ok=True, state='PAGE',
-                                 message='静态页应用已安装')
-        if name in self._ever_loaded or folder_loader.was_loaded(name):
-            # 拍板语义：同名重装需重启（不做 module eviction）
-            return InstallResult(
-                name=name, ok=False, requires_restart=True,
-                message='同名插件曾在本进程加载，请重启后端后再安装')
-
-        try:
-            state = self._install_loaded(name, manifest)
-        except Exception as e:
-            log.exception('install %s failed', name)
-            return InstallResult(name=name, ok=False,
-                                 state=FiberState.FAILED.name, message=str(e))
-
-        # M9：生产态安装即编译插件前端（产物缓存 .plugin-dist/<id>/）
-        if not settings.AGENT_DEV:
-            plugin_builder.build_web(name)
-
-        self._installed.append(name)
-        self._write_installed()
-        self._invalidate_scan()
-        log.info('install %s -> %s', name, state)
-        return InstallResult(name=name, ok=True, state=state)
+        return self.service.install(name)
 
     def uninstall(self, name: str) -> PluginActionResult:
-        if name not in self._installed:
-            raise KeyError(name)
+        return self.service.uninstall(name)
 
-        m = self.discover().get(name)
-        if m and m.page:
-            # M11：page 类无 fiber/meta 可摘，移出 installed 即可
-            self._installed.remove(name)
-            self._write_installed()
-            self._invalidate_scan()
-            log.info('uninstall page %s', name)
-            return PluginActionResult(
-                name=name, ok=True, state='UNINSTALLED', cascaded=[],
-                message='静态页应用已移除；刷新页面后彻底消失')
-
-        res = self.disable(name)                    # 级联卸载 + 记录
-        # 摘除目标 meta 与 fiber（依赖者保留 meta，仅处 DISPOSED）
-        self.loader._plugin_metas.pop(name, None)
-        self.loader._plugin_configs.pop(name, None)
-        for f in list(self.ctx.registry['fibers']):
-            if f.name == name:
-                self.loader.remove_fiber(f)
-                self.ctx.reflect.discard_fiber(f)
-        self._disabled.discard(name)
-
-        self._installed.remove(name)
-        self._write_installed()
-        self._invalidate_scan()
-        dist = settings.PLUGIN_DIST_DIR / name      # M9：清掉前端构建产物
-        if dist.is_dir():
-            shutil.rmtree(dist, ignore_errors=True)
-        log.info('uninstall %s, cascaded=%s', name, res.cascaded)
-        return PluginActionResult(
-            name=name, ok=True, state='UNINSTALLED', cascaded=res.cascaded,
-            message='已卸载；刷新页面后彻底移除')
+    def build(self, name: str) -> PluginActionResult:
+        """重新构建源码型 page 插件（前端「加载更新」入口）"""
+        return self.service.build(name)
 
     # ─── 无重启重载（M14）──────────────────────────────
 

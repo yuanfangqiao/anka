@@ -5,6 +5,7 @@ const props = defineProps<{ state: string }>()
 
 const map: Record<string, { label: string; cls: string; dot: string }> = {
   ACTIVE: { label: '运行中', cls: 'bg-ok/15 text-ok', dot: 'bg-ok' },
+  PAGE: { label: '静态页', cls: 'bg-brand/15 text-brand', dot: 'bg-brand' },
   PENDING: { label: '待依赖', cls: 'bg-warn/15 text-warn', dot: 'bg-warn' },
   LOADING: { label: '加载中', cls: 'bg-brand/15 text-brand', dot: 'bg-brand' },
   FAILED: { label: '失败', cls: 'bg-err/15 text-err', dot: 'bg-err' },

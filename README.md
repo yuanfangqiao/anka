@@ -1,7 +1,7 @@
 # pwa-demo · 可安装的 Agent 样例 PWA
 
 > 状态：**M14 完成**（真实模型 TokenHub + Agent 自我插件开发就绪）。
-> 文档导航：[IDEA.md](./IDEA.md)（需求）· [PROJECT.md](./PROJECT.md)（范围与里程碑）· [ARCHITECTURE.md](./ARCHITECTURE.md)（技术方案）· [AGENT.md](./AGENT.md)（Agent 工作守则）
+> 文档导航：[IDEA.md](./IDEA.md)（需求）· [PROJECT.md](./PROJECT.md)（范围与里程碑）· [ARCHITECTURE.md](./ARCHITECTURE.md)（技术方案）· [AGENT.md](./AGENT.md)（Agent 工作守则）· [design/](./design/README.md)（设计方案与 UI 设计）
 
 ## 这是什么
 
@@ -119,6 +119,9 @@ Edge 发现缺权限后会按标准安卓流程把系统丢到授权页，但 MI
 ```
 pwa-demo/
 ├── IDEA.md / PROJECT.md / ARCHITECTURE.md / AGENT.md / CHANGELOG.md / README.md
+├── agent-architecture.drawio.png  # 双端布局事实图（内嵌 XML，可编辑）
+├── docs/               # 已定契约：PLUGIN-SPEC / NAVIGATION
+├── design/             # 设计方案与 UI 设计（architecture/ 方案、ui/ 线框与原型）
 ├── reference/          # 只读参考（cordis-mini、ComfyUI、ComfyUI_frontend）
 ├── plugins/            # 应用插件（前后端一体文件夹，可动态装卸）：notes / explore / …
 ├── system-plugins/     # 系统插件标记（对话/插件管理/设置，UI 静态捆入内核）
@@ -144,6 +147,9 @@ pwa-demo/
 
 ## 约定
 
+插件开发上手、命名规范与自检清单见 [`plugins/README.md`](plugins/README.md)，
+字段契约见 [`docs/PLUGIN-SPEC.md`](docs/PLUGIN-SPEC.md)。
+
 应用切换与系统返回的插件开发接口见 [`docs/NAVIGATION.md`](docs/NAVIGATION.md)。
 导航回归可运行 `cd web && node scripts/check-navigation.mjs`：需要可选 Playwright
 与已安装 Chrome；模块不在项目路径时设置 `ANKA_PLAYWRIGHT_MODULE`，详见导航文档。
@@ -151,3 +157,15 @@ pwa-demo/
 - `reference/` **只读**：不修改、不作为运行时 import 路径
 - 业务能力一律写成插件（后端 `server/app/plugins/`，前端 `useAppRegistry` 元数据）
 - 单文件 ≤300 行；改内核须同步记录 `server/app/cordis/PATCHES.md`
+
+## 设计文档与图
+
+自己写方案设计和 UI 设计时，一律放 `design/`，不要新建平行目录：
+
+- **写在哪**：架构/交互方案 → `design/architecture/`；UI 设计、线框、原型 → `design/ui/`。`docs/` 只放已成契约的规范（`PLUGIN-SPEC.md`、`NAVIGATION.md`），`ARCHITECTURE.md` 是架构正典。
+- **怎么命名**：`design/<领域>/<主题>.md`，配图同名同目录（`shell-layout.md` ↔ `shell-layout.drawio.png`），正文用相对路径引用。
+- **图怎么编辑**：`.drawio.png` 是 PNG 内嵌 diagram XML，VSCode 安装 **Draw.io Integration** 后可直接双击编辑并保存回写；不要改名去掉 `.drawio`，也不要用普通图片工具另存（会丢 XML）。
+- **状态与归档**：文档首部标 `草案 / 已定稿 / 已废弃`；定稿后把结论合并进 `ARCHITECTURE.md` 或 `docs/`，`design/` 原稿留作决策记录，不两边同步维护。
+- **不放根目录**：根目录 `*.png` 已被 `.gitignore` 兜底忽略（`agent-architecture.drawio.png` 为已跟踪例外），新图放 `design/`；只有给 `docs/` 正文配的图才放 `docs/assets/`（按需创建）。
+
+索引与完整约定见 [`design/README.md`](design/README.md)。

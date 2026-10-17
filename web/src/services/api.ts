@@ -18,6 +18,10 @@ export interface PluginInfo {
   source?: 'infra' | 'app'
   has_ui?: boolean
   requires_restart?: boolean
+  /** P2：page 类也进列表，便于展示版本与「加载更新」 */
+  version?: string
+  kind?: 'infra' | 'app' | 'page'
+  requires_build?: boolean
 }
 
 export interface AvailablePlugin {
@@ -27,6 +31,10 @@ export interface AvailablePlugin {
   icon: string
   description: string
   errors: string[]
+  kind?: 'infra' | 'app' | 'page'
+  codes?: string[]
+  /** 源码型插件：安装时现场构建（dist 不入库） */
+  requires_build?: boolean
 }
 
 export interface InstallResult {
@@ -186,6 +194,9 @@ export const api = {
     request<InstallResult>(`/api/plugins/${encodeURIComponent(name)}/install`, { method: 'POST' }),
   uninstallPlugin: (name: string) =>
     request<PluginActionResult>(`/api/plugins/${encodeURIComponent(name)}/uninstall`, { method: 'POST' }),
+  /** 源码型 page 插件：拉取源码后点「加载更新」重跑 build.steps（dist 不入库） */
+  buildPlugin: (name: string) =>
+    request<PluginActionResult>(`/api/plugins/${encodeURIComponent(name)}/build`, { method: 'POST' }),
   apps: () => request<AppInfo[]>('/api/apps'),
   getAppState: (id: string) =>
     request<Record<string, unknown>>(`/api/apps/${encodeURIComponent(id)}/state`),

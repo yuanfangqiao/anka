@@ -2,6 +2,36 @@
 
 记录每次核心修改。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，最新在上。
 
+## [P2] 源码型 page 插件：现场构建 + 加载更新 · 2026-10-17
+
+- `plugin_builder.build_recipe()`：按 `manifest.build` 执行 `steps`（无 shell、逐条超时、
+  `requires` 预检、产物校验），失败返回 `E_BUILD_FAILED` 与步骤/日志尾。
+- `page` 类声明 `build` 时 `dist/` 不入库：首次安装「构建并安装」先构建再写 ledger；
+  新增 `POST /api/plugins/{id}/build`（同 `PluginManager.build` / `PluginService.build`）
+  供插件管理页「加载更新」重跑构建。
+- 扫描器允许 `build.output.entry` 产物暂时缺失（刚拉源码），`doctor` 标记
+  `build_pending` 而非问题；page 入口 URL 追加产物 mtime，前端重挂 iframe 即拿新构建。
+- `PluginInfo` 增加 `version/kind/requires_build`，已安装 page 插件也出现在插件管理页
+  （`state=PAGE`），卡片展示版本并提供「加载更新」；`StateBadge` 支持 `PAGE`。
+- `plugins/anka-quickdraw`：manifest 改为 `kind: page` + `build` 配方（不再声明
+  `page.entry`，`dist` 不入库），新增 `PLUGIN.md` 说明构建、拉源码后加载更新与
+  「提交后必须 bump version」的规则。
+- 文档：`docs/PLUGIN-SPEC.md` §2.5/§3.2/§3.4、`plugins/README.md` §7 与
+  `AGENT.md` §4.1 补充源码型 page 插件契约与「提交后必须 bump version」规则；
+  `smoke.py` 的全 ACTIVE 断言排除无 fiber 的 page 类。
+
+## [P1] 插件契约定型（manifest v2 / ledger / CLI）· 2026-10-17
+
+- 新增 `docs/PLUGIN-SPEC.md`：manifest v2 字段表、`infra/app/page` 判定优先级、生命周期状态机与 FiberState 映射、稳定错误码表（含 HTTP）、v1→v2 兼容规则。
+- 新增 `server/app/plugin_service.py`：扫描缓存、可安装清单、安装/卸载决策、前端应用清单、体检下沉；`PluginManager` 收窄为内核装载 facade（`available/install/uninstall/apps` 签名不变）。
+- 新增 `server/app/ledger.py`：`server/data/ledger.jsonl` append-only 事件 + `ledger.snapshot.json` 快照投影，替代 `installed.json`（启动时幂等迁移并改名 `.bak`）；安装状态唯一事实来源。
+- 新增 `server/app/cli.py`：`python -m app.cli doctor|verify|pack`，离线、`--json`、退出码 0/1/2；`verify` 含 build 命令白名单与后端子进程 import 冒烟，`pack` 产出带 sha256 的 `.anka`。
+- 新增 `doctor --fix` / `PluginService.reconcile()`：清理「ledger 已安装但目录缺失」的幽灵记录（追加 `uninstalled` + `detail.reason=missing_dir`，保留审计），只做卸载方向修正。
+- 扫描器：page 类 manifest 的缺省路由改为 `/app/<id>`，与无 `plugin.json` 的自动发现同形，补 manifest 不再改变既有深链；`plugins/anka-quickdraw` 补上 `kind: page` 的 manifest 作为 page 参照。
+- `folder_scanner` 解析 `kind/build/permissions/page.entry` 并输出 `codes`（`errors` 保留）；M11「无 plugin.json 的静态页目录」行为不变。
+- `plugins/demo` 上移为唯一官方示例（manifest v2 + `ping()` 往返 + 前端错误重试 + README）；`schemas` 只增 `kind/codes/requires_build/code` 字段。
+- 验证：`verify demo` / `pack demo` / 安装-数据通道-卸载链路通过；`smoke.py` 改为备份/恢复 ledger。本地 `plugins/` 存在历史嵌套目录（`plugins/<id>/<id>/`），回归前需先上移。
+
 ## [Unreleased] Jot 缩略图生成与性能 · 2026-10-17
 
 - 列表改为 480px JPEG 缩略图，点击后才请求原图/原片；前端生成、后端 FFmpeg 补生成、历史封面修复和秒传封面地址闭环。

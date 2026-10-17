@@ -6,12 +6,26 @@ import logging
 from fastapi import APIRouter, HTTPException
 
 from .. import deps
+from ..plugin_service import ServiceError
 from ..schemas import (AvailablePlugin, InstallResult, PluginActionResult,
                        PluginInfo)
 from ..shell_events import broadcast_shell_event
 
 log = logging.getLogger('agentos.api.plugins')
 router = APIRouter(tags=['plugins'])
+
+# 稳定错误码 → HTTP（docs/PLUGIN-SPEC.md §5）
+_CODE_STATUS = {
+    'E_NOT_FOUND': 404,
+    'E_NOT_INSTALLED': 404,
+    'E_ALREADY_INSTALLED': 409,
+    'E_RESTART_REQUIRED': 409,
+    'E_LOAD_FAILED': 500,
+    'E_LEDGER_CORRUPT': 500,
+    'E_BUILD_FAILED': 500,
+    'E_NO_BUILD': 400,
+}
+_DEFAULT_STATUS = 422
 
 
 def _locked(fn, *args, **kwargs):
@@ -40,18 +54,43 @@ async def install_plugin(name: str) -> InstallResult:
     async with deps.kernel_lock:
         try:
             result = await asyncio.to_thread(_locked, deps.manager.install, name)
+        except ServiceError as e:
+            status = _CODE_STATUS.get(e.code, _DEFAULT_STATUS)
+            error = ('plugin_not_found' if e.code == 'E_NOT_FOUND'
+                     else 'manifest_invalid')
+            raise HTTPException(
+                status_code=status,
+                detail={'error': error, 'code': e.code,
+                        'message': str(e), 'plugin': name})
         except KeyError:
             raise HTTPException(
                 status_code=404,
-                detail={'error': 'plugin_not_found',
+                detail={'error': 'plugin_not_found', 'code': 'E_NOT_FOUND',
                         'message': f'plugins/ 目录下未发现插件 "{name}"'})
-        except ValueError as e:
-            raise HTTPException(
-                status_code=400,
-                detail={'error': 'manifest_invalid', 'message': str(e)})
     # M17.10：广播 shell 事件，其他终端即时增量加载（不持内核锁发网络帧）
     await broadcast_shell_event(
         {'type': 'plugins-changed', 'action': 'install', 'name': name})
+    return result
+
+
+@router.post('/{name}/build', response_model=PluginActionResult)
+async def build_plugin(name: str) -> PluginActionResult:
+    """源码型 page 插件：重跑 manifest.build.steps（dist 不入库，拉源码后构建）"""
+    async with deps.kernel_lock:
+        try:
+            result = await asyncio.to_thread(_locked, deps.manager.build, name)
+        except ServiceError as e:
+            raise HTTPException(
+                status_code=_CODE_STATUS.get(e.code, _DEFAULT_STATUS),
+                detail={'error': 'build_failed', 'code': e.code,
+                        'message': str(e), 'plugin': name})
+        except KeyError:
+            raise HTTPException(
+                status_code=404,
+                detail={'error': 'plugin_not_found', 'code': 'E_NOT_FOUND',
+                        'message': f'plugins/ 目录下未发现插件 "{name}"'})
+    await broadcast_shell_event(
+        {'type': 'plugins-changed', 'action': 'build', 'name': name})
     return result
 
 
@@ -63,7 +102,7 @@ async def uninstall_plugin(name: str) -> PluginActionResult:
         except KeyError:
             raise HTTPException(
                 status_code=404,
-                detail={'error': 'plugin_not_installed',
+                detail={'error': 'plugin_not_installed', 'code': 'E_NOT_INSTALLED',
                         'message': f'插件 "{name}" 未安装'})
     # M17.10：广播 shell 事件，其他终端即时移除
     await broadcast_shell_event(

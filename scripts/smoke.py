@@ -32,17 +32,26 @@ def check(cond: bool, msg: str) -> None:
         raise SystemExit(f'smoke failed: {msg}')
 
 
+def _state_files():
+    """安装状态的落盘文件：ledger（唯一事实来源）+ 快照 + 迁移源。"""
+    return [settings.LEDGER_FILE, settings.LEDGER_SNAPSHOT,
+            settings.INSTALLED_FILE]
+
+
 def main() -> None:
-    # 备份 installed.json，脚本结束（无论成败）后恢复，保证可重复执行
-    f = settings.INSTALLED_FILE
-    backup = f.read_text(encoding='utf-8') if f.is_file() else None
+    # 备份安装状态（ledger/snapshot/installed.json），结束（无论成败）后恢复，
+    # 保证可重复执行；P1 起 ledger 是唯一事实来源，只备份 installed.json 不够。
+    backup = {p: (p.read_bytes() if p.is_file() else None) for p in _state_files()}
     from app.plugins import session_log
     known = {s['id'] for s in session_log.list_sessions()}
     try:
         _run()
     finally:
-        if backup is not None:
-            f.write_text(backup, encoding='utf-8')
+        for p, data in backup.items():
+            if data is not None:
+                p.write_bytes(data)
+            elif p.is_file():
+                p.unlink()
         # 清掉本次冒烟新产生的会话，不在用户侧留垃圾
         for s in session_log.list_sessions():
             if s['id'] not in known:
@@ -94,7 +103,8 @@ def _run() -> None:
     print('== 4. disable llm-runtime（级联） ==')
     res = mgr.disable('llm-runtime')
     check(res.ok and res.state == 'DISPOSED', '目标 DISPOSED')
-    check(set(res.cascaded) == {'llm-echo', 'llm-tokenhub', 'agent-loop', 'llm-logger'},
+    # 已安装的 app 插件若 inject llm 也会被级联，故用包含判断
+    check({'llm-echo', 'llm-tokenhub', 'agent-loop', 'llm-logger'} <= set(res.cascaded),
           f'级联 llm-echo/llm-tokenhub/agent-loop/llm-logger（实际 {res.cascaded}）')
     check(mgr.ctx.get('llm') is None, 'ctx.llm 已摘除')
     listeners = len(mgr.ctx.events._hooks.get('llm/stream', []))
@@ -103,10 +113,11 @@ def _run() -> None:
     print('== 5. enable llm-runtime（重建） ==')
     res = mgr.enable('llm-runtime')
     check(res.ok and res.state == 'ACTIVE', f'目标恢复 ACTIVE（实际 {res.state} {res.message}）')
-    check(set(res.cascaded) == {'agent-loop', 'llm-echo', 'llm-tokenhub', 'llm-logger'},
+    check({'agent-loop', 'llm-echo', 'llm-tokenhub', 'llm-logger'} <= set(res.cascaded),
           f'级联重建（实际 {res.cascaded}）')
     infos = {i.name: i for i in mgr.list_plugins()}
-    check(all(i.state == 'ACTIVE' for i in infos.values()), '全部恢复 ACTIVE')
+    check(all(i.state == 'ACTIVE' for i in infos.values() if i.kind != 'page'),
+          '全部恢复 ACTIVE（page 类无 fiber，state=PAGE）')
     result = mgr.ctx.agents.run('hello again')
     check('[ECHO]' in result, '重建后对话仍可用')
     fibers = [f for f in mgr.ctx.registry['fibers'] if f.name == 'llm-runtime']

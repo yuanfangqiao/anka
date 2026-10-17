@@ -47,10 +47,20 @@ server/data
 .plugin-dist/
 web/public/shared/
 
-/plugins
-# excalidraw 自托管：仅提交 dist，源码树不入库（M11「作者提交 dist」形态）
-plugins/excalidraw/*
-!plugins/excalidraw/dist/
+# ===== 插件目录（每个插件都是独立 git 仓库）=====
+# 必须是「忽略目录内容」而不是忽略目录本身：git 不会进入被排除的目录，
+# 一旦写成 /plugins，下面任何 !/plugins/xxx 反忽略都不可能生效。
+/plugins/*
+# 例外：插件作者文档跟随核心仓库
+!/plugins/README.md
+
+# ===== 本地截图 / 视觉验证产物（本地评审用，不入库、不推远程） =====
+# 约定：修 UI / 排查渲染的截图统一放 .screenshots/<范围>/<日期>-<说明>.png
+/.screenshots/
+# 兜底：根目录不再接收新增截图/临时图片（文档图统一放 docs/assets/）
+/*.png
+# 例外：drawio 可编辑图（PNG 内嵌 diagram XML，VSCode Draw.io Integration 可直接打开）
+!/agent-architecture.drawio.png
 
 # ===== 工具产物 =====
 .playwright-cli/
@@ -70,3 +80,6 @@ Thumbs.db
 # 临时
 /tmp
 /bak
+
+# 参考项目
+/reference

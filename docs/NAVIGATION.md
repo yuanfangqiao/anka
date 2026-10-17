@@ -3,6 +3,9 @@
 更新：2026-10-17。对应宿主 `web/src/services/navigation.ts` 与
 `web/src/router/appHistory.ts`。本契约适用于系统插件与 App 插件。
 
+相关文档：插件 manifest / kind / 生命周期 / 错误码见
+[`PLUGIN-SPEC.md`](./PLUGIN-SPEC.md)（§2 字段表、§3 目录布局、§5 错误码）。
+
 ## 1. 用户行为
 
 | 操作 | 结果 |

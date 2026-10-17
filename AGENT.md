@@ -1,7 +1,7 @@
 # AGENT.md · AI Agent 工作守则
 
 > 本仓库的使用者是人 + AI Agent。修改代码前先读这份文件，再读 `ARCHITECTURE.md` 与 `PROJECT.md`。
-> 最后更新：2026-10-17（Android 返回边界修复）
+> 最后更新：2026-10-17（新增 plugins 独立仓库 / 核心仓库提交边界）
 
 ## 1. 仓库真相表（Ground Truth）
 
@@ -14,6 +14,7 @@
 | `README.md` | 启动方式 | 命令以它为准 |
 | `AGENT.md` | 本文件 | Agent 行为规范 |
 | `reference/**` | **只读** | 参考资料（`cordis-mini` / `ComfyUI` / `ComfyUI_frontend`），禁止修改，禁止运行时 import |
+| `plugins/**` | **独立仓库** | 每个插件自带 `.git`（如 `anka-jot`、`anka-quickdraw`），独立提交与远程；核心仓库已忽略，不纳入核心提交 |
 | `server/**` | 后端 | FastAPI + 移植的 cordis 内核 |
 | `web/**` | 前端 | Vue 3 PWA |
 
@@ -31,6 +32,11 @@
 8. **页面组件必须单一元素根**：壳层 `<RouterView>` 外套了 `<Transition>`，Fragment 根（如「布局 div + Teleport」两个根）会导致切换页面永久空白。需要 Teleport 时，把它包进唯一根 div 里。
 9. **路由过渡禁用 `mode="out-in"`**：本项目路由组件为动态注册 + 跨模块 plain object，out-in 的 enter 会被永久卡住（leave 移除后只剩注释占位）。统一用默认模式，leave 元素已由 `.page-leave-active { position:absolute; inset:0 }` 兜底防堆叠。
 10. **应用导航统一归宿主**：切应用用 `uiCtx.navigation.switchApp(appId)`；内部路由用 `push/replace`，已有内部栈注册 `canGoBack/back`。禁止插件监听顶层 `popstate` 或直接改顶层 history；系统返回不得切回其他插件，根页保持当前应用。完整接口见 `docs/NAVIGATION.md`。
+11. **提交边界**：核心仓库（本仓库）只提交核心服务本身——`server/**`、`web/**`、`docs/**`、`scripts/**` 与根目录文档。`plugins/**` 已被 `.gitignore` 忽略，每个插件是**独立 git 仓库**，各自提交、各自推送：
+    - 禁止在核心仓库里 `git add plugins/...` / `git add -f`，也不要把插件目录变成 submodule；
+    - 禁止在插件目录内替用户执行 `commit` / `push` / `reset` 等写操作（需要时代码改完即止，由用户在插件仓库提交）；
+    - 插件改动不计入核心仓库的 `CHANGELOG.md`；核心仓库的变更记录只描述内核与宿主服务。
+    - 排查注意：插件目录的 `git status` 要看**独立仓库**的状态，不要因为核心仓库 `git status` 干净就认为插件也已提交。
 
 ## 3. 标准工作流
 
@@ -49,6 +55,20 @@
 - 若改变了**范围或里程碑状态**，更新 `PROJECT.md` 表格
 - 若新增了**命令或依赖**，更新 `README.md`
 - 在总结中说明：改了哪些文件、验证方式、遗留风险
+- **提交前**确认 `git status` 里没有 `plugins/` 内容（红线 #11）；核心提交只含核心服务
+
+### 3.4 截图与视觉验证（本地评审用）
+
+修 UI / 排查渲染问题常需要截图对比，统一按下面约定走，**截图永不入库**：
+
+- **目录**：`.screenshots/<范围>/<日期>-<说明>.png`，例如
+  `.screenshots/dock/2026-10-17-win-fixed.png`（`<范围>` 用 `dock` / `web` / `plugin-xxx`）；
+- **禁止**把截图写到仓库根目录或 `web/` 源码目录（根目录 `dock-fixed.png` 就是反例）；
+- `.screenshots/` 与根目录 `*.png` 已在 `.gitignore` 里忽略，可随时 `rm -rf .screenshots/`，不视为数据丢失；
+- **需要长期留存**的对比图放 `docs/assets/` 并在文档里引用（属于文档资产，不走 `.screenshots/`）；
+- 生成方式：`agent-browser screenshot <url> .screenshots/dock/xxx.png`，或项目内的 playwright 脚本；
+- `playwright-cli snapshot` 产出的 aria 树（`*.yaml`）属同类临时产物，同样写进 `.screenshots/`，**不要 dump 到根目录**（根目录 `calc.yaml` / `calc2.yaml` / `chat-snap.yaml` / `login.yaml` / `mob-min.yml` 就是反例）；
+- 回复用户时只描述「看了什么、结论是什么」，不要贴本地绝对路径；截图不随提交进入远程。
 
 ## 4. 常见任务配方
 
@@ -67,9 +87,24 @@ plugins/<name>/
 ├── server/main.py   # from app.cordis import Service；provide 默认 [id]
 └── web/index.js     # export function setup(uiCtx)，零 npm 导入
 ```
+复制 `plugins/demo/`（唯一官方样本）改名最快。manifest 写 `"manifest_version": 2`
+与 `"kind": "app"`；完整字段、kind 判定与错误码见 `docs/PLUGIN-SPEC.md`。
+新增/修改后跑 `cd server && python -m app.cli verify <id>`（离线，退出码非 0 即有问题）。
 前端用 `uiCtx.vue`（h/ref/computed…）、`uiCtx.components`、`uiCtx.icons`、`uiCtx.api` 写 UI；
 后端数据经通用通道暴露：`snapshot()` → `GET /api/apps/<id>/state`，公开方法 → `POST /api/apps/<id>/call`。
 放好后在插件管理页「可安装」区点安装即可，不用改任何内核代码。
+
+**Page 源码型插件**（自带构建，`dist` 不入库）：
+```
+plugins/<name>/
+├── plugin.json    # kind: page + build.output.entry；不写 page.entry
+└── <源码>          # 构建后产出 dist/index.html
+```
+`plugin.json` 声明 `build.steps`（`npm ci` / `npm run build`），宿主在
+「构建并安装」与「加载更新」时现场执行，产物留在插件目录内由 `/plugins` 伺服。
+`dist/` 必须写进**插件仓库**的 `.gitignore`。
+**每次提交源码后必须 bump `version`**——它是宿主判断插件新旧的唯一依据，
+不 bump 则视为同版本；语义化规则见 `docs/PLUGIN-SPEC.md` §2.5。
 
 ### 4.2 新增一个前端页面/入口（M6+：以 App 插件形式）
 1. 在 `plugins/<name>/web/index.js` 写 `setup(uiCtx)` 注册（见 4.1 App 插件）；系统插件放 `web/src/system/<name>/`
