@@ -49,7 +49,7 @@ curl -s localhost:8100/api/health
 
 ```ini
 [Unit]
-Description=AgentOS PWA
+Description=Anka PWA
 After=network.target
 
 [Service]

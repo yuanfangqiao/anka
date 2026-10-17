@@ -4,12 +4,12 @@
 
 ## 1. 一句话定义
 
-一个**可以安装到桌面/主屏幕的 PWA**，用最小成本演示「Agent = 一组可热插拔的插件」：手机形态是 dock 栏 + 主应用，桌面形态是侧边栏 + 主窗口；后端 Python 承载 Agent 内核，前端 Vue 承载界面壳。
+**Anka** 是一个 **Agent 操作系统**（AgentOS）：用最小成本实现「Agent = 一组可热插拔的插件」。后端 Python 承载 Agent 内核，前端 Vue 承载界面壳，当前以 **PWA** 形态交付（可安装到桌面/主屏幕）：手机形态是 dock 栏 + 主应用，桌面形态是侧边栏 + 主窗口。
 
 ## 2. 目标
 
 - **演示插件架构**：让「everything is plugin」看得见——插件有列表、有依赖（inject → provide）、能热启停、会级联卸载
-- **演示 PWA**：manifest + Service Worker + 离线 App Shell，mac/Win/iOS/Android 均可安装
+- **PWA 前端**：manifest + Service Worker + 离线 App Shell，mac/Win/iOS/Android 均可安装；这是当前交付形态，不构成项目定位
 - **演示双布局**：同一路由 + 同一套页面组件，手机/桌面只换外壳
 - **控制复杂度**：Fake LLM 跑通全链路，架构上留好真实模型的插座位
 

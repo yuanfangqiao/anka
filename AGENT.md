@@ -16,7 +16,7 @@
 | `reference/**` | **只读** | 参考资料（`cordis-mini` / `ComfyUI` / `ComfyUI_frontend`），禁止修改，禁止运行时 import |
 | `plugins/**` | **独立仓库** | 每个插件自带 `.git`（如 `anka-jot`、`anka-quickdraw`），独立提交与远程；核心仓库已忽略，不纳入核心提交 |
 | `server/**` | 后端 | FastAPI + 移植的 cordis 内核 |
-| `web/**` | 前端 | Vue 3 PWA |
+| `web/**` | 前端 | Vue 3（PWA 交付形态） |
 
 文档冲突时的优先级：`IDEA.md`（需求）> `PROJECT.md`（范围）> `ARCHITECTURE.md`（实现）> 本文件（流程）。
 

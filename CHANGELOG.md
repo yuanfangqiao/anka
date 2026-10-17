@@ -2,6 +2,13 @@
 
 记录每次核心修改。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，最新在上。
 
+## [Naming] 项目定名 Anka，厘清 AgentOS 与 PWA · 2026-10-17
+
+- 项目名统一为 **Anka**：清理 `pwa-demo` 旧名（README / ARCHITECTURE 目录树根部、`web/package.json` 与 lock 包名改为 `anka-web`、`IDEA.md` 标题）。
+- 文档重新界定三者：**Anka** = 项目名，**AgentOS** = 以插件为基本单元的 Agent 操作系统实现方式，**PWA** = 前端当前的交付形态（换壳不影响内核）。
+- 界面与运行期旧名 `AgentOS` 改为 Anka：`web/index.html`（iOS 安装标题）、`server/app/main.py`（FastAPI title 与启动日志）、`agent_loop` 系统提示词、`DEPLOY.md` systemd Description；CHANGELOG 历史条目保留原文不改。
+- 同步更新 `README.md`（新增术语分工表）、`PROJECT.md`（一句话定义与目标）、`ARCHITECTURE.md`（技术选型注明内核/壳/PWA 分层）、`AGENT.md`（`web/**` 描述）。
+
 ## [P2] 源码型 page 插件：现场构建 + 加载更新 · 2026-10-17
 
 - `plugin_builder.build_recipe()`：按 `manifest.build` 执行 `steps`（无 shell、逐条超时、

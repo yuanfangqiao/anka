@@ -36,13 +36,13 @@ async def lifespan(app: FastAPI):
             settings.PLUGINS_PACKAGE,
         )
     # M17.10：启动时记录版本戳，便于排查多终端版本偏斜
-    log.info('AgentOS ready, dist=%s (exists=%s), front_build=%s, api_build=%s',
+    log.info('Anka ready, dist=%s (exists=%s), front_build=%s, api_build=%s',
              settings.DIST_DIR, settings.DIST_DIR.is_dir(),
              health.get_front_build(), health.API_BUILD)
     yield
 
 
-app = FastAPI(title='AgentOS · PWA Agent 样例', lifespan=lifespan)
+app = FastAPI(title='Anka', lifespan=lifespan)
 
 # M18：应用层鉴权 —— 放行登录相关、健康检查（版本巡检需要且无敏感数据）、
 # 壳静态资源（登录页在壳内渲染）；保护其余 /api/* 与插件产物。

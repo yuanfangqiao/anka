@@ -1,16 +1,26 @@
-# pwa-demo · 可安装的 Agent 样例 PWA
+# Anka · Agent 操作系统
 
 > 状态：**M14 完成**（真实模型 TokenHub + Agent 自我插件开发就绪）。
 > 文档导航：[IDEA.md](./IDEA.md)（需求）· [PROJECT.md](./PROJECT.md)（范围与里程碑）· [ARCHITECTURE.md](./ARCHITECTURE.md)（技术方案）· [AGENT.md](./AGENT.md)（Agent 工作守则）· [design/](./design/README.md)（设计方案与 UI 设计）
 
 ## 这是什么
 
-一个可安装到桌面 / 主屏幕的 PWA 样例，演示「Agent = 一组可热插拔的插件」：
+**Anka** 是一个 **Agent 操作系统**（AgentOS）的实现：把「Agent = 一组可热插拔的插件」做成可安装、可扩展的系统。当前前端以 **PWA** 形态交付（可安装到桌面 / 主屏幕），后端由 FastAPI 承载插件内核。
+
+三个词的分工：
+
+| 名称 | 指什么 |
+|---|---|
+| **Anka** | 项目名，本仓库 |
+| **AgentOS** | 实现方式：一个以插件为基本单元的 Agent 操作系统 |
+| **PWA** | 前端交付形态：可安装、可离线，不是项目本身 |
+
+当前形态：
 
 - **手机形态**（≤768px）：顶部返回/设置 + 内容区 + 底部 dock（笔记 / 对话 / 探索）
 - **桌面形态**（>768px）：左侧竖向侧边栏（插件 / 任务 / 网络 / 工作区）+ 大圆角主窗口（对话框）+ 底部居中 dock（与手机共用）
 - **后端**：FastAPI 承载插件化 Agent 内核（移植自 `reference/cordis-mini`），LLM 走 `llm-tokenhub`（腾讯云 TokenHub，13 模型），无 Key 时自动回退 Echo 假模型
-- **PWA**：manifest + Service Worker，mac / Win / iOS / Android 均可安装，具备离线 App Shell
+- **前端（PWA）**：manifest + Service Worker，mac / Win / iOS / Android 均可安装，具备离线 App Shell；PWA 只是当前的交付形态，换壳不影响内核
 
 ## 环境要求
 
@@ -117,7 +127,7 @@ Edge 发现缺权限后会按标准安卓流程把系统丢到授权页，但 MI
 ## 目录结构
 
 ```
-pwa-demo/
+anka/
 ├── IDEA.md / PROJECT.md / ARCHITECTURE.md / AGENT.md / CHANGELOG.md / README.md
 ├── agent-architecture.drawio.png  # 双端布局事实图（内嵌 XML，可编辑）
 ├── docs/               # 已定契约：PLUGIN-SPEC / NAVIGATION

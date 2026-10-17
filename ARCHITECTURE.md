@@ -25,12 +25,14 @@
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-技术选型：**Python 3.11+ / FastAPI / Uvicorn**（后端）、**Vue 3 + TypeScript + Vite 5 + Tailwind 3.4**（前端）、**vite-plugin-pwa（Workbox）**（PWA）。
+技术选型：**Python 3.11+ / FastAPI / Uvicorn**（后端，承载 AgentOS 内核）、**Vue 3 + TypeScript + Vite 5 + Tailwind 3.4**（前端壳）、**vite-plugin-pwa（Workbox）**（前端的 PWA 交付形态：安装 + 离线）。
+
+命名约定：**Anka** 是项目名，**AgentOS** 指这套「插件即单元」的操作系统实现方式，**PWA** 只是前端的当前交付形态；换掉前端壳不改变 AgentOS 的内核模型。
 
 ## 2. 目录结构（目标态）
 
 ```
-pwa-demo/
+anka/
 ├── IDEA.md  PROJECT.md  ARCHITECTURE.md  AGENT.md  README.md
 ├── agent-architecture.drawio.png
 ├── reference/                    # 只读参考资料（禁止修改）

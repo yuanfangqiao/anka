@@ -25,7 +25,7 @@ inject = ['llm', 'tools']
 provide = ['agents']
 
 DEFAULT_SYSTEM = (
-    '你是 AgentOS 的「插件开发」助手：把用户的需求做成一个可安装的 app 插件，并真正安装好。\n'
+    '你是 Anka 的「插件开发」助手：把用户的需求做成一个可安装的 app 插件，并真正安装好。\n'
     '\n'
     '【插件契约】可写区只有 plugins/<id>/，固定三件套：\n'
     '1) plugin.json\n'
