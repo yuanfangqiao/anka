@@ -20,6 +20,7 @@ design/
 │   ├── shell-layout.md           # 样例：双端壳层
 │   └── shell-layout.drawio.png
 ├── assets/                       # 多份文档共用的图（按需使用，样例未用到）
+├── tmp-design/                   # 临时设计方案（本机，.gitignore 忽略，不入库）
 └── settings-master-detail.html   # 既有交互原型（CHANGELOG 已引用，保持不动）
 ```
 
@@ -33,6 +34,9 @@ design/
   ```
 
   草案 / 已定稿 / 已废弃（附替代文档链接）。
+- **临时方案写 `tmp-design/`**：未定稿的草案、试做原型、一次性草图一律放这里，文件名随意、不必标状态；
+  该目录已被 `.gitignore` 忽略，**不进远程**、也不要在核心仓库里 `git add -f`。
+  定稿后按上面的命名规则移入 `architecture/` / `ui/` / `assets/`，再随核心仓库提交。
 - **定稿后抄结论，不搬文件**：结论合并进 `ARCHITECTURE.md` 或 `docs/` 对应章节，本目录原稿保留作为决策记录，形成单向引用（正典 → 设计稿）。
 
 ## 图的编辑方式

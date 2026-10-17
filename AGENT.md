@@ -15,7 +15,7 @@
 | `AGENT.md` | 本文件 | Agent 行为规范 |
 | `reference/**` | **只读** | 参考资料（`cordis-mini` / `ComfyUI` / `ComfyUI_frontend`），禁止修改，禁止运行时 import |
 | `plugins/**` | **独立仓库** | 每个插件自带 `.git`（如 `anka-jot`、`anka-quickdraw`），独立提交与远程；核心仓库已忽略，不纳入核心提交 |
-| `design/**` | 设计过程 | 方案草案 / UI 线框 / 交互原型的**已提交**目录（`design/README.md` 为索引）；**非事实来源**，定稿后并入 `ARCHITECTURE.md` / `docs/`；`design/tmp-design/**` 是本机临时区，已被忽略、不入库 |
+| `design/**` | 设计过程 | 方案草案 / UI 线框 / 交互原型的**已提交**目录（`design/README.md` 为索引）；**非事实来源**，定稿后并入 `ARCHITECTURE.md` / `docs/`；**临时/未定稿的设计方案一律写 `design/tmp-design/`**，该目录已被忽略、不入库 |
 | `server/**` | 后端 | FastAPI + 移植的 cordis 内核 |
 | `web/**` | 前端 | Vue 3（PWA 交付形态） |
 
@@ -39,8 +39,8 @@
     - 插件改动不计入核心仓库的 `CHANGELOG.md`；核心仓库的变更记录只描述内核与宿主服务。
     - 排查注意：插件目录的 `git status` 要看**独立仓库**的状态，不要因为核心仓库 `git status` 干净就认为插件也已提交。
     - `design/**` 属于核心仓库，**照常提交与推送**（设计稿是决策记录，需要进远程）；
-    - `design/tmp-design/**` 是**本机临时设计目录**，已在 `.gitignore` 忽略：不得提交、不得 `git add -f`、
-      不得改名搬到别处绕过；要长期留存的草案移到 `design/<主题>/` 再提交。
+    - **临时设计方案写到 `design/tmp-design/`**（本机目录，已在 `.gitignore` 忽略）：不得提交、不得 `git add -f`、
+      不得改名搬到别处绕过；定稿后移到 `design/<主题>/` 再提交。
 
 ## 3. 标准工作流
 
@@ -60,7 +60,7 @@
 - 若新增了**命令或依赖**，更新 `README.md`
 - 在总结中说明：改了哪些文件、验证方式、遗留风险
 - **提交前**确认 `git status` 里没有 `plugins/` 内容（红线 #11）；核心提交只含核心服务
-- 在 `design/tmp-design/` 里试验的内容不随提交：有价值的设计定稿后移入 `design/<主题>/`，临时文件留在原处不清也无妨
+- **临时设计方案写 `design/tmp-design/`**（未定稿草案、试做原型、一次性草图都放这里，不入库、不推送）；定稿后再按 `design/README.md` 的命名规则移入 `design/architecture|ui|assets/` 并提交
 
 ### 3.4 截图与视觉验证（本地评审用）
 
