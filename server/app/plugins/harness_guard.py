@@ -12,7 +12,11 @@
 
 import re
 
-from app.plugins._harness_support import resolve_plugin_path
+from app.plugins._harness_support import (
+    is_plugin_file_path,
+    resolve_plugin_path,
+    resolve_read_path,
+)
 
 name = 'harness-guard'
 inject = []  # 纯监听守卫，无服务依赖
@@ -41,13 +45,18 @@ def apply(ctx, config):
         tool = exec_ctx.get('tool_name')
         args = exec_ctx.get('args') or {}
 
-        # 文件工具：路径必须收敛在 plugins/ 内（与 harness_tools 同一策略）
+        # 文件工具：读可落在 plugins/ + 只读文档白名单；写只能落在 plugins/<id>/
         if tool in ('fs_list', 'fs_read', 'fs_write'):
             rel = args.get('path', '')
             try:
-                resolve_plugin_path(rel)
+                if tool == 'fs_read':
+                    resolve_read_path(rel)
+                else:
+                    resolve_plugin_path(rel)
             except ValueError as e:
                 return f'denied: {tool} {e}'
+            if tool == 'fs_write' and not is_plugin_file_path(rel):
+                return f'denied: fs_write 只能写 plugins/<id>/ 内文件: {rel}'
             return None
 
         # 插件生命周期工具：id 格式校验

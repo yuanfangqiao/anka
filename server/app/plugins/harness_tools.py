@@ -24,8 +24,10 @@ from app import deps, settings
 from app.plugins._harness_support import (
     _ID_RE,
     backup_plugin,
+    is_plugin_file_path,
     plugin_id_of,
     resolve_plugin_path,
+    resolve_read_path,
     scaffold_index_js,
     scaffold_main_py,
     verify_script,
@@ -50,7 +52,10 @@ def _fs_list(args):
 
 
 def _fs_read(args):
-    p = resolve_plugin_path(args.get('path', ''))
+    try:
+        p = resolve_read_path(args.get('path', ''))
+    except ValueError as e:
+        return f'error: {e}'
     if not p.is_file():
         return f'error: 不是文件: {args.get("path", "")}'
     if p.stat().st_size > 64 * 1024:
@@ -61,10 +66,13 @@ def _fs_read(args):
 def _fs_write(args):
     rel = args.get('path', '')
     content = args.get('content', '')
-    p = resolve_plugin_path(rel)
+    if not is_plugin_file_path(rel):
+        return 'error: 只能写 plugins/<id>/ 内的文件（plugins/ 根文档与只读文档不可改）'
+    try:
+        p = resolve_plugin_path(rel)
+    except ValueError as e:
+        return f'error: {e}'
     pid = plugin_id_of(rel)
-    if not pid:
-        return 'error: 路径缺少插件目录名'
     p.parent.mkdir(parents=True, exist_ok=True)
     backup_plugin(pid)          # 写前快照，失败可回滚
     p.write_text(content, encoding='utf-8')
@@ -191,8 +199,8 @@ def _plugin_reload(args):
 _TOOLS = (
     ('fs_list', '列出 plugins/ 目录（或子目录）内容', _fs_list,
      {'type': 'object', 'properties': {'path': {'type': 'string', 'description': '相对 plugins/ 的路径，空为根'}}, 'required': []}),
-    ('fs_read', '读取 plugins/ 内的文本文件', _fs_read,
-     {'type': 'object', 'properties': {'path': {'type': 'string', 'description': '相对 plugins/ 的文件路径'}}, 'required': ['path']}),
+    ('fs_read', '读取 plugins/ 内的文本文件；也可读只读规范文档 README.md 与 docs/PLUGIN-SPEC.md', _fs_read,
+     {'type': 'object', 'properties': {'path': {'type': 'string', 'description': '相对 plugins/ 的文件路径，或 docs/PLUGIN-SPEC.md'}}, 'required': ['path']}),
     ('fs_write', '写文件到 plugins/（写前自动备份）', _fs_write,
      {'type': 'object', 'properties': {
          'path': {'type': 'string', 'description': '相对 plugins/ 的文件路径'},

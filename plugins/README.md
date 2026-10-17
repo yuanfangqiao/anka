@@ -204,7 +204,95 @@ page 不加载 Python、不编译前端，宿主直接用 iframe 伺服入口；
 
 ---
 
-## 8. 提交前自检
+## 8. 移动端与 iOS 约束
+
+宿主壳层已经处理了缩放、视口、安全区、系统返回；插件要做的是**不破坏这些前提**，
+并在少数场景自行补齐。以下约束对 app 与 page 两类插件都适用（page 类差异单独标注）。
+
+### 8.1 缩放与手势
+
+- 宿主全局 `touch-action: manipulation`（`web/src/styles/base.css`）：禁双击放大，
+  保留滚动与双指缩放。插件**不要**再写 `user-scalable=no` / `maximum-scale=1`；
+  page 类自己的 viewport 用 `width=device-width, initial-scale=1, viewport-fit=cover`。
+- 不要依赖 `dblclick` 做核心操作——双击语义已被全局规则接管，不同 WebView
+  派发行为不一致。需要「双击」时用两次 `pointerdown` 的时间窗自判。
+- 宿主「创造模式」占用两个角：移动端左下 + 右上 **96px** 角区双指同时按；
+  iPad（触屏桌面布局）在 1.5s 内先后点这两个角区也会触发。插件不要在这两个角
+  放高频或不可撤销的操作按钮。
+- 自定义横/竖滑容器显式声明 `touch-action: pan-x` / `pan-y`，并加
+  `overscroll-behavior: contain`；否则 iOS 的 rubber-band 会沿滚动链传导到整页。
+
+### 8.2 视口与高度
+
+- 宿主根是 `fixed inset-0` + `body { overflow: hidden }`，文档流本身不滚动。
+  插件根容器用 `height: 100%` / `h-full`，**不要用 `100vh`**——iOS 地址栏收起、
+  键盘弹出时它比可视区高，底部按钮会被顶出屏幕。
+- 长列表放在插件自己的容器里滚（`overflow-y: auto` + `min-height: 0`），
+  不要让内容把宿主 main 撑成整页滚动。
+- app 插件在宿主主内容区内渲染，`position: fixed` 相对浏览器窗口、不随宿主滚动区
+  裁剪，会盖住 dock 或压到安全区。浮层优先用 `absolute` 定位在插件根内；
+  确需全屏浮层（含 `Teleport` 到 body）时自行加 `env(safe-area-inset-*)` 内边距。
+- page 类：iframe 内部 `100vh` 等于 iframe 高度，不会溢出；但宿主调整容器高度时
+  用 `100%` 跟随更稳，别写死像素高度。
+
+### 8.3 安全区
+
+- 移动壳对 dock 应用与全屏页**不渲染 TopBar、不留顶部空位**（含 safe-area），
+  整块区域交给应用。app 插件自绘页头时必须加
+  `padding-top: env(safe-area-inset-top, 0px)`，否则被状态栏/灵动岛遮挡。
+- 底部固定操作条加 `padding-bottom: env(safe-area-inset-bottom, 0px)`。
+  移动壳的 dock 是宿主独立条（已按 safe-area + 16px 抬高），插件不必再为 dock 让位。
+- iPad 走桌面壳，上下边同样保留了 safe-area（状态栏），贴边元素一律按 `env()` 处理。
+- page 类是 iframe，`env(safe-area-inset-*)` 在 iframe 内通常为 0——不要靠它做
+  刘海避让，上下留白由宿主容器负责。
+
+### 8.4 键盘
+
+- Android 由 viewport 的 `interactive-widget=resizes-content` 压缩可视区；
+  **iOS 不压缩**，键盘直接盖住页面下半部分，宿主 `fixed` 根不会跟着变。
+- 输入框聚焦后用 `scrollIntoView({ block: 'nearest' })` 把输入区带进可视范围；
+  **不要**把输入框放在 `position: fixed` 的底栏里（键盘弹出后它被盖住且无法滚动）。
+- 键盘感知监听 `visualViewport.resize`，不要用 `window.resize`（iOS 不触发或时机不同）。
+
+### 8.5 返回键与系统手势（必须）
+
+完整约定见 [`docs/NAVIGATION.md`](../docs/NAVIGATION.md)。
+
+- app 插件必须接 `uiCtx.navigation`：内部页面 `push` / `replace`，返回能力用
+  `register({ appId, canGoBack, back })`，弹层用
+  `registerOverlay({ canGoBack, back, priority })`（优先级高于页面，保证
+  「先关弹层、再退页面」）。
+- **禁止**自行 `history.pushState` 或监听 `popstate` 做返回。宿主栈是唯一事实来源，
+  自建历史会让 Android 返回跳过一级，或在刷新后被重置到应用入口。
+- 宿主卸载插件时会调 `removeApp(id)` 清理栈与处理器，插件不要在卸载后继续持有 router。
+- page 类：iframe 的历史与宿主隔离，宿主返回会直接离开插件、**不会在 iframe 内部回退**。
+  多级界面的 page 插件请用页内返回按钮 + 单页状态，不要依赖浏览器返回键。
+
+### 8.6 设备与布局判定
+
+- 用 `uiCtx.layout.isMobile`（`< 640px`，仅手机竖屏）与 `isWide`（`≥ 1280px`）分支，
+  不要用 UA 判断。
+- iPad（768–1024px）**走桌面壳**，按宽度适配，不要假设「触屏 = 手机」；
+  触屏 iPad 的创造模式入口是两角先后点按，而非双指对角。
+
+### 8.7 媒体、权限与安装态
+
+- 选图用 `<input type="file" accept="image/*" multiple>`（移动端唤起「照片图库 / 拍照」），
+  不要写死 `capture`。
+- 摄像头/麦克风：iOS **网页态**授权是会话级（每次询问），加入主屏以 standalone 运行时
+  才记住授权。插件不要自己引导安装，安装提示由宿主统一负责；媒体调用失败时
+  提示「添加到主屏幕后重试」即可。
+- 插件不做安装态检测（`navigator.standalone` / `display-mode`），当前 `uiCtx` 未暴露
+  该能力，确有需要先向宿主提通用接口。
+
+### 8.8 触控目标
+
+- 可点区域 ≥ 36×36px，移动端主要操作 40×40；按压反馈用 `active:scale-95` 一类。
+- `-webkit-tap-highlight-color` 宿主已全局置透明，插件不要再设成有色高亮。
+
+---
+
+## 9. 提交前自检
 
 ```sh
 cd server
@@ -222,11 +310,15 @@ python -m app.cli doctor --all         # 扫描与 ledger 交叉校验，确认�
 - [ ] `snapshot()` 数据渲染正常；`call` 方法与 `toast` 反馈正常
 - [ ] 断网/后端报错时显示错误态，可重试（不白屏、不卡加载）
 - [ ] 卸载后 dock 入口消失、`doctor` 无残留；再次安装正常
-- [ ] 移动端宽度下布局可用
+- [ ] 移动端宽度下布局可用，且符合 §8 约束：
+  - [ ] 390×844（手机）与 768×1024（iPad）下无横向溢出，底部内容不被 dock / 安全区遮挡
+  - [ ] 无 `100vh` 硬高；输入框聚焦后仍可见（键盘不遮）
+  - [ ] 系统返回逐级退栈：弹层先关 → 页面后退 → 退出应用
+  - [ ] page 类没有自建 `history` 返回逻辑；app 类没有 `popstate` 监听
 
 ---
 
-## 9. 常见报错与修法
+## 10. 常见报错与修法
 
 | 错误码 | 通常是 | 怎么修 |
 |--------|--------|--------|
@@ -241,7 +333,7 @@ python -m app.cli doctor --all         # 扫描与 ledger 交叉校验，确认�
 
 ---
 
-## 10. 红线
+## 11. 红线
 
 - 不改内核：不编辑 `server/app/**`、`web/src/**` 来适配单个插件；需要新能力先加
   `uiCtx` / Service 的通用接口。
@@ -251,7 +343,7 @@ python -m app.cli doctor --all         # 扫描与 ledger 交叉校验，确认�
 
 ---
 
-## 11. 文档索引
+## 12. 文档索引
 
 | 文档 | 内容 |
 |------|------|

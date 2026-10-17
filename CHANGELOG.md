@@ -2,6 +2,20 @@
 
 记录每次核心修改。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，最新在上。
 
+## [M14] 插件开发 Agent 先读规范，文档纳入只读白名单 · 2026-10-17
+
+- `agent_loop.DEFAULT_SYSTEM` 改为「第一步必须读规范」：
+  `fs_read {"path":"README.md"}`（= `plugins/README.md`：目录布局、前端契约、移动端
+  与 iOS 约束、红线、自检）与 `fs_read {"path":"docs/PLUGIN-SPEC.md"}`（正典契约），
+  冲突以 spec 为准；删除原先「不要读项目文档」的禁令，保留精简契约兜底，
+  并要求每个会话各读一次、不重复读、不用 bash 探索。
+- `_harness_support` 新增只读文档白名单 `resolve_read_path()`
+  （`plugins/README.md`、`docs/PLUGIN-SPEC.md`、`docs/NAVIGATION.md`）与写路径规则
+  `is_plugin_file_path()`；`harness_tools._fs_read` 走白名单，`harness_guard` 对
+  `fs_read` / `fs_write` 分别校验。
+- 修复既有缺口：`fs_write` 此前可覆盖 `plugins/README.md`；现在只允许
+  `plugins/<id>/<file>`，根文档与 `docs/**` 一律 `denied`。
+
 ## [Naming] 项目定名 Anka，厘清 AgentOS 与 PWA · 2026-10-17
 
 - 项目名统一为 **Anka**：清理 `pwa-demo` 旧名（README / ARCHITECTURE 目录树根部、`web/package.json` 与 lock 包名改为 `anka-web`、`IDEA.md` 标题）。

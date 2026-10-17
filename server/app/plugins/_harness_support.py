@@ -15,6 +15,22 @@ from app import settings
 _ID_RE = re.compile(r'^[a-z0-9-]+$')
 _BACKUP_ROOT = settings.PROJECT_ROOT / '.plugin-backup'
 
+# 只读文档白名单：Agent 开发插件前需要读规范，但**永远不可写**。
+# key 是工具视角的路径（fs_read 的 path 原样比较），value 是真实文件。
+_READONLY_DOCS = {
+    'README.md': settings.APP_PLUGINS_DIR / 'README.md',
+    'plugins/README.md': settings.APP_PLUGINS_DIR / 'README.md',
+    'docs/PLUGIN-SPEC.md': settings.PROJECT_ROOT / 'docs' / 'PLUGIN-SPEC.md',
+    'docs/NAVIGATION.md': settings.PROJECT_ROOT / 'docs' / 'NAVIGATION.md',
+}
+
+
+def _normalize(rel: str) -> str:
+    key = (rel or '').replace('\\', '/').strip()
+    while key.startswith('./'):
+        key = key[2:]
+    return key.lstrip('/')
+
 
 def resolve_plugin_path(rel: str) -> Path:
     """把相对路径收敛到 plugins/ 内；拒绝绝对路径、.. 穿越、符号链接逃逸。
@@ -26,6 +42,27 @@ def resolve_plugin_path(rel: str) -> Path:
     if not p.is_relative_to(base):
         raise ValueError(f'路径越界（限定在 plugins/ 内）: {rel}')
     return p
+
+
+def resolve_read_path(rel: str) -> Path:
+    """fs_read 专用：插件区 + 只读文档白名单。
+
+    写路径仍走 resolve_plugin_path，文档不在可写范围内。
+    """
+    doc = _READONLY_DOCS.get(_normalize(rel))
+    if doc is not None:
+        return doc.resolve()
+    return resolve_plugin_path(rel)
+
+
+def is_plugin_file_path(rel: str) -> bool:
+    """可写路径必须是 plugins/<id>/<file>，禁止写到 plugins/ 根（如 README.md）
+    或只读文档（README.md / docs/**）。"""
+    key = _normalize(rel)
+    if key in _READONLY_DOCS or key.startswith('docs/'):
+        return False
+    parts = [p for p in Path(key).parts if p != '.']
+    return len(parts) >= 2 and bool(_ID_RE.fullmatch(parts[0]))
 
 
 def plugin_id_of(rel: str) -> str:
