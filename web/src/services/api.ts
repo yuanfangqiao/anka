@@ -51,6 +51,8 @@ export interface AppInfo {
   icon: string
   route: string
   entry: string
+  /** 插件自带样式（.plugin-dist/<id>/index.css）；dev/page 类为空——样式随源码走 */
+  style?: string
   dock_order: number
   has_sidebar: boolean
   kind?: 'app' | 'page'      // M11：page = 静态页 iframe 应用（无需 setup）

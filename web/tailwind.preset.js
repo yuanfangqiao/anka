@@ -1,0 +1,71 @@
+/**
+ * Tailwind 共享主题（preset）——宿主与插件共用同一套 token / 变体。
+ *
+ * 谁在用：
+ * 1. web/tailwind.config.js        宿主壳的 CSS 构建（content 含 src/ 与仓库内插件源码）
+ * 2. web/scripts/build-plugin.mjs  插件「安装时编译」时额外产出 .plugin-dist/<id>/index.css
+ *
+ * 两处必须同源：插件自带的 CSS 里 `bg-brand` / `text-ink-0` / `shadow-card` /
+ * `animate-fade-up` / `dark:` 的口径与宿主完全一致，否则插件在宿主里等于换了主题。
+ * 所以主题放这里，不要再往 tailwind.config.js 里加 theme（只留 content）。
+ */
+import animate from 'tailwindcss-animate'
+
+export default {
+  darkMode: ['class', '[data-theme="dark"]'],
+  theme: {
+    extend: {
+      colors: {
+        bg: {
+          0: 'var(--bg-0)',
+          1: 'var(--bg-1)',
+          2: 'var(--bg-2)',
+        },
+        ink: {
+          0: 'var(--text-0)',
+          1: 'var(--text-1)',
+          2: 'var(--text-2)',
+        },
+        brand: {
+          DEFAULT: 'var(--primary)',
+          soft: 'var(--primary-2)',
+          cyan: 'var(--cyan)',
+        },
+        ok: 'var(--ok)',
+        warn: 'var(--warn)',
+        err: 'var(--err)',
+        line: 'var(--line)',
+        glass: 'var(--glass)',
+      },
+      fontFamily: {
+        sans: ['"PingFang SC"', '-apple-system', '"Segoe UI"', '"Microsoft YaHei"', 'sans-serif'],
+      },
+      borderRadius: {
+        card: '18px',
+        shell: '28px',
+      },
+      boxShadow: {
+        card: '0 1px 2px rgb(0 0 0 / 0.25), 0 12px 32px -12px rgb(0 0 0 / 0.45)',
+        glow: '0 0 24px -6px var(--primary)',
+      },
+      transitionDuration: {
+        micro: '200ms',
+      },
+      keyframes: {
+        'fade-up': {
+          from: { opacity: '0', transform: 'translateY(10px) scale(0.98)' },
+          to: { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+        'pulse-dot': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.35' },
+        },
+      },
+      animation: {
+        'fade-up': 'fade-up 0.32s cubic-bezier(0.22, 1, 0.36, 1) both',
+        'pulse-dot': 'pulse-dot 1.6s ease-in-out infinite',
+      },
+    },
+  },
+  plugins: [animate],
+}

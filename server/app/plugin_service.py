@@ -215,14 +215,18 @@ class PluginService:
             state = self._state_probe(app_id)
             if state and state != 'ACTIVE':
                 continue                # 被禁用的 app 不出现在 dock
-            entry = (
-                f'/plugin-dist/{m.id}/index.js'
-                if not settings.AGENT_DEV and plugin_builder.has_dist(m.id)
-                else f'/plugins/{m.id}/{m.ui_entry}'
-            )
+            if not settings.AGENT_DEV and plugin_builder.has_dist(m.id):
+                entry = f'/plugin-dist/{m.id}/index.js'
+                style = plugin_builder.css_url(m.id)      # 插件自带样式（工具类）
+                if not style:
+                    # 旧产物（本机制上线前构建）：插件里的 Tailwind 类不会被宿主 CSS 兜住
+                    log.warning('插件 %s 缺少样式产物 index.css，请重建/重装插件', m.id)
+            else:
+                entry = f'/plugins/{m.id}/{m.ui_entry}'    # dev：vite 即时编译，样式随之而来
+                style = ''
             result.append(AppInfo(
                 id=m.id, title=m.name, icon=m.icon, route=m.route,
-                entry=entry,
+                entry=entry, style=style,
                 dock_order=m.dock_order, has_sidebar=m.has_sidebar))
         result.sort(key=lambda a: a.dock_order)
         return result

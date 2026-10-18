@@ -1,0 +1,69 @@
+- generic [ref=f2e4]:
+  - main [ref=f2e5]:
+    - generic [ref=f2e7]:
+      - complementary [ref=f2e8]:
+        - generic [ref=f2e9]:
+          - paragraph [ref=f2e10]: 会话
+          - generic [ref=f2e12]:
+            - button "新建会话" [ref=f2e13] [cursor=pointer]
+            - paragraph [ref=f2e15]: 会话
+            - paragraph [ref=f2e16]: 暂无历史会话
+      - generic [ref=f2e17]:
+        - combobox "选择模型" [ref=f2e20] [cursor=pointer]:
+          - option "Auto" [selected]
+          - option "DeepSeek-V4-Flash 正式版 原厂直供"
+          - option "DeepSeek-V4-Pro 正式版 原厂直供"
+          - option "MiniMax-M2.7"
+          - option "MiniMax-M3"
+          - option "GLM-5"
+          - option "GLM-5.1"
+          - option "GLM-5.2"
+          - option "GLM-5.3"
+          - option "GLM-5.3-Flash"
+          - option "Hy4 preview"
+          - option "Kimi K2.7 Code"
+          - option "Kimi K3"
+        - paragraph [ref=f2e26]: 开始一段新对话吧
+        - generic [ref=f2e28]:
+          - button "添加图片" [ref=f2e29] [cursor=pointer]
+          - textbox "给 Agent 发条消息…（可粘贴或 + 添加图片）" [ref=f2e31]
+          - button "发送" [disabled] [ref=f2e32]
+  - navigation "应用 Dock" [ref=f2e38]:
+    - generic [ref=f2e39]:
+      - generic [ref=f2e40]:
+        - generic [ref=f2e41]:
+          - generic: 控制台
+          - button "控制台" [ref=f2e42] [cursor=pointer]
+        - generic [ref=f2e47]:
+          - generic: 对话
+          - button "对话" [ref=f2e48] [cursor=pointer]
+        - generic [ref=f2e52]:
+          - generic: 即刻
+          - button "即刻" [ref=f2e53] [cursor=pointer]
+        - generic [ref=f2e58]:
+          - generic: 笔记
+          - button "笔记" [ref=f2e59] [cursor=pointer]
+        - generic [ref=f2e64]:
+          - generic: 探索
+          - button "探索" [ref=f2e65] [cursor=pointer]
+        - generic [ref=f2e70]:
+          - generic: 番茄
+          - button "番茄" [ref=f2e71] [cursor=pointer]:
+            - img "番茄" [ref=f2e73]: 🍅
+        - generic [ref=f2e74]:
+          - generic: QuickDraw
+          - button "QuickDraw" [ref=f2e75] [cursor=pointer]
+      - generic "收起 Dock" [ref=f2e82] [cursor=pointer]
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - button "控制台"
+            - button "对话"
+            - button "即刻"
+            - button "笔记"
+            - button "探索"
+            - button "番茄":
+              - generic:
+                - img "番茄": 🍅
+            - button "QuickDraw"

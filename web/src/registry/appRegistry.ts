@@ -37,13 +37,21 @@ export function appTileStyle(app: AppMeta): Record<string, string> | undefined {
 
 const apps = reactive<AppMeta[]>([])
 
-export function resolveIcon(icon: string | Component): Component {
-  if (typeof icon !== 'string') return icon
-  const pascal = icon
+function toPascal(icon: string): string {
+  return icon
     .split('-')
     .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
     .join('')
-  return (LucideIcons as Record<string, Component>)[pascal] ?? LucideIcons.Package
+}
+
+/** 是否为可用的 lucide 图标名：emoji（如 🍅）等自定义写法返回 false */
+export function isLucideIconName(icon: string): boolean {
+  return Object.prototype.hasOwnProperty.call(LucideIcons, toPascal(icon))
+}
+
+export function resolveIcon(icon: string | Component): Component {
+  if (typeof icon !== 'string') return icon
+  return (LucideIcons as Record<string, Component>)[toPascal(icon)] ?? LucideIcons.Package
 }
 
 const dockApps = computed(() =>
@@ -65,12 +73,20 @@ function removeApp(id: string) {
   if (i >= 0) apps.splice(i, 1)
 }
 
+/** 覆盖已注册应用的图标：manifest 是唯一权威（见 PLUGIN-SPEC §2.1） */
+function setIcon(id: string, icon: string | Component) {
+  const app = apps.find((a) => a.id === id)
+  if (app) app.icon = icon
+}
+
 export const registry = {
   apps,
   dockApps,
   firstUserApp,
   addApp,
   removeApp,
+  setIcon,
+  isLucideIconName,
   resolveIcon,
   /** M17.12：按 id 查找已注册应用（消除各调用方散落的 apps.find） */
   byId: (id: string) => apps.find((a) => a.id === id),

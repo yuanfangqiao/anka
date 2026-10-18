@@ -6,6 +6,9 @@ PluginBuilder —— 应用插件前端的「安装时编译」（M9）。
 由 FastAPI 挂载为 /plugin-dist 伺服。'vue' 保持 external，
 经宿主 import map 解析到共享实例（防双 Vue）。
 
+同一脚本还产出 <id>/index.css：插件自带样式（SFC/style + 按插件源码生成的工具类），
+URL 经 /api/apps 的 style 字段下发，前端 pluginHost 在加载插件前注入。
+
 开发态（run_dev.py 非 --prod → AGENTOS_DEV=1）不构建：
 插件源码由 vite 中间件按需编译并直接伺服。
 """
@@ -27,6 +30,18 @@ _HASH_FILE = '.src-hash'
 
 def has_dist(app_id: str) -> bool:
     return (settings.PLUGIN_DIST_DIR / app_id / 'index.js').is_file()
+
+
+def css_url(app_id: str) -> str:
+    """插件自带样式 index.css 的 URL（缺产物返回 ''）。
+
+    带 mtime 版本号：SW 对 /plugin-dist/ 走 NetworkFirst 且按 URL 命中缓存，
+    重新构建后 URL 变化才能立刻拿到新样式，而不是等 5 分钟过期。
+    """
+    p = settings.PLUGIN_DIST_DIR / app_id / 'index.css'
+    if not p.is_file():
+        return ''
+    return f'/plugin-dist/{app_id}/index.css?v={int(p.stat().st_mtime)}'
 
 
 def _src_hash(app_id: str) -> str:

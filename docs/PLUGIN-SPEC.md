@@ -62,6 +62,12 @@
 | `build` | object | 否 | — | 见 §2.5。**P1 只做静态校验，不执行** |
 | `permissions` | list[string] | 否 | `[]` | 安装授权声明，仅展示，不参与鉴权（P2 落地） |
 
+**`icon` 的优先级**：app 类插件优先用本字段——宿主在 `setup(uiCtx)` 返回后用该值覆盖
+`registerApp({ icon })` 传进来的**字符串**，因此插件代码里写旧了不影响显示（两处仍应
+一致，见 `plugins/README.md` §6）。两种情况保留插件自己的图标：本字段不是合法 lucide 名
+（如 emoji `🍅`），或插件注册的是自绘组件（`Component`，如 anka-pomodoro 的番茄）——
+清单里的字符串无法表达它们。`page` 类应用与「插件市场」可用列表读的始终是本字段。
+
 ### 2.2 `backend`
 
 | 字段 | 类型 | 说明 |
@@ -158,6 +164,16 @@ plugins/<id>/
 
 生产态安装时由 `plugin_builder.build_web(id)` 编译到 `.plugin-dist/<id>/index.js`；
 开发态由 vite 中间件即时编译源码。作者**不需要**自带 `build` 配方。
+
+同时产出 `.plugin-dist/<id>/index.css`（插件自带样式）：SFC 里 `<style>` 与源码 import 的
+CSS 被抽出合并进来，另按插件源码单独跑一遍 Tailwind 生成**它用到的工具类**，主题取自
+`web/tailwind.preset.js`（与宿主同源）。宿主 `pluginHost` 在导入插件模块前先注入这个
+`<link>`，`/api/apps` 通过 `style` 字段下发地址。
+
+要点：**不要假设宿主 CSS 里有某个工具类**。宿主 CSS 在宿主构建时生成，运行时安装的插件、
+动态拼接的类名（`class="h-" + n`）都不在扫描范围；漏掉的类会让元素变成 0×0 静默消失。
+靠本次机制插件自带工具类即可，但「错了就看不见」的几何/可见性样式仍建议写成
+`ui.css.ts` 这类语义类自注入（`anka-jot` 的做法），双保险。
 
 ### 3.2 `page`
 

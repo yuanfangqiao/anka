@@ -161,7 +161,11 @@ export function setup(uiCtx: UiCtx): void {
 `docs/NAVIGATION.md`）、`registerApp` / `unregisterApp`。`demo/web/types.ts`
 只声明了示例用到的子集，按需补齐。
 
-- `registerApp` 的 `id` / `route` / `icon` 必须与 `plugin.json` 保持一致。
+- `registerApp` 的 `id` / `route` 必须与 `plugin.json` 保持一致。
+- **图标优先改 `plugin.json#icon`**：宿主在 `setup()` 返回后用清单值覆盖 `registerApp`
+  里的 `icon`（仅当插件注册的是字符串、且清单值是合法 lucide 名）。插件自绘组件（如番茄的
+  `TomatoIcon`）或 emoji 清单值例外，宿主保留插件自己的图标。曾经因为只改清单而 dock
+  图标不变，排查时先看这里。
 - 数据走 `uiCtx.api.getAppState(id)` 与 `uiCtx.api.callApp(id, method, args)`。
 - 样式写在 SFC 的 `<style scoped>` 里；移动端用 `layout.isMobile` 分支。
 - 加载失败必须有错误态与重试，不允许永远停在「加载中」。
