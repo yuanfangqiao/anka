@@ -1,0 +1,14 @@
+{
+  "manifest_version": 2,
+  "id": "paper-plane",
+  "name": "纸飞机",
+  "version": "1.0.0",
+  "icon": "send",
+  "description": "奶油白纸感竖版射击小游戏：拖动纸飞机躲开墨点，自动射击，支持手机与电脑。",
+  "kind": "page",
+  "system": false,
+  "page": {
+    "entry": "index.html"
+  },
+  "permissions": []
+}
