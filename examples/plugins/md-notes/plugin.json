@@ -1,0 +1,17 @@
+{
+  "id": "md-notes",
+  "name": "Markdown 记事本",
+  "version": "0.2.0",
+  "icon": "notebook-pen",
+  "description": "支持 Markdown 实时预览的本地记事本，自适应手机/电脑布局，笔记保存在浏览器 localStorage",
+  "backend": {
+    "entry": "server/main.py"
+  },
+  "ui": {
+    "entry": "web/index.js",
+    "route": "/md-notes",
+    "dock": {
+      "order": 60
+    }
+  }
+}

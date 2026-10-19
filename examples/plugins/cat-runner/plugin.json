@@ -1,0 +1,14 @@
+{
+  "manifest_version": 2,
+  "id": "cat-runner",
+  "name": "像素猫跑酷",
+  "icon": "cat",
+  "version": "2.4.0",
+  "description": "像素风白猫城市跑酷：3D 侧面逐帧像素化的纯白黑边奔跑/四帧跳跃、黑色眼睛、金币/老鼠、护盾/磁铁、水管/木箱等障碍、昼夜视差城市，支持键盘与手机横屏触控。",
+  "kind": "page",
+  "system": false,
+  "page": {
+    "entry": "index.html"
+  },
+  "permissions": []
+}

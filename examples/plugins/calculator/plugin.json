@@ -1,0 +1,10 @@
+{
+  "id": "calculator",
+  "name": "计算器",
+  "icon": "calculator",
+  "version": "0.1.0",
+  "system": false,
+  "description": "样例插件：前端按键、后端 AST 安全求值（演示 callApp 写回通道）",
+  "backend": { "entry": "server/main.py" },
+  "ui": { "entry": "web/index.ts", "dock": { "order": 40 }, "route": "/calculator" }
+}

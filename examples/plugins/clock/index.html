@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>时钟</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px;
+    background: #ffffff;
+    color: #1f2430;
+    font-family: -apple-system, "PingFang SC", "Segoe UI", sans-serif;
+    user-select: none;
+  }
+  #time {
+    font-size: clamp(56px, 16vw, 120px);
+    font-weight: 700;
+    letter-spacing: 2px;
+    font-variant-numeric: tabular-nums;
+    background: linear-gradient(120deg, #2563eb, #0d9488);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  #date { font-size: 18px; color: #6b7280; letter-spacing: 1px; }
+</style>
+</head>
+<body>
+  <div id="time">00:00:00</div>
+  <div id="date">—</div>
+  <script>
+    const WEEK = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+    function tick() {
+      const d = new Date()
+      const p = (n) => String(n).padStart(2, '0')
+      document.getElementById('time').textContent = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+      document.getElementById('date').textContent =
+        `${d.getFullYear()} 年 ${d.getMonth() + 1} 月 ${d.getDate()} 日 · ${WEEK[d.getDay()]}`
+    }
+    tick(); setInterval(tick, 1000)
+  </script>
+</body>
+</html>

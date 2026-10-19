@@ -1,0 +1,9 @@
+{
+  "id": "pomodoro-timer",
+  "name": "番茄钟",
+  "icon": "timer",
+  "version": "0.1.0",
+  "description": "25 分钟专注计时器：环形进度、专注/短休/长休自动轮转、结束提示音与自定义时长",
+  "backend": { "entry": "server/main.py" },
+  "ui": { "entry": "web/index.js", "dock": { "order": 66 }, "route": "/pomodoro-timer" }
+}

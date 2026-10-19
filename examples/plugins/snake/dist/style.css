@@ -1,0 +1,116 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  /* 禁双击缩放；保留滚动/捏合 */
+  touch-action: manipulation;
+}
+
+body {
+  display: flex; align-items: center; justify-content: center;
+  background:
+    radial-gradient(900px 520px at 50% 0%, rgba(61,218,215,0.08), transparent 65%),
+    linear-gradient(180deg, #080c14 0%, #04060b 100%);
+  color: #e6ebf5;
+  font-family: -apple-system, "PingFang SC", "Segoe UI", sans-serif;
+  user-select: none; -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  overflow: hidden;
+}
+
+.wrap {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 12px; width: 100%; height: 100%;
+  justify-content: center;
+  padding: 12px;
+}
+
+/* ─── 状态条 ─────────────────────────── */
+.hud {
+  display: flex; gap: 18px; align-items: baseline;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+.stat { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 44px; }
+.stat .k { font-size: 9px; letter-spacing: 1.5px; color: #6d7d93; }
+.stat b {
+  font-size: 20px; font-weight: 700; color: #3ddad7;
+  text-shadow: 0 0 10px rgba(61,218,215,0.45);
+  font-variant-numeric: tabular-nums; line-height: 1.1;
+}
+
+/* ─── 棋盘 ─────────────────────────── */
+.board {
+  position: relative; line-height: 0;
+  border-radius: 14px; overflow: hidden;
+  box-shadow: 0 0 22px rgba(61,218,215,0.12), 0 0 0 1px rgba(120,190,255,0.14);
+}
+#game { display: block; touch-action: none; }
+
+.overlay {
+  position: absolute; inset: 0; z-index: 5;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; cursor: pointer;
+  background: rgba(4, 9, 16, 0.72);
+  backdrop-filter: blur(3px);
+  transition: opacity 0.18s ease;
+  touch-action: none;
+}
+.overlay.hidden { opacity: 0; pointer-events: none; }
+.ov-title {
+  font-size: 17px; font-weight: 700; letter-spacing: 3px;
+  color: #7fe3ff; text-shadow: 0 0 14px rgba(63,224,255,0.6);
+}
+.overlay.over .ov-title { color: #ff8a95; text-shadow: 0 0 14px rgba(255,92,108,0.6); }
+.ov-sub { font-size: 11px; color: #9fb2c8; letter-spacing: 1px; }
+
+/* ─── 控制区：十字键 + 功能键 ─────────── */
+.controls {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px;
+}
+
+.dpad {
+  position: relative;
+  display: grid;
+  /* minmax(0,1fr)：1fr= minmax(auto,1fr) 会被内容撑高溢出（教训：俄罗斯方块 ▼ 压 RESET） */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: 4px; padding: 5px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.26));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.pad {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255,255,255,0.10); border-radius: 12px;
+  background: rgba(255,255,255,0.05); color: #dbe7f7;
+  font-family: ui-monospace, monospace; font-weight: 700;
+  cursor: pointer; touch-action: none;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.12);
+  transition: background 70ms ease, transform 70ms ease;
+}
+.pad:active { background: rgba(120,215,255,0.32); transform: scale(0.93); }
+.pad.up    { grid-area: 1 / 2 / 2 / 3; }
+.pad.left  { grid-area: 2 / 1 / 3 / 2; }
+.pad.right { grid-area: 2 / 3 / 3 / 4; }
+.pad.down  { grid-area: 3 / 2 / 4 / 3; }
+.pad-center {
+  grid-area: 2 / 2 / 3 / 3; border-radius: 50%;
+  background: rgba(0,0,0,0.28);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.65);
+  pointer-events: none;
+}
+
+.pills { display: flex; flex-direction: column; gap: 8px; }
+.pill {
+  height: 34px; padding: 0 16px; border-radius: 17px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: linear-gradient(180deg, #2f3a4d, #1b222e);
+  color: #cfdcf0; font-size: 12px; letter-spacing: 0.6px; white-space: nowrap;
+  font-family: inherit; cursor: pointer; touch-action: none;
+  transition: transform 70ms ease, filter 0.15s ease;
+}
+.pill:active { transform: scale(0.95); }
+.pill.paused { background: linear-gradient(180deg, #1f4a3a, #132a22); color: #a8f0c8; }
+.pill.over-glow { background: linear-gradient(180deg, #4a2a30, #2a181c); color: #ffb8c2; }

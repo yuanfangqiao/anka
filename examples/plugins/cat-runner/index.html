@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="screen-orientation" content="landscape">
+<title>像素猫跑酷 · 白猫城市狂奔</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <div id="screen">
+      <canvas id="game" width="960" height="540" aria-label="白猫城市跑酷游戏画面"></canvas>
+
+      <div id="hud" class="hud">
+        <button id="btnPause" class="icon-btn" type="button" title="暂停 (P)" aria-label="暂停">
+          <span class="ico-pause"></span>
+        </button>
+        <div class="stats">
+          <div class="stat"><span class="k">最高</span><b id="hudBest">0</b></div>
+          <div class="stat main"><span class="k">分数</span><b id="hudScore">0</b></div>
+          <div class="stat"><span class="k">金币</span><b id="hudCoins">0</b></div>
+          <div class="stat"><span class="k">距离</span><b id="hudDist">0m</b></div>
+        </div>
+        <button id="btnMute" class="icon-btn" type="button" title="静音 (M)" aria-label="静音">
+          <span class="ico-sound"></span>
+        </button>
+      </div>
+
+      <div id="buffBar" class="buff-bar"></div>
+      <div id="newRecord" class="new-record">新纪录！</div>
+      <div id="hint" class="hint">按住 <kbd>空格</kbd> 跳 · <kbd>R</kbd> 重开 · 点按跳得低，按住跳得高</div>
+
+      <div id="pauseLayer" class="layer hidden">
+        <div class="panel">
+          <h2>暂停</h2>
+          <p class="sub">猫在屋檐上等你</p>
+          <button id="btnResume" class="pill primary" type="button">继续奔跑</button>
+          <button id="btnRestartPause" class="pill" type="button">重新开始</button>
+          <p class="tip">P / Esc 继续</p>
+        </div>
+      </div>
+
+      <div id="overLayer" class="layer hidden">
+        <div class="panel result">
+          <div class="title-row"><h2 id="overTitle">被绊住了</h2><span id="overBadge" class="badge hidden">新纪录</span></div>
+          <div class="score-big" id="overScore">0</div>
+          <div class="over-stats">
+            <div><span>距离</span><b id="overDist">0m</b></div>
+            <div><span>金币</span><b id="overCoins">0</b></div>
+            <div><span>最高</span><b id="overBest">0</b></div>
+          </div>
+          <button id="btnRestart" class="pill primary" type="button">再跑一次</button>
+          <p class="tip">按 空格 / R / 点按画面 重开</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 手机拇指键：贴在屏幕左下/右下角，横屏时落在画面两侧黑边里 -->
+  <div id="touch" class="touch hidden">
+    <button id="btnJumpL" class="touch-btn jump" type="button" aria-label="跳跃">
+      <span class="tb-ico">▲</span><span class="tb-txt">跳</span>
+    </button>
+    <button id="btnJumpR" class="touch-btn jump" type="button" aria-label="跳跃">
+      <span class="tb-ico">▲</span><span class="tb-txt">跳</span>
+    </button>
+  </div>
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
