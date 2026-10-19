@@ -46,34 +46,38 @@ export function setup(uiCtx) {
        ④ 功能键：RESET · PAUSE/START · ON/OFF                                */
   function calcLayout(w, h, touch) {
     const pad = touch ? 8 : 10;
-    const hudH = touch ? 26 : 24;    // ① 状态条
-    const gap = touch ? 7 : 6;       // 通用竖向间距
-    const rowGap = touch ? 14 : 12;  // 棋盘 → 按键行
+    const hudH = touch ? 24 : 24;    // ① 状态条
+    const gap = touch ? 9 : 8;       // 通用竖向间距
+    const rowGap = touch ? 16 : 14;  // 棋盘 → 按键行（留出明显空隙，避免与按键行贴住）
     const pillsH = touch ? 32 : 30;  // ④ 功能键行
 
-    const contentW = Math.min(w - pad * 2, touch ? 440 : 400);
+    const contentW = Math.min(w - pad * 2, touch ? 460 : 420);
 
     /* 单格边长：宽度受屏宽约束；高度不再预设 56% 上限，
        交由下方适配循环按「剩余高度 = h - 固定区 - 按键行」收紧 */
     let cell = Math.floor((contentW - 2) / COLS);
-    cell = clamp(cell, 6, touch ? 34 : 30);
+    cell = clamp(cell, 8, touch ? 38 : 32);
 
-    /* 单格 → 十字键 / 圆键尺寸（保证一行不超出棋盘宽） */
+    /* 单格 → 十字键 / 圆键尺寸（保证一行不超出棋盘宽，且两者之间留出空隙） */
     const geom = (c) => {
       const boardW = c * COLS;
-      const circle = clamp(Math.round((boardW * 0.46 - 8) / 2), touch ? 44 : 32, 62);
-      const abW = circle * 2 + 8;
-      let dpad = clamp(Math.round(boardW * 0.40), touch ? 84 : 56, touch ? 128 : 104);
-      if (dpad + 8 + abW > boardW) dpad = Math.max(52, boardW - 8 - abW);
-      return { boardW, dpad, circle, abW, rowH: Math.max(dpad, circle) };
+      const circle = clamp(Math.round(boardW * 0.2), touch ? 46 : 34, 58);
+      const abGap = touch ? 16 : 12;
+      const abW = circle * 2 + abGap;
+      const minGap = 14;
+      /* 十字键 + 间隙 + A/B 必须 ≤ 棋盘宽度（否则窄屏会挤出边界/压到圆键） */
+      const allowed = Math.max(44, boardW - minGap - abW);
+      let dpad = clamp(Math.round(boardW * 0.36), touch ? 84 : 56, touch ? 116 : 100);
+      dpad = Math.max(44, Math.min(dpad, allowed));
+      return { boardW, dpad, circle, abW, abGap, minGap, rowH: Math.max(dpad, circle) };
     };
 
     const fixedH = pad * 2 + hudH + 4 + gap + rowGap + gap + pillsH + 2;
 
     let g = geom(cell);
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 40; i++) {
       if (fixedH + cell * ROWS + g.rowH <= h) break;
-      if (cell <= 6) break;
+      if (cell <= 8) break;
       cell -= 1;
       g = geom(cell);
     }
@@ -81,6 +85,7 @@ export function setup(uiCtx) {
     return {
       touch, w, h, pad, hudH, gap, rowGap, pillsH,
       cell, boardW: g.boardW, dpad: g.dpad, circle: g.circle, rowH: g.rowH,
+      abGap: g.abGap, minGap: g.minGap,
       contentW: Math.min(contentW, g.boardW + 2),
       /* 按键行 / 功能键行 宽度 = 棋盘宽度 */
       rowW: g.boardW
@@ -466,8 +471,7 @@ export function setup(uiCtx) {
         }
       }
 
-      /* ================= 触屏手势（棋盘区域） =================
-         轻触 = 旋转 · 左右滑 = 移动 · 快速下滑 = 直落 */
+      /* ================= 触屏手势（棋盘区域） ================= */
       let ges = null;
       function gestureStart(e) {
         if (!e.touches || e.touches.length !== 1) { ges = null; return; }
@@ -727,7 +731,7 @@ export function setup(uiCtx) {
           key: key, repeat: false,
           style: Object.assign({
             flex: "1 1 0", minWidth: "0",
-            height: isTouch ? "32px" : "30px", borderRadius: "16px",
+            height: "100%", boxSizing: "border-box", borderRadius: "17px",
             fontSize: isTouch ? "11px" : "10px", letterSpacing: "0.6px", whiteSpace: "nowrap",
             background: "linear-gradient(180deg,#2f3a4d,#1b222e)",
             color: "#cfdcf0"
@@ -964,9 +968,9 @@ export function setup(uiCtx) {
                内容（字号）撑高 → ▼ 溢出 dpad 盒压到功能键行。锁死 0 下限 */
             gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
             gridTemplateRows: "repeat(3, minmax(0, 1fr))",
-            gap: Math.max(3, Math.round(s.dpad * 0.03)) + "px",
+            gap: Math.max(4, Math.round(s.dpad * 0.04)) + "px",
             width: px(s.dpad), height: px(s.dpad),
-            padding: "5px", boxSizing: "border-box"
+            padding: "7px", boxSizing: "border-box"
           }
         }, [
           crossBg,
@@ -984,7 +988,7 @@ export function setup(uiCtx) {
         return h("div", {
           style: {
             display: "flex", alignItems: "center", justifyContent: "flex-end",
-            gap: isTouch ? "14px" : "10px", flex: "0 0 auto"
+            gap: px(s.abGap), flex: "0 0 auto"
           }
         }, [
           circleBtn("B", "直落", () => hardDrop(), "btnB", "#8fd8ff", "#2f8fd6", s.circle),
@@ -997,8 +1001,11 @@ export function setup(uiCtx) {
         const s = L.value;
         return h("div", {
           style: {
-            display: "flex", gap: "6px", flex: "0 0 auto",
-            width: px(s.rowW), maxWidth: "100%", boxSizing: "border-box"
+            display: "flex", alignItems: "stretch", gap: "8px",
+            flex: "0 0 auto", flexShrink: 0,
+            width: px(s.rowW), maxWidth: "100%",
+            height: px(s.pillsH), minHeight: px(s.pillsH),
+            boxSizing: "border-box"
           }
         }, [
           pill("↺ RESET", () => restart(), "btnReset"),
@@ -1025,9 +1032,9 @@ export function setup(uiCtx) {
         const controls = h("div", {
           style: {
             flex: "0 0 auto", width: px(s.rowW), maxWidth: "100%",
-            height: px(s.rowH), minHeight: "0",
+            height: px(s.rowH), minHeight: px(s.rowH), flexShrink: 0,
             display: "flex", alignItems: "center", justifyContent: "space-between",
-            gap: "8px", boxSizing: "border-box",
+            gap: px(s.minGap), boxSizing: "border-box",
             marginTop: px(s.rowGap - s.gap)
           }
         }, [dpadView(), actionsView()]);

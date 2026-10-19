@@ -2,7 +2,7 @@
   "id": "tetris",
   "name": "俄罗斯方块",
   "icon": "gamepad-2",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "经典俄罗斯方块小游戏：得分/行数/等级/NEXT 状态条位于棋盘上方，十字方向键与 B(直落)/A(旋转) 圆键位于棋盘下方，底部为 RESET/PAUSE/ON 功能键；支持触屏手势与键盘操作",
   "backend": { "entry": "server/main.py" },
   "ui": { "entry": "web/index.js", "dock": { "order": 60 }, "route": "/tetris" }
