@@ -1,9 +1,8 @@
 # Anka · Agent 操作系统
 
-> 状态：**M14 完成**（真实模型 TokenHub + Agent 自我插件开发就绪）。
-> 文档导航：[IDEA.md](./IDEA.md)（需求）· [PROJECT.md](./PROJECT.md)（范围与里程碑）· [ARCHITECTURE.md](./ARCHITECTURE.md)（技术方案）· [AGENT.md](./AGENT.md)（Agent 工作守则）· [design/](./design/README.md)（设计方案与 UI 设计）
-
 ## 这是什么
+![anka-full-screen](/assets/apple-touch-icon.png)
+![anka-full-screen](/assets/ipad_screen_shot.png)
 
 **Anka** 是一个 **Agent 操作系统**（AgentOS）的实现：把「Agent = 一组可热插拔的插件」做成可安装、可扩展的系统。当前前端以 **PWA** 形态交付（可安装到桌面 / 主屏幕），后端由 FastAPI 承载插件内核。
 
@@ -26,7 +25,7 @@
 
 - Python 3.11+（内核使用 `ExceptionGroup`）
 - Node.js 18+ 与 npm（前端构建）
-- 使用 Jot 的服务端图片/视频封面补生成时需要 FFmpeg（`brew install ffmpeg` 或 `sudo apt-get install ffmpeg`），详见插件 README
+
 
 ## 依赖清单
 
@@ -83,46 +82,6 @@ cd .. && python server/run_dev.py --prod
 # 访问 http://localhost:8000，由 FastAPI 托管 dist 并提供 SPA 回退
 ```
 
-### 安装 PWA（重要：从生产端口安装）
-
-> ⚠️ 不要从 dev 端口 5173 安装——dev SW 已禁用，5173 仅供开发调试。
-> 正确姿势：`cd web && npm run build`，然后打开 **http://localhost:8000** 安装。
-
-1. 桌面 Chrome / Edge 打开 `http://localhost:8000`，地址栏出现安装按钮 → 安装后独立窗口启动
-2. 手机模拟器（390×844）检查 dock 贴底、不被手势条遮挡
-3. DevTools → Network → Offline，刷新仍有 App Shell
-4. 窗口从 1440 拖到 400：桌面壳 → 手机壳，切换无闪烁
-5. 旧版本 PWA 升级异常时：卸载后从 8000 重新安装（已开启 cleanupOutdatedCaches）
-
-### 国行安卓（小米）安装 PWA 指引
-
-> 适用范围：MIUI / HyperOS 国行 ROM。这类系统**没有 Google Play 服务（GMS）**，
-> 而 Chrome 的 PWA 安装要靠 GMS 铸造 WebAPK，所以在国行小米上 **Chrome 换任何代码都装不出真 PWA**。
-> 下表是各浏览器的实际表现，按需要选路。
-
-| 浏览器 | 能否装 | 装出来是什么 | 说明 |
-|---|---|---|---|
-| **小米自带浏览器** | ✅ 推荐 | 独立窗口，**无地址栏** | 系统应用，天生有「创建桌面快捷方式」权限，用自家实现、不依赖 GMS —— 国行小米上的正解 |
-| **Edge** | ⚠️ 需先开权限 | 独立窗口，基本无地址栏 | 自有 PWA 实现、不依赖 GMS。**必须先手动开权限**，否则点「添加到主屏幕」会跳到设置页后无下文 |
-| **Chrome** | ❌ 只能加快捷方式 | 在 Chrome 标签页内打开，**带地址栏** | 无 GMS → 无 WebAPK → 菜单里只有「添加到主屏幕」而不是「安装应用」 |
-
-**必须先开的系统权限（Chrome / Edge 都要）**
-
-MIUI 对第三方应用默认**拒绝**「创建桌面快捷方式」，所以点了会静默失败 —— toast 一闪、桌面上什么都没有。手动开：
-
-> 设置 → 应用设置 → 应用管理 → 找到对应浏览器 → **权限管理** → 「**创建桌面快捷方式**」→ 允许
-
-找不到就在设置页顶部搜索框直接搜「快捷方式」。开完**回到浏览器重新点一次**。
-
-**Edge 点「添加到主屏幕」跳到设置就没了？**
-
-Edge 发现缺权限后会按标准安卓流程把系统丢到授权页，但 MIUI 没实现这个标准页，于是落地在一个没有任何可操作项的设置页上。**别走它那个跳转**，按上面的路径手动给 Edge 开权限即可。
-
-**能力边界（别踩坑）**
-
-- Chrome 即使加上了图标也**不是**真 PWA：没有 GMS 就没有 WebAPK，点开仍是 Chrome 里的标签页。
-- 站点若挂在 `basic_auth` 之后，Chrome 铸造 WebAPK 时需要 Google 服务器**不带凭据**地抓取 `manifest.webmanifest`、图标和 `start_url`，会被 401 挡掉 —— 即便将来换到有 GMS 的环境，也可能仍装不出独立窗口。真要支持，得在 Caddy 上把这几个静态资源路径免鉴权放行。
-- 判断装的是不是真 PWA，只看一点：桌面图标打开后**顶部有没有地址栏**。
 
 ## 目录结构
 
@@ -142,7 +101,7 @@ anka/
 
 技术细节见 `ARCHITECTURE.md`（App 插件模型见第 8 节）。
 
-## 配置模型（TokenHub · M13）
+## 配置模型
 
 1. 打开「设置」→「模型服务」分区，粘贴 TokenHub API Key（`sk-tp-...`）→「保存」→「测试连通性」
 2. 对话页顶栏下拉切换 13 个模型，选择会即时生效并持久到服务端 `server/data/settings.json`
