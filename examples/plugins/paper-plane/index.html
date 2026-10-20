@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#f4ecdb" />
+<meta name="description" content="纸飞机 —— 奶油白纸感的竖版飞行射击小游戏。拖动纸飞机躲开墨点，自动射击，支持手机与电脑。" />
+<title>纸飞机 · Paper Flight</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%23f4ecdb'/%3E%3Cpath d='M12 3.2 3.6 19.4 12 15.6l8.4 3.8L12 3.2Z' fill='%233b342b'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+<div class="app" id="app" data-mode="menu">
+  <canvas id="stage" aria-label="纸飞机游戏画面"></canvas>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <header class="hud" id="hud">
+    <div class="hud-group score-group">
+      <span class="hud-label">分数</span>
+      <span class="hud-score" id="score">0</span>
+      <span class="combo" id="combo" aria-live="polite">
+        <b id="comboCount">0</b><span>连击</span><em id="comboMult">×1</em>
+      </span>
+    </div>
+
+    <div class="hud-center">
+      <span class="hud-best">最高 <b id="bestHud">0</b></span>
+      <span class="wave" id="waveLabel">第 1 波</span>
+      <span class="power-chip" id="powerChip" hidden>
+        <i class="power-star" aria-hidden="true"></i>三连射 <b id="powerSec">9</b>s
+      </span>
+    </div>
+
+    <div class="hud-group actions">
+      <div class="lives" id="lives" aria-label="剩余生命"></div>
+      <button id="soundBtn" class="round-btn" type="button" aria-label="静音" aria-pressed="false" title="声音 (M)">
+        <svg class="icon-sound" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4.5 10.2v3.6h2.8L11.5 17V7L7.3 10.2H4.5Z" />
+          <path d="M15 9.3a4 4 0 0 1 0 5.4" />
+          <path d="M17.7 6.6a8 8 0 0 1 0 10.8" />
+        </svg>
+        <svg class="icon-muted" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4.5 10.2v3.6h2.8L11.5 17V7L7.3 10.2H4.5Z" />
+          <path d="m15.5 9.5 5 5m0-5-5 5" />
+        </svg>
+      </button>
+      <button id="pauseBtn" class="round-btn" type="button" aria-label="暂停" title="暂停 (P)">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M9.5 7v10M14.5 7v10" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="toast" id="toast" aria-live="polite"></div>
+
+  <div class="tip" id="tip" aria-hidden="true">
+    <span class="only-touch">拖动移动 · 自动射击</span>
+    <span class="only-pointer">鼠标 / 方向键移动 · 自动射击</span>
+  </div>
+
+  <section class="layer start-layer" id="startLayer">
+    <div class="start-card">
+      <div class="flight-mark" aria-hidden="true">
+        <svg viewBox="0 0 240 120" fill="none">
+          <path class="flight-path" d="M14 97C55 107 57 49 105 51s49 36 91-11" />
+          <g class="flight-plane" transform="translate(190 34) rotate(-14) scale(1.16)">
+            <path d="M0 0 35 11.5 8 21 6.2 10.3Z" />
+            <path d="m6.2 10.3 28.8 1.2M8 21l-1.8-10.7" />
+          </g>
+          <circle class="spark" cx="42" cy="42" r="1.6" />
+          <circle class="spark" cx="196" cy="83" r="1.2" />
+        </svg>
+      </div>
+
+      <p class="eyebrow">A Little Paper Flight</p>
+      <h1>纸飞机</h1>
+      <p class="tagline">在奶油色的天空里穿行，<br>躲开墨点，别让纸张坠落。</p>
+
+      <button class="primary" id="startBtn" type="button">
+        <span>开始飞行</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-5.5-5.5L19 12l-5.5 5.5" /></svg>
+      </button>
+
+      <p class="controls-hint">
+        <span class="only-touch">拖动屏幕移动 · 自动射击</span>
+        <span class="only-pointer"><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> 或鼠标 · 自动射击</span>
+      </p>
+      <p class="best-line">最高分 <b id="bestStart">0</b></p>
+    </div>
+  </section>
+
+  <section class="layer pause-layer hidden" id="pauseLayer">
+    <div class="panel">
+      <p class="eyebrow">Paused</p>
+      <h2>停一会儿</h2>
+      <p class="panel-copy">纸飞机悬在风里，<br>墨点也在等你。</p>
+      <div class="panel-actions">
+        <button class="primary" id="resumeBtn" type="button">继续飞行</button>
+        <button class="ghost" id="restartBtn" type="button">重新开始</button>
+      </div>
+      <button class="text-btn" id="pauseHomeBtn" type="button">回到开始</button>
+    </div>
+  </section>
+
+  <section class="layer over-layer hidden" id="overLayer">
+    <div class="result-card">
+      <span class="stamp" aria-hidden="true">飞行记录</span>
+      <p class="eyebrow">Flight Log</p>
+      <h2>落地了</h2>
+
+      <div class="final-score">
+        <strong id="finalScore">0</strong>
+        <span>本次得分</span>
+      </div>
+
+      <div class="result-stats">
+        <div><span>最高分</span><b id="finalBest">0</b></div>
+        <div><span>击落</span><b id="finalKills">0</b></div>
+        <div><span>波次</span><b id="finalWave">1</b></div>
+      </div>
+
+      <p class="record" id="newRecord" hidden>新的最高分</p>
+
+      <div class="panel-actions">
+        <button class="primary" id="againBtn" type="button">
+          <span>再飞一次</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-5.5-5.5L19 12l-5.5 5.5" /></svg>
+        </button>
+        <button class="text-btn" id="homeBtn" type="button">回到开始</button>
+      </div>
+    </div>
+  </section>
+</div>
+<script src="./game.js"></script>
+</body>
+</html>
