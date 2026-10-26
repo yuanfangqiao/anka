@@ -157,11 +157,12 @@ export default defineConfig({
         // → 壳在 iframe 里递归启动（多层内嵌）。denylist 放行插件/接口路径。
         // M18：/login 由后端直出静态登录页，绝不能被 SW 的 navigateFallback
         // 用缓存的 SPA 壳顶掉（否则未登录看不到登录页）
-        navigateFallbackDenylist: [/^\/api\//, /^\/plugins\//, /^\/plugin-dist\//, /^\/login/],
+        navigateFallbackDenylist: [/^\/api\//, /^\/plugins\//, /^\/plugin-dist\//, /^\/login/, /^\/join\//, /^\/play\//],
         cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         globIgnores: ['**/plugins/**'],
         runtimeCaching: [
+          { urlPattern: /\/api\/rooms\//i, handler: 'NetworkOnly', method: 'GET' },
           {
             urlPattern: /\/api\/.*/i,
             handler: 'NetworkFirst',
@@ -230,7 +231,7 @@ export default defineConfig({
       // upgrade（101 握手），必须显式开 ws: true，否则客户端永远连不上。
       '/api': {
         target: 'http://localhost:8000',
-        changeOrigin: true,
+        changeOrigin: false,
         ws: true
       },
       // M18：登录页由后端直出（刻意不进 SPA）。dev 下必须代理，否则 Vite
@@ -238,7 +239,9 @@ export default defineConfig({
       '/login': {
         target: 'http://localhost:8000',
         changeOrigin: true
-      }
+      },
+      '/join': { target: 'http://localhost:8000', changeOrigin: false },
+      '/play': { target: 'http://localhost:8000', changeOrigin: false }
     }
   }
 })

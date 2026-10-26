@@ -46,7 +46,9 @@ if (!entryRel) {
 }
 
 const webDir = path.join(pluginDir, 'web')
-const outDir = path.join(root, '.plugin-dist', pluginId)
+const finalDir = path.join(root, '.plugin-dist', pluginId)
+const outDir = path.join(root, '.plugin-dist', `.${pluginId}.stage-${process.pid}`)
+process.once('exit', () => fs.rmSync(outDir, { recursive: true, force: true }))
 
 await build({
   configFile: false,
@@ -93,5 +95,14 @@ const cssOut = path.join(outDir, 'index.css')
 fs.writeFileSync(cssOut, `${banner}${sourceCss ? sourceCss + '\n' : ''}${utilities}`)
 
 const kb = (n) => `${(n / 1024).toFixed(1)}KB`
-console.log(`[build-plugin] ${pluginId}: ${entryRel} -> ${path.join(outDir, 'index.js')}`)
-console.log(`[build-plugin] ${pluginId}: 样式 -> ${cssOut}（${kb(fs.statSync(cssOut).size)}）`)
+const cssSize = kb(fs.statSync(cssOut).size)
+const previous = `${finalDir}.previous`
+fs.rmSync(previous, { recursive: true, force: true })
+if (fs.existsSync(finalDir)) fs.renameSync(finalDir, previous)
+try { fs.renameSync(outDir, finalDir) } catch (error) {
+  if (fs.existsSync(previous)) fs.renameSync(previous, finalDir)
+  throw error
+}
+fs.rmSync(previous, { recursive: true, force: true })
+console.log(`[build-plugin] ${pluginId}: ${entryRel} -> ${path.join(finalDir, 'index.js')}`)
+console.log(`[build-plugin] ${pluginId}: 样式 -> index.css（${cssSize}）`)

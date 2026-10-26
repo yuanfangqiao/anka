@@ -169,6 +169,10 @@ DELETE /api/sessions/{id}       # M15：删除会话日志文件
 
 - 开发：Vite dev server（5173）proxy `/api` → FastAPI（8000），双进程
 - 生产：`npm run build` → uvicorn 单进程托管 `web/dist`：`/assets` 走 `StaticFiles`，其余非 `/api` 请求回退 `index.html`（支持 SPA 深链）
+- 启动诊断：`start_all.sh` 复用 `scripts/startup-common.sh`，并行直连本机健康检查，
+  记录阶段/总耗时到 `logs/startup.log`；探测绕过代理、有单次超时且检查进程存活。
+  `startup_trace.py` 记录导入、内核锁和初始化耗时；`plugin_startup.py` 承担已安装
+  插件启动，记录每个插件加载、产物复用或重建的原因；长构建每 5 秒输出耗时。
 
 ## 4. 前端：布局壳
 
@@ -386,6 +390,23 @@ main.ts → 静态注册系统插件（同一 uiCtx，dogfooding）
 - `visibilitychange` / `pageshow` / 联网 / 冷启动与下拉刷新触发媒体重建和元数据全量对账，不依赖 note rev 变化。
 - Jot 单一 outbox 写路径，媒体先上传，失败队列保留；相同 rev 也修复匹配附件的缺失路径，不覆盖本地待传正文。
 - `api.callApp` 增加可选第四参数 `{ signal }`，插件同步调用可设超时，防挂起请求阻塞后续同步；现有调用兼容。
+
+### 8.12 插件房间、受限访客与独立运行时（M19）
+
+- `plugins/rooms.py` 注册可逆的 `rooms` infra Service；实现拆分在 `rooms/` 的
+  store/service/lobby/transport/security 模块中。游戏 App 通过 `fiber.effect`
+  注册定义（编译入口、构建号、协议、地图、角色和角色消息白名单），卸载即注销。
+- `api/rooms` 为薄适配层；最小 `/join` 页面兑换邀请，`/play` 只加载受保护的游戏产物。
+  受限访客不进入账号壳、不获得通用 App 调用或文档同步权限；所有身份由服务端推导。
+- 邀请 600 秒、一个客人席位、SQL 事务加服务锁原子兑换；凭证只存哈希。
+  `anka_guest_session` 从兑换起有效 86400 秒，独立于邀请期限，Cookie 使用 HttpOnly、
+  SameSite=Lax，HTTPS 下 Secure。创建/兑换限流、Origin 与 WS 消息权限均由宿主执行。
+- 房间状态和连接在单 worker 内存中，能力存储在 `DATA_DIR/rooms.sqlite3`；
+  房间结束/插件停用撤销权限，服务器重启不恢复活跃比赛。API/访客入口绕过 SW 离线回退。
+- App 自定义构建 recipe 在后端激活前执行；原生入口暂存构建后替换，失败保留旧版本。
+  游戏运行时由插件独立 Vite 编译，iframe 只承载渲染和依赖，服务端承担权限边界。
+  活跃房间禁止重建；`plugin_catalog.py` 与 `plugin_reloader.py` 分离清单与重载事务。
+- 接口、生命周期、部署变量与验收边界见 [`docs/ROOMS.md`](docs/ROOMS.md)。
 
 ## 9. 模型接入与自我插件开发（M13/M14）
 

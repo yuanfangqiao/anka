@@ -15,11 +15,15 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 if '--prod' not in sys.argv:
     os.environ.setdefault('AGENTOS_DEV', '1')
 
-import uvicorn
-
-from app import settings
-
 if __name__ == '__main__':
+    from app.logging_conf import setup_logging
+    from app.startup_trace import phase
+
+    setup_logging()
+    with phase('启动器加载 Uvicorn 与配置'):
+        import uvicorn
+        from app import settings
+
     prod = '--prod' in sys.argv
     uvicorn.run(
         'app.main:app',

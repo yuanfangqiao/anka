@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>加入好友对战 · ANKA</title>
+<style nonce="__NONCE__">
+*{box-sizing:border-box}body{margin:0;min-height:100svh;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at top,#304a53,#10212a 65%);color:#f4ead8;font:16px/1.6 system-ui,"PingFang SC",sans-serif}main{width:min(100%,430px);padding:36px;border:1px solid #e2cda539;border-radius:24px;background:#172c34e8;box-shadow:0 28px 90px #0005}.brand{letter-spacing:.3em;color:#ebc68a;font-size:12px}h1{font-size:32px;margin:18px 0 8px}p{color:#b9c9cb}label{display:block;margin:28px 0 8px}input,button{width:100%;border-radius:12px;padding:15px;font:inherit}input{border:1px solid #b5c9c64a;color:#fff;background:#10222a}button{margin-top:20px;border:0;background:#edc78d;color:#17242b;font-weight:700;cursor:pointer}button:disabled{opacity:.5;cursor:wait}small{display:block;margin-top:20px;color:#a4b7ba}#error{color:#ffb8a9;min-height:1.6em;margin-bottom:0}input:focus-visible,button:focus-visible{outline:3px solid #9fdfed;outline-offset:3px}
+</style></head><body><main><div class="brand">ANKA / FRONTLINE</div><h1>好友在等你</h1><p>加入双人对战，选好角色，一起上场。</p><form id="form"><label for="name">你的游戏昵称</label><input id="name" name="name" maxlength="24" value="好友" autocomplete="nickname" required><button id="join" type="submit">加入游戏</button></form><p id="error" role="alert"></p><small>邀请须在 10 分钟内领取。加入后游戏身份有效 24 小时，可刷新重连、连续对战；房主关闭房间后结束访问。</small></main>
+<script nonce="__NONCE__">
+const config=__CONFIG__,form=document.querySelector('#form'),button=document.querySelector('#join'),error=document.querySelector('#error');
+const token=new URLSearchParams(location.hash.slice(1)).get('invite')||'';
+let resume='';
+async function request(path,options){const response=await fetch(path,{credentials:'same-origin',cache:'no-store',...options});let body={};try{body=await response.json()}catch{}if(!response.ok)throw Error(body.detail?.message||body.detail||'连接失败，请稍后重试');return body;}
+const base=`/api/rooms/${encodeURIComponent(config.app)}/${encodeURIComponent(config.room)}`;
+form.addEventListener('submit',async event=>{event.preventDefault();button.disabled=true;error.textContent='';try{if(resume){location.replace(resume);return}if(!token)throw Error('邀请凭证缺失，请打开房主分享的完整链接');const data=await request(base+'/redeem',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,name:document.querySelector('#name').value.trim()||'好友'})});location.replace(data.play_url)}catch(exc){error.textContent=exc.message;button.disabled=false}});
+request(base).then(()=>{resume=`/play/${encodeURIComponent(config.app)}/${encodeURIComponent(config.room)}`;button.textContent='继续进入房间'}).catch(()=>{});
+</script></body></html>

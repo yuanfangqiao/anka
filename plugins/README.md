@@ -100,7 +100,7 @@ plugins/my-plugin/
 | `ui.entry` | 前端入口，必须存在；`route` 默认 `/<id>`；`dock.order` 默认 100 |
 | `page.entry` | 仅 page 类；可省略（用 `build.output.entry` 代替）；page 类**不得**声明 `backend` / `ui` |
 | `permissions` | `net` / `fs:read:<path>` / `fs:write:<path>` / `exec`，当前仅展示 |
-| `build` | 仅源码型 page 类需要；安装与「加载更新」时执行 `steps`，产物 `dist/` 不入库 |
+| `build` | page 或带独立运行时的 app；安装与「加载更新」时执行 `steps`，产物 `dist/` 不入库 |
 
 其余细节（`build.steps` 白名单、v1 兼容规则）见 spec §2、§7。
 

@@ -10,6 +10,9 @@ import asyncio
 import logging
 import re
 from contextlib import asynccontextmanager
+from time import perf_counter
+
+_IMPORT_STARTED = perf_counter()
 
 from urllib.parse import quote
 
@@ -22,6 +25,9 @@ from . import auth, deps, settings
 from .api import (apps, chat, health, plugins, runs, sessions, settings_api,
                  sync_api)
 from .logging_conf import setup_logging
+from .rooms import api as room_api, pages as room_pages
+from .rooms.security import guest_asset
+from .startup_trace import phase
 
 log = logging.getLogger('agentos')
 
@@ -29,12 +35,17 @@ log = logging.getLogger('agentos')
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
-    async with deps.kernel_lock:
-        await asyncio.to_thread(
-            deps.manager.bootstrap,
-            settings.PLUGIN_CONFIG,
-            settings.PLUGINS_PACKAGE,
-        )
+    with phase('后端应用启动'):
+        with phase('等待内核锁'):
+            await deps.kernel_lock.acquire()
+        try:
+            await asyncio.to_thread(
+                deps.manager.bootstrap,
+                settings.PLUGIN_CONFIG,
+                settings.PLUGINS_PACKAGE,
+            )
+        finally:
+            deps.kernel_lock.release()
     # M17.10：启动时记录版本戳，便于排查多终端版本偏斜
     log.info('Anka ready, dist=%s (exists=%s), front_build=%s, api_build=%s',
              settings.DIST_DIR, settings.DIST_DIR.is_dir(),
@@ -47,7 +58,7 @@ app = FastAPI(title='Anka', lifespan=lifespan)
 # M18：应用层鉴权 —— 放行登录相关、健康检查（版本巡检需要且无敏感数据）、
 # 壳静态资源（登录页在壳内渲染）；保护其余 /api/* 与插件产物。
 # 注意：HTTP 中间件不覆盖 WebSocket，sync_api.py 单独校验。
-_PUBLIC = ('/api/auth/', '/api/health')
+_PUBLIC = ('/api/auth/', '/api/health', '/api/rooms/')
 _PROTECTED = ('/api/', '/plugins/', '/plugin-dist/')
 
 
@@ -55,7 +66,7 @@ _PROTECTED = ('/api/', '/plugins/', '/plugin-dist/')
 async def auth_guard(request, call_next):
     path = request.url.path
     if (path.startswith(_PROTECTED) and not path.startswith(_PUBLIC)
-            and auth.current_user(request) is None):
+            and auth.current_user(request) is None and not guest_asset(request)):
         return JSONResponse(
             {'detail': {'error': 'unauthorized',
                         'message': '未登录或会话已过期'}},
@@ -74,6 +85,8 @@ app.include_router(runs.router, prefix='/api')
 app.include_router(sessions.router, prefix='/api')
 app.include_router(settings_api.router, prefix='/api')
 app.include_router(sync_api.router, prefix='/api')
+app.include_router(room_api.router)
+app.include_router(room_pages.router)
 
 _DIST = settings.DIST_DIR
 if (_DIST / 'assets').is_dir():
@@ -99,12 +112,18 @@ async def serve_plugin_html(plugin_id: str, page_path: str):
     """
     if not page_path.endswith('.html'):
         # 非 HTML 走 StaticFiles mount
-        target = settings.APP_PLUGINS_DIR / plugin_id / page_path
+        root = (settings.APP_PLUGINS_DIR / plugin_id).resolve()
+        target = (root / page_path).resolve()
+        if not target.is_relative_to(root):
+            raise HTTPException(status_code=404)
         if target.is_file():
             return FileResponse(target)
         raise HTTPException(status_code=404, detail=f'{plugin_id}/{page_path}')
 
-    target = settings.APP_PLUGINS_DIR / plugin_id / page_path
+    root = (settings.APP_PLUGINS_DIR / plugin_id).resolve()
+    target = (root / page_path).resolve()
+    if not target.is_relative_to(root):
+        raise HTTPException(status_code=404)
     if not target.is_file():
         raise HTTPException(status_code=404, detail=f'{plugin_id}/{page_path}')
 
@@ -160,3 +179,8 @@ async def spa_fallback(full_path: str, request: Request):
     return JSONResponse({
         'detail': '前端未构建：cd web && npm run build；开发态请用 vite dev（localhost:5173）',
     })
+
+
+setup_logging()
+log.info('[startup] 应用模块导入与路由注册完成，耗时=%.3fs',
+         perf_counter() - _IMPORT_STARTED)

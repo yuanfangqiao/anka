@@ -59,7 +59,7 @@
 | `backend` | object | 否 | — | 见 §2.2 |
 | `ui` | object | 否 | — | 见 §2.3 |
 | `page` | object | 否 | — | 见 §2.4 |
-| `build` | object | 否 | — | 见 §2.5。**P1 只做静态校验，不执行** |
+| `build` | object | 否 | — | 见 §2.5，app / page 安装与更新时执行 |
 | `permissions` | list[string] | 否 | `[]` | 安装授权声明，仅展示，不参与鉴权（P2 落地） |
 
 **`icon` 的优先级**：app 类插件优先用本字段——宿主在 `setup(uiCtx)` 返回后用该值覆盖
@@ -102,12 +102,12 @@ page 类**不得声明 `ui`**，因此无法自定义路由：路由固定为 `/
 | 字段 | 类型 | 缺省 | 说明 |
 |------|------|------|------|
 | `cwd` | string | `"."` | 命令工作目录，不得逃出插件根目录 |
-| `requires` | list[string] | `[]` | 如 `node>=18`；缺失时安装前判定失败 |
+| `requires` | list[string] | `[]` | 如 `node>=18` 或 `node>=22.12.0`；缺失时安装前判定失败 |
 | `steps` | list[object] | `[]` | `[{"run": "npm ci --ignore-scripts"}]` |
 | `output.entry` | string | — | 构建产物入口，供 `page` 类回填 `page_entry` |
 | `timeout` | int | `600` | 单步超时（秒） |
 
-执行时机（P2，`page` 类源码插件）：
+执行时机（P2 / M19，`page` 与 `app` 类源码插件）：
 
 - `dist/` **不入库**（插件仓库 `.gitignore` 忽略），宿主拉取源码后现场构建；
 - 安装（`POST /api/plugins/{id}/install`）与插件管理页的「加载更新」
@@ -119,6 +119,12 @@ page 类**不得声明 `ui`**，因此无法自定义路由：路由固定为 `/
   不算问题；
 - 构建成功后宿主清单的 page 入口带产物 mtime（`?v=<mtime>`），前端重挂 iframe
   即加载新构建，不依赖浏览器缓存失效。
+
+`app` 的 `build` 用于编译独立运行时（例如游戏的 `dist/index.html`），
+不代替 `ui.entry`。安装依次执行 recipe → 原生入口构建 → 后端加载 → ledger；
+任一构建失败不激活新安装。原生入口使用暂存目录，失败保留上一完整产物。
+有活跃房间时禁止更新；游戏自身也应将暂存构建成功后再替换 `dist`。
+源码型 app 同样不提交 `dist/`；房间接入见 [ROOMS.md](ROOMS.md)。
 
 **版本号规则（必须遵守）**：`version` 是宿主判断「是否有更新」的唯一依据。
 

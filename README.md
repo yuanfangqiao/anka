@@ -26,6 +26,21 @@
 - Python 3.11+（内核使用 `ExceptionGroup`）
 - Node.js 18+ 与 npm（前端构建）
 
+游戏等自带构建的插件按自身 `build.requires` 检查环境；前线对决需要 Node.js 22.12+。
+
+## 游戏房间与邀请
+
+更新后重启后端，在插件管理中对 `anka-outpost-strike` 点击「构建并安装」。
+配置 `ANKA_PUBLIC_URL=https://你的域名`，房主即可生成好友可访问的二维码与链接。
+邀请 10 分钟有效，成功兑换后的房间访客身份独立有效 24 小时。
+当前按单实例、单 worker 运行；完整接入、部署与限制见 [房间文档](docs/ROOMS.md)。
+
+新增后端验证（项目根目录）：
+
+```sh
+PYTHONPATH=server .venv/bin/python -m unittest discover -s server/tests -v
+```
+
 
 ## 依赖清单
 
@@ -55,7 +70,13 @@ vite-plugin-pwa ^0.20    lucide-vue-next        @vueuse/core ^11
 ./start_all.sh --prod   # 后端关 reload，配合 web/dist 验证生产形态
 ```
 
-脚本会检查并释放已占用的 8000/5173 端口，等待服务就绪后打印地址；日志在 `logs/server.log`、`logs/web.log`。
+脚本会检查并释放已占用的 8000/5173 监听端口，并行等待前后端就绪后打印地址。
+本机健康检查直连 `127.0.0.1`，绕过代理；进程退出或超时会报错并返回非零状态。
+`logs/startup.log` 记录启动各阶段与总耗时，`logs/server.log` 记录模块导入、
+插件初始化、缓存复用和构建步骤耗时，`logs/web.log` 记录 Vite 启动。
+长构建每 5 秒记录一次进度；可运行 `tail -f logs/startup.log logs/server.log logs/web.log` 定位等待位置。
+游戏等 App 的独立运行时已有 `build.output.entry` 时，重启直接复用；
+缺失时才补构建，主动安装或「加载更新」会执行构建配方（包含声明的 `npm ci`）。
 
 ## 手动启动
 

@@ -19,6 +19,8 @@ import os
 import re
 import shlex
 import subprocess
+import threading
+from time import perf_counter
 
 from . import settings
 from .folder_scanner import check_build_step
@@ -26,6 +28,32 @@ from .folder_scanner import check_build_step
 log = logging.getLogger('agentos.plugin_builder')
 
 _HASH_FILE = '.src-hash'
+
+
+def _run_build(argv, *, cwd, timeout, label):
+    """Keep long npm/build steps visible while preserving subprocess timeouts."""
+    started = perf_counter()
+    finished = threading.Event()
+
+    def report():
+        while not finished.wait(5):
+            log.info('[build] %s 仍在运行，耗时=%.1fs（超时=%ss）',
+                     label, perf_counter() - started, timeout)
+
+    reporter = threading.Thread(target=report, daemon=True)
+    log.info('[build] 开始 %s，cwd=%s，超时=%ss', label, cwd, timeout)
+    reporter.start()
+    result = None
+    try:
+        result = subprocess.run(argv, cwd=cwd, capture_output=True,
+                                text=True, timeout=timeout)
+        return result
+    finally:
+        finished.set()
+        reporter.join()
+        log.info('[build] 结束 %s，耗时=%.3fs，exit=%s', label,
+                 perf_counter() - started,
+                 result.returncode if result is not None else '异常/超时')
 
 
 def has_dist(app_id: str) -> bool:
@@ -83,9 +111,9 @@ def build_web(app_id: str) -> bool:
         log.warning('构建脚本不存在，跳过 %s 前端构建: %s', app_id, script)
         return False
     try:
-        r = subprocess.run(
+        r = _run_build(
             ['node', str(script), app_id],
-            cwd=settings.WEB_DIR, capture_output=True, text=True, timeout=180)
+            cwd=settings.WEB_DIR, timeout=180, label=f'{app_id} 原生入口')
     except Exception as e:
         log.error('插件 %s 前端构建失败: %s', app_id, e)
         return False
@@ -109,7 +137,7 @@ def build_web(app_id: str) -> bool:
 # 产物落在插件目录内（如 dist/），由 /plugins 挂载直接伺服。
 # 产物不入库：插件仓库 .gitignore 忽略 dist，宿主在安装/更新时现场构建。
 
-_REQ_RE = re.compile(r'^(?P<exe>[\w.-]+)\s*>=\s*(?P<major>\d+)$')
+_REQ_RE = re.compile(r'^(?P<exe>[\w.-]+)\s*>=\s*(?P<version>\d+(?:\.\d+){0,2})$')
 
 
 def _check_requires(requires: list[str]) -> str | None:
@@ -118,15 +146,18 @@ def _check_requires(requires: list[str]) -> str | None:
         m = _REQ_RE.match(str(req).strip())
         if not m:
             return f'build.requires 无法解析: {req}（形如 node>=18）'
-        exe, need = m.group('exe'), int(m.group('major'))
+        exe = m.group('exe')
+        need = tuple(int(part) for part in m.group('version').split('.'))
+        need = need + (0,) * (3 - len(need))
         try:
             r = subprocess.run([exe, '--version'], capture_output=True,
                                text=True, timeout=10)
         except (OSError, subprocess.SubprocessError):
             return f'缺少构建依赖: {req}'
         out = f'{r.stdout or ""}{r.stderr or ""}'
-        found = re.search(r'(\d+)\.', out)
-        if not found or int(found.group(1)) < need:
+        found = re.search(r'(\d+)\.(\d+)(?:\.(\d+))?', out)
+        have_version = tuple(int(part or 0) for part in found.groups()) if found else ()
+        if not found or have_version < need:
             have = out.strip().splitlines()[0] if out.strip() else '未知版本'
             return f'构建依赖版本不满足 {req}（当前 {have}）'
     return None
@@ -142,7 +173,11 @@ def build_recipe(app_id: str, manifest) -> tuple[bool, str]:
     if not steps:
         return False, '未声明 build.steps'
 
+    started = perf_counter()
+    log.info('[build] 插件 %s 检查构建依赖：%s', app_id, build.get('requires') or [])
     missing = _check_requires(list(build.get('requires') or []))
+    log.info('[build] 插件 %s 构建依赖检查耗时=%.3fs，结果=%s',
+             app_id, perf_counter() - started, missing or '通过')
     if missing:
         return False, missing
 
@@ -162,9 +197,11 @@ def build_recipe(app_id: str, manifest) -> tuple[bool, str]:
         argv = shlex.split(str(run))
         log.info('插件 %s 构建 [%d/%d]: %s', app_id, i + 1, len(steps), run)
         try:
-            r = subprocess.run(argv, cwd=cwd, capture_output=True,
-                               text=True, timeout=timeout)
+            r = _run_build(argv, cwd=cwd, timeout=timeout,
+                           label=f'{app_id} 步骤 {i + 1}/{len(steps)}: {run}')
         except subprocess.TimeoutExpired:
+            log.error('[build] 插件 %s 步骤 %d/%d 超时（%ss）',
+                      app_id, i + 1, len(steps), timeout)
             return False, f'build.steps[{i}] 超时（{timeout}s）: {run}'
         except OSError as e:
             return False, f'build.steps[{i}] 无法执行: {e}'
@@ -177,5 +214,6 @@ def build_recipe(app_id: str, manifest) -> tuple[bool, str]:
     entry = (build.get('output') or {}).get('entry')
     if entry and not (root / entry).is_file():
         return False, f'构建完成但产物缺失: {entry}'
-    log.info('插件 %s 构建完成: %s', app_id, entry or 'ok')
+    log.info('插件 %s 构建完成: %s，总耗时=%.3fs',
+             app_id, entry or 'ok', perf_counter() - started)
     return True, f'构建完成: {entry}' if entry else '构建完成'

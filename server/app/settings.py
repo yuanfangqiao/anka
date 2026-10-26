@@ -22,6 +22,7 @@ PLUGIN_CONFIG: dict = {
     'session-log': {},
     'sync-store': {},
     'sync-hub': {},
+    'rooms': {},
 }
 
 PLUGINS_PACKAGE = 'app.plugins'
@@ -32,7 +33,8 @@ PORT = int(os.environ.get('PORT', '8000'))
 # web/dist 相对 server/app/settings.py：parents[2] = 项目根
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DIST_DIR = PROJECT_ROOT / 'web' / 'dist'
-DATA_DIR = PROJECT_ROOT / 'server' / 'data'
+DATA_DIR = Path(os.environ.get('ANKA_DATA_DIR') or PROJECT_ROOT / 'server' / 'data')
+ROOM_PUBLIC_URL = os.environ.get('ANKA_PUBLIC_URL', '')
 
 # App 插件模型（M6）
 APP_PLUGINS_DIR = PROJECT_ROOT / 'plugins'            # 应用插件（前后端一体，可装卸）

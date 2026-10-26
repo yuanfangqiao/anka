@@ -121,6 +121,16 @@ class PluginService:
                 code='E_RESTART_REQUIRED',
                 message='同名插件曾在本进程加载，请重启后端后再安装')
 
+        # App plugins may ship an independently compiled runtime (e.g. a game).
+        # Build everything before loading the backend or marking it installed.
+        if manifest.build:
+            ok, msg = plugin_builder.build_recipe(name, manifest)
+            if not ok:
+                raise ServiceError(msg, code='E_BUILD_FAILED', plugin=name)
+        if not settings.AGENT_DEV and manifest.ui_entry:
+            if not plugin_builder.build_web(name):
+                raise ServiceError('插件入口构建失败', code='E_BUILD_FAILED', plugin=name)
+
         try:
             state = self._on_load(name, manifest)
         except Exception as e:
@@ -128,10 +138,6 @@ class PluginService:
                              kind=manifest.kind, source='manifest',
                              detail={'error': str(e)[:500]})
             raise ServiceError(str(e), code='E_LOAD_FAILED', plugin=name) from e
-
-        # 生产态安装即编译插件前端（产物缓存 .plugin-dist/<id>/）
-        if not settings.AGENT_DEV:
-            plugin_builder.build_web(name)
 
         self.ledger.mark('installed', name, version=manifest.version,
                          kind=manifest.kind, source='manifest')
@@ -157,8 +163,14 @@ class PluginService:
         ok, msg = plugin_builder.build_recipe(name, manifest)
         if not ok:
             raise ServiceError(msg, code='E_BUILD_FAILED', plugin=name)
+        if not manifest.page and manifest.ui_entry and not settings.AGENT_DEV:
+            if not plugin_builder.build_web(name):
+                raise ServiceError('插件入口构建失败', code='E_BUILD_FAILED', plugin=name)
+        self.ledger.mark('installed', name, version=manifest.version,
+                         kind=manifest.kind, source='manifest')
         self.invalidate()
-        return PluginActionResult(name=name, ok=True, state='PAGE', message=msg)
+        return PluginActionResult(name=name, ok=True,
+                                  state='PAGE' if manifest.page else 'ACTIVE', message=msg)
 
     def uninstall(self, name: str) -> PluginActionResult:
         if not self.is_installed(name):
@@ -189,47 +201,8 @@ class PluginService:
     # ─── 前端宿主清单 ──────────────────────────────────
 
     def apps(self) -> list[AppInfo]:
-        """已安装且有 UI 的 app 插件 + page 类静态应用"""
-        result = []
-        manifests = self.discover()
-        for app_id in self.installed_ids():
-            m = manifests.get(app_id)
-            if not m:
-                log.warning('ledger 中已安装但目录缺失: %s', app_id)
-                continue
-            if m.page:
-                # page 类：静态页 iframe 加载；源码型插件构建后靠产物 mtime 换 URL，
-                # 让前端重挂 iframe 时拿到新构建（浏览器不会复用旧 index.html）
-                page_entry = m.page_entry or ''
-                entry = f'/plugins/{m.id}/{page_entry}'
-                out = m.root / page_entry.split('?', 1)[0]
-                if page_entry and out.is_file():
-                    entry += f'?v={int(out.stat().st_mtime)}'
-                result.append(AppInfo(
-                    id=m.id, title=m.name, icon=m.icon, route=m.route,
-                    entry=entry,
-                    dock_order=m.dock_order, has_sidebar=False, kind='page'))
-                continue
-            if not m.ui_entry:
-                continue
-            state = self._state_probe(app_id)
-            if state and state != 'ACTIVE':
-                continue                # 被禁用的 app 不出现在 dock
-            if not settings.AGENT_DEV and plugin_builder.has_dist(m.id):
-                entry = f'/plugin-dist/{m.id}/index.js'
-                style = plugin_builder.css_url(m.id)      # 插件自带样式（工具类）
-                if not style:
-                    # 旧产物（本机制上线前构建）：插件里的 Tailwind 类不会被宿主 CSS 兜住
-                    log.warning('插件 %s 缺少样式产物 index.css，请重建/重装插件', m.id)
-            else:
-                entry = f'/plugins/{m.id}/{m.ui_entry}'    # dev：vite 即时编译，样式随之而来
-                style = ''
-            result.append(AppInfo(
-                id=m.id, title=m.name, icon=m.icon, route=m.route,
-                entry=entry, style=style,
-                dock_order=m.dock_order, has_sidebar=m.has_sidebar))
-        result.sort(key=lambda a: a.dock_order)
-        return result
+        from .plugin_catalog import apps
+        return apps(self)
 
     # ─── 体检（CLI doctor）──────────────────────────────
 
