@@ -35,7 +35,9 @@ export function setup(ctx) {
     'data-demo': id, style: 'padding:24px'
   }, [ctx.vue.h('p', {}, id + ':' + state.depth), ctx.vue.h('button', {
     'data-open-detail': id, onClick: () => { state.depth++ }
-  }, '进入详情')]) });
+  }, '进入详情'), id === 'demo1' ? ctx.vue.h('iframe', {
+    title: 'game fixture', src: '/plugins/__navigation_game.html'
+  }) : null]) });
   ctx.registerApp({ id, title: id, icon: 'package',
     route: '/' + id + (id === 'demo1' ? '/:page?' : ''), order: 30, component });
   if (id === 'demo2') ctx.navigation.register({
@@ -50,6 +52,11 @@ const server = await createServer({
       const pathname = new URL(req.url, 'http://localhost').pathname
       if (pathname === '/__navigation_demo.js') {
         res.setHeader('Content-Type', 'text/javascript'); res.end(demoSource); return
+      }
+      if (pathname === '/plugins/__navigation_game.html') {
+        res.setHeader('Content-Type', 'text/html')
+        res.end('<!doctype html><button onclick="this.textContent=\'游戏进行中\'">开始对决</button>')
+        return
       }
       // SW 发起的请求同样得到隔离 API，不依赖 Playwright 对页面请求的拦截。
       if (pathname.startsWith('/api/')) {
@@ -110,6 +117,28 @@ try {
 
   await page.goto(origin + '/demo1')
   await page.locator('[data-demo="demo1"]').waitFor()
+  const game = page.frameLocator('iframe[title="game fixture"]')
+  await game.getByRole('button', { name: '开始对决', exact: true }).click()
+  await page.evaluate(() => {
+    window.__rotationPlugin = document.querySelector('[data-demo="demo1"]')
+    window.__rotationFrame = document.querySelector('iframe[title="game fixture"]')
+    window.__rotationDocument = window.__rotationFrame.contentDocument
+  })
+  for (const [width, height] of [[844, 390], [390, 844], [639, 500], [640, 500], [1440, 900], [390, 844]]) {
+    await page.setViewportSize({ width, height })
+    await page.waitForFunction(width => document.querySelector('[data-demo="demo1"]')
+      ?.closest('main').classList.contains('glass-panel') === (width >= 640), width)
+    assert.deepEqual(await page.evaluate(() => {
+      const frame = document.querySelector('iframe[title="game fixture"]')
+      return {
+        plugin: document.querySelector('[data-demo="demo1"]') === window.__rotationPlugin,
+        frame: frame === window.__rotationFrame,
+        document: frame.contentDocument === window.__rotationDocument,
+      }
+    }), { plugin: true, frame: true, document: true }, `${width}×${height} 布局切换必须保留应用和 iframe`)
+    assert.equal(await game.locator('button').innerText(), '游戏进行中')
+  }
+  console.log('PASS 横竖屏、639/640px 断点与桌面切换保留应用及游戏 iframe 状态')
   await page.getByRole('button', { name: 'demo2', exact: true }).first().click()
   await checkPath('/demo2')
   const initialLength = await page.evaluate(() => history.length)

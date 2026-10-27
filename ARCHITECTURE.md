@@ -6,10 +6,9 @@
 
 ```
 ┌────────────────────── web (Vue 3 + Vite, PWA) ──────────────────────┐
-│ App.vue 布局调度 ── useBreakpoint ──┬── ≤768px: MobileShell         │
-│                                     │      TopBar + AppFrame + Dock  │
-│                                     └── >768px: DesktopShell         │
-│                               SideBar + MainWindow + BottomDock      │
+│ App.vue ── AppShell（单一 RouterView，布局切换保留页面实例）          │
+│              └── useBreakpoint ── <640px: 手机顶栏 + 内容 + Dock     │
+│                                  ≥640px: 圆角主窗口 + 居中 Dock      │
 │ useAppRegistry（应用元数据）── 驱动 dock（双端共用）与 sidebar        │
 │ services/api.ts ── fetch ──▶ /api                                    │
 └───────────────────────────────┬──────────────────────────────────────┘
@@ -59,7 +58,7 @@ anka/
         ├── styles/               # tokens.css + base.css
         ├── router/index.ts
         ├── composables/          # useBreakpoint / useTheme / useAppRegistry
-        ├── layouts/              # MobileShell.vue / DesktopShell.vue
+        ├── layouts/              # AppShell.vue（双端共用，RouterView 常驻）
         ├── components/           # DockBar / SideBar / TopBar / AppFrame / ui/*
         ├── services/api.ts
         └── views/                # Chat / Notes / Explore / Plugins / Tasks /
@@ -176,20 +175,17 @@ DELETE /api/sessions/{id}       # M15：删除会话日志文件
 
 ## 4. 前端：布局壳
 
-### 4.1 布局调度（与 agent-architecture.drawio.png 对齐）
+### 4.1 布局与页面生命周期
 
-`App.vue` 内**唯一分支**：
+`App.vue` 初始化 `useBreakpoint()`，常驻一个 `AppShell`。`isMobile` 由
+`matchMedia('(max-width: 639px)')` 驱动，`isWide` 以 1280px 为断点。
 
-```ts
-const { isMobile } = useBreakpoint()   // matchMedia('(max-width: 768px)') + ResizeObserver 兜底
-// isMobile ? <MobileShell> : <DesktopShell>，两者内部都是 <RouterView>
-```
-
-- **手机形态**：顶部「返回」（左）+「设置」（右）；`TopBar` 采用 **iOS 大标题导航（Large Title）**——页面顶部大标题，内容滚动时平滑收缩为小标题（滚动监听 + transform/opacity 过渡）；中间 `AppFrame` 内容卡；底部 `DockBar`（笔记 / 对话 / 探索），毛玻璃 + 安全区
-- **桌面形态**：左侧竖向圆角胶囊 `SideBar`（插件 / 任务 / 网络 / 工作区）+ 右侧大圆角主窗口；**主窗口下方底部居中同样渲染 `DockBar`（笔记 / 对话 / 探索）**——dock 与手机共用同一组件，仅容器样式不同（无安全区、间距更松）
-```
-
-不做两套页面，避免重复实现。
+- **手机形态**：非 dock、非全屏应用显示 `TopBar`；独立滚动内容区 + 带安全区的底部 dock。
+- **桌面形态**：圆角玻璃主窗口 + 居中 dock；应用自己的工作栏由应用渲染。
+- `RouterView → Transition → 当前应用` 在两种布局中共用同一 DOM 位置；跨断点只改
+  容器样式、顶栏显隐与 Dock 的 `desktop` 属性，不按布局替换组件或移动内容节点。
+  Android 游戏请求全屏并锁横屏时，也必须保留 iframe 元素、文档和运行中状态。
+- 普通路由切换与插件卸载仍按原生命周期执行。
 
 ### 4.2 应用注册表（前端版「一切皆插件」）
 
@@ -313,8 +309,8 @@ main.ts → 静态注册系统插件（同一 uiCtx，dogfooding）
 内核壳层只提供两样东西：**macOS 风格 dock + 主窗口**，其余全部由 App 自绘。
 
 - **DockBar（macOS 化）**：悬浮玻璃胶囊，图标为 44px 渐变圆角方块；悬停放大 1.35/相邻 1.18/次相邻 1.06（transform-origin: bottom，160ms cubic-bezier）；图标下方运行/活动指示点；桌面 hover tooltip；>5 个横滑 + 渐隐；手机端无 hover，保留文字标签与安全区
-- **DesktopShell**：深色桌面 + 大圆角玻璃主窗口（极简标题条：当前 App 图标+名称+「插件管理」入口）；标题条以下整块交给当前 App 组件——左右分栏或全屏由 App 自己决定（内核不再渲染任何工作栏）
-- **MobileShell**：TopBar（左「返回」仅非 dock 系统页 / 右「设置」）+ 内容区（整块归 App）+ 底部 dock
+- **AppShell**：手机为可选 `TopBar` + 内容区 + 带安全区的 dock；桌面为圆角玻璃主窗口
+  + 居中 dock。两种布局共用同一 `RouterView`，窗口缩放、横竖屏和全屏切换不重建应用。
 - **App 自绘约定**：uiCtx 注入 `layout: { isMobile, isWide }`（共享 matchMedia）与 `components.BasePanel`（左栏统一容器）；手机端需要面板时由 App 内部 Teleport 自绘（复用 `.glass-panel` + 200ms 过渡）
 - **已废弃**：内核 per-app 工作栏、`registerSidebar` API、WorkDrawer 组件；`/api/apps` 的 `has_sidebar` 字段保留标废弃
 - catch-all → 首个 dock 应用；卸载当前所在 App → 先跳转再摘除

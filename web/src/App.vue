@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
-import MobileShell from './layouts/MobileShell.vue'
-import DesktopShell from './layouts/DesktopShell.vue'
+import AppShell from './layouts/AppShell.vue'
 import AppToast from './components/AppToast.vue'
 import UpdateNotice from './components/UpdateNotice.vue'
 import BackgroundTaskIndicator from './components/BackgroundTaskIndicator.vue'
@@ -12,7 +11,7 @@ import { bindCreateModeGestures } from './composables/useCreateMode'
 import { authUser } from './composables/useAuth'
 import { startAuthenticatedShell } from './system/shellBoot'
 
-const { isMobile } = useBreakpoint()
+useBreakpoint()
 const { apply } = useTheme()
 
 onMounted(() => {
@@ -32,8 +31,7 @@ onMounted(() => {
       <div class="absolute -top-32 -left-24 h-96 w-96 rounded-full bg-brand/15 blur-[120px]"></div>
       <div class="absolute -bottom-40 -right-16 h-[28rem] w-[28rem] rounded-full bg-brand-cyan/10 blur-[140px]"></div>
     </div>
-    <MobileShell v-if="isMobile" />
-    <DesktopShell v-else />
+    <AppShell />
     <AppToast />
     <UpdateNotice />
     <BackgroundTaskIndicator />
