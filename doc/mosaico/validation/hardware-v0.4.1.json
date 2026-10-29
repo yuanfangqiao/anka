@@ -1,0 +1,167 @@
+{
+  "date": "2026-10-30",
+  "application": "0.4.1",
+  "gameVersion": "1.4.1",
+  "gameBuild": "db7309fb27a12a6c",
+  "install": {
+    "ok": true,
+    "healthy": true,
+    "validated": true,
+    "bootAppSaved": true,
+    "savedIdeaCode": "db5006",
+    "savedBootLaunchVersion": "0.4.1",
+    "firmwareSha256": "31335aedae854ccd24257827ce7dc98cd4407ad0a9a56bb280d4a34cc98c0d72",
+    "bootAppSaveEvidence": "Official Manage details db5006 | 0.4.1; Run confirmed, normal-mode 0.4.1 launch verified through Iris"
+  },
+  "changes": [
+    "Half-cell activation, subsequent one cell=180 degrees and one third=60 degrees",
+    "Latched gesture anchor supports repeated reversal without another dead zone",
+    "Unwrapped turnTotal snapshots preserve fast/full rotations through queue coalescing",
+    "Zero turn increments ignored; identical snapshots do not apply rotation twice; no 10-degree quantization"
+  ],
+  "hardware": {
+    "method": "Real Mosaico LVGL/IMU and Wi-Fi JSON; USB supplies pairing URL and native panel touches; no optical QR or physical-finger claim",
+    "turns": [
+      {
+        "name": "half-cell-exact",
+        "steps": [
+          {
+            "logicalX": 156,
+            "gestureDegrees": 0
+          }
+        ],
+        "total": 0.0,
+        "samples": 36,
+        "actions": 0
+      },
+      {
+        "name": "live-reversal",
+        "steps": [
+          {
+            "logicalX": 207,
+            "gestureDegrees": 60.39473684210526
+          },
+          {
+            "logicalX": 308,
+            "gestureDegrees": 180
+          },
+          {
+            "logicalX": 156,
+            "gestureDegrees": 0
+          },
+          {
+            "logicalX": 105,
+            "gestureDegrees": -60.39473684210526
+          },
+          {
+            "logicalX": 308,
+            "gestureDegrees": 180
+          }
+        ],
+        "total": 180.0,
+        "samples": 249,
+        "actions": 0
+      },
+      {
+        "name": "counterclockwise",
+        "steps": [
+          {
+            "logicalX": 172,
+            "gestureDegrees": -180
+          }
+        ],
+        "total": 8.000000008223651e-06,
+        "samples": 37,
+        "actions": 0
+      },
+      {
+        "name": "fast-full-circle",
+        "steps": [
+          {
+            "logicalX": 460,
+            "gestureDegrees": 360
+          }
+        ],
+        "total": 360.000008,
+        "samples": 38,
+        "actions": 0
+      },
+      {
+        "name": "fast-reverse-full-circle",
+        "steps": [
+          {
+            "logicalX": 20,
+            "gestureDegrees": -360
+          }
+        ],
+        "total": 7.999999979801942e-06,
+        "samples": 37,
+        "actions": 0
+      }
+    ],
+    "directions": [
+      {
+        "name": "forward",
+        "move": {
+          "x": 0.0,
+          "y": 1.0
+        },
+        "samples": 20
+      },
+      {
+        "name": "back",
+        "move": {
+          "x": 0.0,
+          "y": -1.0
+        },
+        "samples": 21
+      },
+      {
+        "name": "left",
+        "move": {
+          "x": -1.0,
+          "y": -0.0
+        },
+        "samples": 22
+      },
+      {
+        "name": "right",
+        "move": {
+          "x": 1.0,
+          "y": -0.0
+        },
+        "samples": 21
+      }
+    ],
+    "boundThroughout": true,
+    "linkError": "",
+    "armed": true,
+    "moduleOnline": true
+  },
+  "software": {
+    "serverTests": 30,
+    "cGestureAndPose": "passed",
+    "jsGestureLinkAndPose": "passed",
+    "gameInputAnd200ClosedPosePaths": "passed",
+    "realChrome": "passed: half-cell/60/180/repeated reversal/fast270/gyro+haptic injection/reconnect",
+    "viewports": [
+      "390x844",
+      "1440x900"
+    ],
+    "share": "passed",
+    "pwa": "passed",
+    "builds": [
+      "web",
+      "game",
+      "esp32"
+    ],
+    "liveDevelopmentServers": "8000 and 5173 serve the new half-cell/180 gesture with Cache-Control:no-store"
+  },
+  "limits": [
+    "USB-supplied touch events are not physical finger validation",
+    "QR URL injected via USB; no fresh optical QR claim",
+    "iPhone sensors/HTTPS/haptics and human hand feel require separate validation",
+    "Earlier short-hold movement QA failed; rerun with distinct down/move/release dwell passed; physical quick-touch timing remains a hand-feel check",
+    "GATT remains documentation only"
+  ]
+}

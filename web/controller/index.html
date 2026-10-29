@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#07131f">
+  <meta name="referrer" content="no-referrer">
+  <title>Anka 手柄</title>
+  <link rel="stylesheet" href="/controller/assets/style.css">
+</head>
+<body>
+  <main id="controller" aria-label="游戏手柄">
+    <div class="triggers" aria-label="双主键">
+      <button class="trigger fire" data-held="fire" aria-label="按住开火"><span>开火</span><small>L</small></button>
+      <button class="trigger aim" data-held="aim" aria-label="按住瞄准"><span>瞄准</span><small>R</small></button>
+    </div>
+    <div class="leds" aria-label="四灯反馈"><i></i><i></i><i></i><i></i></div>
+    <section id="pad" class="pad" aria-label="中间拖动移动，顶排横滑半格起转，之后每格180度，单击功能"></section>
+    <div id="stick" class="stick" hidden><i></i></div>
+    <button id="settings" class="settings" aria-label="手柄设置">⚙</button>
+  </main>
+  <dialog id="setup"><form method="dialog">
+    <h1>手柄设置</h1>
+    <p id="notice" role="status">扫描游戏中的手柄二维码即可连接。</p>
+    <p>中间圆拖动移动；顶排横滑超过半格起转，之后每格180°、三分之一格60°；按住可左右回滑，停手停止；短点执行功能。</p>
+    <label>连接地址<input id="address" type="url" autocomplete="off" spellcheck="false" placeholder="粘贴手柄二维码链接"></label>
+    <button id="connect" type="button">连接手柄</button>
+    <button id="motion" type="button">启用体感 / 重新校准</button>
+    <label>体感灵敏度<input id="sensitivity" type="range" min="0.25" max="3" step="0.05" value="1"></label>
+    <label class="check"><input id="ads-only" type="checkbox">仅按住瞄准键时启用体感</label>
+    <button id="touch-look" type="button">切换触控观察</button>
+    <p id="haptic-status" role="status"></p>
+    <button id="test-haptic" type="button">测试受击反馈</button>
+    <button class="quiet" value="close">返回手柄</button>
+  </form></dialog>
+  <aside id="debug" hidden aria-label="协议调试"><h2>WebSocket JSON</h2><textarea id="json" spellcheck="false">{"type":"action","seq":1,"action":"jump"}</textarea><button id="send-json">发送JSON</button><button id="pause-input">暂停输入</button><button id="drop-link">断开测试</button><pre id="log"></pre></aside>
+  <script type="module" src="/controller/assets/main.js"></script>
+</body>
+</html>

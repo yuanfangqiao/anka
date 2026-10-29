@@ -1,0 +1,10 @@
+.sdk/
+.deps/
+build/
+managed_components/
+sdkconfig
+sdkconfig.old
+__pycache__/
+tools/font/node_modules/
+.mosaico-runs/
+.gateway/

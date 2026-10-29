@@ -438,3 +438,30 @@ main.ts → 静态注册系统插件（同一 uiCtx，dogfooding）
 4. 所有副作用注册到 `fiber.effect`，禁止裸改全局状态
 5. 任何 talk to LLM 的代码都走 `ctx.llm` 服务，不出现具体 provider SDK 调用
 6. 单个文件不超过 300 行，超出即拆分
+
+## M20 · Device 手柄能力
+
+`server/app/plugins/devices.py` 通过可逆 infra 服务提供 `ctx.devices`；`server/app/devices/` 分离授权、绑定、JSON 校验、队列、WS 和公开手柄页。User / Share / Device 分别鉴权，App 用 fiber effect 注册接入能力；一玩家一个设备。手机页位于 `web/controller/`，独立固件位于 `device/esp32/`，研究与设计位于用户指定的 `doc/mosaico/`。
+扫码为同域 HTTPS 链接，WSS join 原子消费 bindKey/token，不需要 hello。输入经 Cookie 验证的游戏 receiver 桥接；150ms watchdog、neutral 恢复、有限队列和撤权避免失控。当前绑定为单 worker 内存状态，重启重扫。完整契约、部署及验证见 [docs/DEVICES.md](docs/DEVICES.md)。
+
+ESP 应用通过官方 `mosaico_shared` 只读复用系统 Wi-Fi，启动即打开摄像头，服务器地址从二维码取得；没有独立 AP 配网或 host 输入。LVGL 界面仅图标，功能区拖动移动/短点动作，绑定后取消上下边缘导航，AI单击也不退出；未绑定时AI键经官方Recovery API返回Vibe Mode。官方 Iris USB 提供非敏感诊断、指针和屏幕帧读取，用于区分真实硬件状态与主机模拟测试。
+
+摄像头路径对 DVP DMA 帧执行缓存同步：640×640中心亮度供 quirc，PPA将同一范围转为360×360 RGB565预览，方向与官方样例一致。构建阶段强制核对 SC101IOT PCLK 与 DVP 官方补丁，缺失即失败。滑动轨迹由不拦截输入的 LVGL 绘制层提供。设备重连在 await 接收后再次检查 channel 归属；手机缓存恢复使用内存 Device 凭证重连。完整 review 记录见 `doc/mosaico/REVIEW.md`。
+
+Mosaico 0.2.8 将取帧/PPA预览与 quirc 解码拆为独立任务，解码使用320px快速路径、480px整数盒式采样和640px旋转回退、单精度FPU及1024区域。所有 LVGL 画布操作留在 UI 任务，摄像头只写最新帧邮箱；扫码时隐藏手柄图层。翻开镜头使用90度旋转且不镜像。识别、连接、成功和错误按代次隔离，只有绑定成功反馈后显示手柄，0.2.10绑定后进入握姿校准页，屏幕多点或实体A+B同时按住并稳定采样，松手后开放输入。绑定锁阻止重新扫码；断线保留手柄与校准，使用原设备凭证持续重连。
+
+对外地址沿用 `ANKA_PUBLIC_URL`（含协议/主机/端口）；根 `.env` 启动读取，Shell环境优先，`HOST`/`PORT` 仍是后端监听。开发环境允许保持同源localhost页面并向设备提供LAN二维码；生产来源校验不放宽。
+
+Mosaico交互修订将`imu_calibration.c`纯C握姿算法、线程安全会话包装和LVGL校准页分离。以重力和屏幕法线建立视角基准，单独计算偏置；配置前、校准中及双键未松开时均保持neutral。实体Interaction模块显式GPIO检测、去抖和短开火沿锁存，真实按压计数与Wi-Fi输入对应。按钮下灯实际顺序右LED4/左LED5，当前0.3.0为左fire/右aim，输入位按用户实际组装方向交换。
+
+0.2.11校准页面通过LVGL容器顺时针90°变换显示，CST9220全点快照采用逆变换命中，普通手柄输入坐标保持不变。800ms握姿校准允许15°调整和150ms触点缺失，静态去偏与握姿通过条件解耦；长时间松开/明显转动仍重试，成功后必须释放双键才开放输入。
+
+Device v1补充完整相对四元数pose（latest-wins）；接收端临时断线仅释放输入，同身份重新接管后rearm，父授权/明确解绑仍撤权。手机体感要求可信HTTPS，可配置ANKA_DEV_TLS_CERT/KEY；公开地址仍复用ANKA_PUBLIC_URL。
+
+0.3.0取消旧版立起/静止门槛，A+B约800ms后松开确定实际握姿。`orientation.c`以独立200Hz IMU任务进行六轴融合，发送参考相对四元数，游戏用最新姿态与相机基准求目标角，避免增量丢失和pitch限幅回正偏移；无磁北绝对航向，仍有长期传感器漂移边界。触摸/物理左右与同侧LED对应，统一左开火、右瞄准。
+
+0.3.1使用共享controller_layout.h将校准页/手柄页旋转、触点逆变换、命中和轨迹统一到正常握持坐标。ESP在输出边界校正水平航向、保留俯仰；手机协议语义不变。游戏完整姿态用相邻连续YXZ分支求角、垂直临界点保留航向，首次姿态不重设零点；显式键鼠交还保留对齐当前握姿的行为。LAN HTTP继续保留，TLS配置为可选。
+
+0.4.0手势按起点分流：中央圆移动、顶排超过一格横滑转身、其余仅短点。C/JS同规则、门槛反馈和单指所有权。input.turn为归一化累计转角快照，持久于抬手/重连，队列取最新值；neutral不将其当保持输入。游戏对最新turn取圆周差值并更新体感观察基准，重连/暂停后首个neutral仅重建基线，避免重复或回放转身。
+
+0.4.1将C/JS顶排手势统一为半格激活、门槛后每格180°；激活锚点在本次按住期间锁定，反向滑动不重复死区。新增可选turnTotal未取模累计快照，宿主校验并保留最新值，游戏1.4.1优先求完整角度差，避免快滑跨180°反向混叠；旧turn客户端继续兼容。两端功能与平台差异见doc/mosaico/design/10-controller-parity-and-live-turn.md，蓝牙仍未实施。

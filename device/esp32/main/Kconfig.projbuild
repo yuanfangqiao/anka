@@ -1,0 +1,13 @@
+menu "Anka Handpad"
+    config ANKA_ALLOW_INSECURE_LOCAL
+        bool "Allow HTTP/WS for trusted local development only"
+        default n
+    config ANKA_GYRO_YAW_SIGN
+        int "Gyro yaw axis sign: 1 or -1, verify on hardware"
+        range -1 1
+        default -1
+    config ANKA_GYRO_PITCH_SIGN
+        int "Gyro pitch axis sign: 1 or -1, verify on hardware"
+        range -1 1
+        default 1
+endmenu

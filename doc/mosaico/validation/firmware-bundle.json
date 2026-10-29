@@ -1,0 +1,31 @@
+{
+  "chip_id": 32,
+  "components": [
+    {
+      "file": "partition-table.bin",
+      "flags": 0,
+      "id": 1,
+      "kind": "partition_table",
+      "sha256": "3c26b245870110b955f490e07fe047309b44b098c5adce18a449b1010bb2fd12",
+      "size": 4096,
+      "target_offset": 32768
+    },
+    {
+      "file": "ota_0.bin",
+      "flags": 0,
+      "id": 2,
+      "kind": "application",
+      "sha256": "ce333327bf98228424df8d21e27339efb17529db3e72817749b4843f0e358ceb",
+      "size": 2057472,
+      "target_offset": 2162688
+    }
+  ],
+  "flash_size": 16777216,
+  "key_id": null,
+  "manifest_sha256": "499a7763323de746291a219d478163c93549abd43cbd80d4b9ce05cc443682b6",
+  "minimum_recovery_version": "0.2.0",
+  "release": "0.4.1",
+  "schema": "esp-iris-system-update/0.2",
+  "signature_verified": false,
+  "target_layout_sha256": "3c26b245870110b955f490e07fe047309b44b098c5adce18a449b1010bb2fd12"
+}

@@ -1,0 +1,135 @@
+{
+  "date": "2026-10-29",
+  "application": "0.3.0",
+  "gameVersion": "1.3.0",
+  "gameBuild": "5ca3dae323153c4c",
+  "install": {
+    "ok": true,
+    "healthy": true,
+    "validated": true,
+    "firmwareSha256": "183f8153d7a21dff00f9bbaad5ee39daffc34af104d87cc9e7e41c0577562d77",
+    "bootAppSavedAndLaunched": true,
+    "systemWifiReused": true,
+    "crashCount": 0
+  },
+  "realDevice": {
+    "method": "Actual device Wi-Fi/JSON; URL injected by USB, actual IMU and LVGL input",
+    "calibration": {
+      "holdMs": 800,
+      "referenceCapturedOn": "release",
+      "realImuReady": "READY",
+      "poseId": 1
+    },
+    "swipeAndJump": {
+      "inputFrames": 305,
+      "jumpActions": 14,
+      "remainedConnected": true,
+      "linkError": "",
+      "imuGaps": 0
+    },
+    "receiverDetachReclaim": true,
+    "deviceHeartbeatReconnect": {
+      "serverUnresponsiveSeconds": 17,
+      "disconnectedObserved": true,
+      "reconnected": true,
+      "calibrationRetained": true
+    },
+    "coldLaunchCalibrationRetest": "Initial injected pointers preceded page transition and missed; after releasing/repressing both, actual LVGL A=1/B=2, HOLD/RELEASE/READY verified. No IMU orientation gate.",
+    "opticalPairingThisVersion": false,
+    "opticalReason": "Current real preview is dark/obscured; physical camera positioning requires user."
+  },
+  "software": {
+    "serverFullSuite": 28,
+    "serverPassed": true,
+    "firmwareHost": "calibration all grip poses, tremor, release, quaternion full turn and composed inverse path passed",
+    "game": "controller routing, absolute pose/pitch clamp/omitted frames, stale callback passed",
+    "phone": "gesture/lifecycle, twelve reconnect attempts, secure-context permission, absolute pose, screen orientation, haptic capability passed",
+    "browser": "real production game and anonymous phone, movement/jump/fire and page resume passed; injected continuous orientation 30 degrees then back restored view; actual game damage triggered stubbed Vibration API",
+    "share": "real independent visitor authority/current-player movement passed",
+    "pwa": "active SW/manifest/no device credential cache passed",
+    "builds": [
+      "ESP application",
+      "Anka web",
+      "game production"
+    ]
+  },
+  "limitations": [
+    "Actual physical left/right key presses with the new mapping and a real hand-held full circle still need user confirmation.",
+    "iPhone screenshot uses insecure LAN HTTP. Motion requires a trusted HTTPS entry and user permission; optional dev TLS paths provided, current HTTP origin unchanged.",
+    "iOS Safari does not expose general webpage vibration; visible LED feedback supported. No claim of iPhone motor support.",
+    "BMI270 six-axis has no magnetic absolute heading; complete reference-relative packets remove transport/clamp accumulation but cannot eliminate long-term sensor heading drift."
+  ],
+  "committed": false,
+  "pushed": false,
+  "finalReady": {
+    "device": {
+      "project_name": "anka_handpad",
+      "app_version": "0.3.0",
+      "crash_count": 0,
+      "firmware_sha256": "183f8153d7a21dff00f9bbaad5ee39daffc34af104d87cc9e7e41c0577562d77",
+      "boot_id": 810962411552269929
+    },
+    "state": {
+      "wifiConnected": true,
+      "wifiSource": "system_shared",
+      "scanActive": true,
+      "scanBootAttempted": true,
+      "cameraFrames": 744,
+      "cameraError": 0,
+      "bound": false,
+      "exiting": false,
+      "stage": "CAMERA",
+      "generation": 1,
+      "decodeCount": 194,
+      "decodeUs": 84573,
+      "previewUs": 18993,
+      "displayedFrames": 664,
+      "opticalReads": 0,
+      "handpadVisible": false,
+      "sessionLocked": false,
+      "calibration": {
+        "phase": "WAIT",
+        "progress": 0,
+        "physicalButtons": 0,
+        "screenButtons": 0,
+        "presses": [
+          0,
+          0
+        ],
+        "moduleOnline": true,
+        "moduleError": 0,
+        "buttonMode": "gpio",
+        "imuAvailable": true,
+        "up": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "right": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "bias": [
+          0.0595,
+          0.2177,
+          -0.3504
+        ]
+      },
+      "armed": false,
+      "aim": false,
+      "fire": false,
+      "pose": {
+        "id": 0,
+        "q": [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "gaps": 0
+      },
+      "linkError": ""
+    }
+  }
+}

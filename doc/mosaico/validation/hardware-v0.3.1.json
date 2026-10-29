@@ -1,0 +1,174 @@
+{
+  "date": "2026-10-29",
+  "application": "0.3.1",
+  "gameVersion": "1.3.1",
+  "gameBuild": "c4930a842ed006dc",
+  "install": {
+    "ok": true,
+    "healthy": true,
+    "validated": true,
+    "firmwareSha256": "b271aae6bdd8f9a93ff0dc65e019a36470d9517f0bad2fcbb52d6abf1e5bbade",
+    "bootAppSaved": true,
+    "bootAppSaveEvidence": "Official Vibe Current Idea details show 0.3.1 / Boot app",
+    "savedBootLaunchVersion": "0.3.1",
+    "crashCount": 0
+  },
+  "changes": [
+    "Common clockwise panel transform for calibration/handpad/hit testing/trail",
+    "ESP-only horizontal heading reflection, preserving pitch",
+    "Continuous YXZ branches through vertical and beyond 90 degrees",
+    "Delayed initial complete pose is applied, explicit keyboard handback remains aligned",
+    "Canonical reference Euler chart prevents nonzero equivalent solutions after a mixed closed path"
+  ],
+  "hardware": {
+    "method": "Real Mosaico LVGL/IMU and Wi-Fi JSON; USB supplies pairing URL and native panel touch coordinates",
+    "directions": [
+      {
+        "gripStroke": "forward",
+        "nativePanelEnd": [
+          340,
+          240
+        ],
+        "wireMove": {
+          "x": 0.0,
+          "y": 1.0
+        },
+        "samples": 17
+      },
+      {
+        "gripStroke": "back",
+        "nativePanelEnd": [
+          140,
+          240
+        ],
+        "wireMove": {
+          "x": 0.0,
+          "y": -1.0
+        },
+        "samples": 13
+      },
+      {
+        "gripStroke": "left",
+        "nativePanelEnd": [
+          240,
+          140
+        ],
+        "wireMove": {
+          "x": -1.0,
+          "y": -0.0
+        },
+        "samples": 14
+      },
+      {
+        "gripStroke": "right",
+        "nativePanelEnd": [
+          240,
+          340
+        ],
+        "wireMove": {
+          "x": 1.0,
+          "y": -0.0
+        },
+        "samples": 12
+      }
+    ],
+    "rotatedActions": [
+      "jump",
+      "reload"
+    ],
+    "remainedConnected": true,
+    "imuGaps": 0,
+    "linkError": "",
+    "opticalPairingToOriginalBrowser": true,
+    "opticalReads": 1,
+    "opticalEvidence": "After launch from saved 0.3.1 Boot app, original Chrome pairing QR was decoded by actual camera: opticalReads=1, bound=true, scanActive=false."
+  },
+  "software": {
+    "firmwareHost": "four native panel/grip directions, yaw reflection and unchanged pitch, existing gesture/QR/calibration/quaternion round trips passed",
+    "game": "controller actions, full yaw circle, positive/negative vertical crossings, large pitch, roll isolation, combined rotations, first nonzero pose and explicit handback passed; 200 deterministic closed three-axis paths return to original view",
+    "browser": "real production game + phone WS/gesture/actions/resume and synthetic phone orientation round trip passed",
+    "builds": [
+      "ESP app/Iris bundle",
+      "game production"
+    ]
+  },
+  "httpPolicy": "User chose to keep LAN HTTP. Existing trusted HTTPS config is documented and unchanged.",
+  "limits": [
+    "Current tests automate actual panel input over USB and observe real IMU/Wi-Fi; not a new physical hand-held turn confirmation.",
+    "Actual left/right turn direction and large-angle hand feel await user after update.",
+    "Six-axis heading still has no magnetic absolute reference."
+  ],
+  "committed": false,
+  "pushed": false,
+  "finalBoot": {
+    "device": {
+      "project_name": "anka_handpad",
+      "app_version": "0.3.1",
+      "crash_count": 0,
+      "firmware_sha256": "b271aae6bdd8f9a93ff0dc65e019a36470d9517f0bad2fcbb52d6abf1e5bbade",
+      "boot_id": 47273932930811958
+    },
+    "state": {
+      "wifiConnected": true,
+      "wifiSource": "system_shared",
+      "scanActive": false,
+      "scanBootAttempted": true,
+      "cameraFrames": 1863,
+      "cameraError": 0,
+      "bound": true,
+      "exiting": false,
+      "stage": "CONNECTED",
+      "generation": 1,
+      "decodeCount": 477,
+      "decodeUs": 703953,
+      "previewUs": 15013,
+      "displayedFrames": 1655,
+      "opticalReads": 1,
+      "handpadVisible": false,
+      "sessionLocked": true,
+      "calibration": {
+        "phase": "WAIT",
+        "progress": 0,
+        "physicalButtons": 0,
+        "screenButtons": 0,
+        "presses": [
+          0,
+          0
+        ],
+        "moduleOnline": true,
+        "moduleError": 0,
+        "buttonMode": "gpio",
+        "imuAvailable": true,
+        "up": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "right": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "bias": [
+          0.0412,
+          0.1948,
+          -0.3148
+        ]
+      },
+      "armed": false,
+      "aim": false,
+      "fire": false,
+      "pose": {
+        "id": 0,
+        "q": [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "gaps": 0
+      },
+      "linkError": ""
+    }
+  }
+}

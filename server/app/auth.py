@@ -249,7 +249,13 @@ async def login(body: LoginBody, request: Request, response: Response) -> dict:
 
 
 @router.post('/logout')
-async def logout(response: Response) -> dict:
+async def logout(request: Request, response: Response) -> dict:
+    from . import deps
+    from .devices.service import digest
+    devices = deps.manager.ctx.get('devices')
+    token = request.cookies.get(COOKIE_NAME, '')
+    if devices and token:
+        devices.logout(digest('user:' + token))
     response.delete_cookie(COOKIE_NAME)
     return {'ok': True}
 

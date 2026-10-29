@@ -3,6 +3,11 @@
 import json
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Shell variables take precedence over the optional local development file.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(PROJECT_ROOT / '.env', override=False)
 
 # 插件启用表：key 为插件名，value 传给 apply(ctx, config)
 # 书写顺序无所谓，Loader 按 inject/provide 拓扑排序
@@ -23,6 +28,7 @@ PLUGIN_CONFIG: dict = {
     'sync-store': {},
     'sync-hub': {},
     'rooms': {},
+    'devices': {},
 }
 
 PLUGINS_PACKAGE = 'app.plugins'
@@ -31,7 +37,6 @@ HOST = os.environ.get('HOST', '0.0.0.0')
 PORT = int(os.environ.get('PORT', '8000'))
 
 # web/dist 相对 server/app/settings.py：parents[2] = 项目根
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DIST_DIR = PROJECT_ROOT / 'web' / 'dist'
 DATA_DIR = Path(os.environ.get('ANKA_DATA_DIR') or PROJECT_ROOT / 'server' / 'data')
 ROOM_PUBLIC_URL = os.environ.get('ANKA_PUBLIC_URL', '')

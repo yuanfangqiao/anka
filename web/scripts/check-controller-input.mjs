@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import {GesturePad} from '../controller/gestures.js';
+const moves=[],actions=[],turns=[],visual=[];
+const pad=new GesturePad({onMove:x=>moves.push(x),onAction:x=>actions.push(x),onTurn:x=>turns.push(x),onDrag:x=>visual.push(x),cellWidth:100});
+const total=()=>turns.reduce((a,b)=>a+b,0);
+pad.down(1,10,10,'jump',0);pad.up(1,12,12,'jump',120);assert.deepEqual(actions,['jump']);
+pad.down(1,0,0,'jump',200);pad.move(1,60,-50);assert.ok(moves.at(-1).x>0&&moves.at(-1).y>0);
+pad.up(1,60,-50,'reload',300);assert.deepEqual(moves.at(-1),{x:0,y:0});assert.equal(actions.length,1);
+pad.down(1,0,0,'reload',400);pad.move(1,50,0);assert.equal(total(),0,'exactly half a cell must not turn');
+pad.move(1,50+100/3,0);assert.ok(Math.abs(total()-60)<1e-8,'a third cell after activation turns 60 degrees');
+pad.move(1,150,0);assert.equal(total(),180);pad.move(1,150,0);assert.equal(total(),180,'hold must not keep turning');
+pad.move(1,50,0);assert.equal(total(),0);pad.move(1,25,0);assert.equal(total(),-45,'activation is latched: no dead zone on reversal');
+assert.equal(visual.at(-1).sign,-1);assert.equal(visual.at(-1).progress,1);
+pad.move(1,-50,0);assert.equal(total(),-180);pad.move(1,150,0);assert.equal(total(),180,'repeated reversal keeps following the finger');
+pad.up(1,150,0,'grenade',700);assert.equal(actions.length,1);assert.equal(total(),180,'release keeps final angle');
+pad.down(1,200,0,'grenade',800);pad.up(1,50,0,'reload',850);assert.equal(total(),0,'fast right-to-left swipe turns counterclockwise');
+pad.down(1,0,0,'reload',900);pad.up(1,40,0,'reload',950);assert.equal(total(),0);assert.equal(actions.length,1,'short drag never clicks');
+pad.down(1,0,0,'reload',1000);pad.move(1,200,70);pad.up(1,200,70,'jump',1100);assert.equal(total(),0,'vertical escape cannot turn or move');
+pad.down(1,0,0,'shield',1200);pad.move(1,200,0);assert.equal(total(),0);assert.deepEqual(moves.at(-1),{x:0,y:0});pad.up(1,200,0,'shield',1300);
+pad.down(1,0,0,'jump',1400);pad.down(2,50,50,'reload',1410);pad.up(2,50,50,'reload',1450);assert.equal(pad.owner,1);assert.equal(actions.length,1);
+pad.move(1,10000,10000);assert.ok(Math.hypot(moves.at(-1).x,moves.at(-1).y)<=1.000001);pad.cancel(1);
+pad.down(1,0,0,'heal',1600);pad.up(1,0,0,'heal',2100);assert.equal(actions.length,1);
+pad.down(1,0,0,'reload',2200);pad.up(1,0,0,'reload',2300);assert.equal(actions.at(-1),'reload');
+for(const action of ['reload','next_weapon','grenade']){
+ const before=total();pad.down(1,0,0,action,2400);pad.move(1,450,0);
+ assert.equal(total()-before,720,'large fast strokes preserve the complete angle');
+ pad.move(1,350,0);assert.equal(total()-before,540);pad.cancel(1);
+}
+pad.reset();assert.equal(pad.points.size,0);
+console.log('PASS center movement, half-cell activation, one-cell 180 / third-cell 60, latched reversals, hold/release, full turns, no false action and single pointer');

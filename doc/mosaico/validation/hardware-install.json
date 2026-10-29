@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-30",
+  "release": "0.4.1",
+  "ok": true,
+  "healthy": true,
+  "validated": true,
+  "bootAppSaved": true,
+  "savedIdeaCode": "db5006",
+  "savedBootLaunchVersion": "0.4.1",
+  "firmwareSha256": "31335aedae854ccd24257827ce7dc98cd4407ad0a9a56bb280d4a34cc98c0d72",
+  "bootAppSaveEvidence": "Official Manage details db5006 | 0.4.1; Run confirmed, normal-mode 0.4.1 launch verified through Iris",
+  "evidence": "hardware-v0.4.1.json"
+}

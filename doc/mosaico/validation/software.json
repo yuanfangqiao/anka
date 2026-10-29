@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-29",
+  "serverTests": 28,
+  "serverPassed": true,
+  "hostBuildPassed": true,
+  "gameBuild": "c4930a842ed006dc",
+  "gameRegression": [
+    "controller"
+  ],
+  "realBrowser": {
+    "game": "real production build",
+    "transport": "real authenticated WSS-compatible JSON",
+    "pairing": "automatic",
+    "anonymousController": true,
+    "movement": "passed",
+    "tapVsDrag": "passed",
+    "jump": "passed",
+    "firing": "passed",
+    "disconnectRelease": "passed",
+    "mobile": "390x844",
+    "desktop": "1440x900",
+    "hudRemoved": true,
+    "pageErrors": 0
+  },
+  "shareBrowserPassed": true,
+  "pwaBrowserPassed": true,
+  "firmwareHostPassed": true,
+  "firmwareCrossCompilePassed": true,
+  "irisBundleInspectPassed": true,
+  "hardwareTested": true,
+  "deployed": false,
+  "committed": false,
+  "hardwareInstalled": true,
+  "hardwareInstallationEvidence": "hardware-v0.3.1.json",
+  "hardwareTestScope": "real IMU/LVGL over USB and Wi-Fi; four normal-grip directions, rotated jump/reload, 0.3.1 installed and saved Boot app; new physical yaw direction confirmation pending",
+  "phoneSensorScope": "continuous synthetic direction events over real WS; real game damage to stubbed Vibration API; not iPhone hardware",
+  "firmwareVersion": "0.3.1"
+}

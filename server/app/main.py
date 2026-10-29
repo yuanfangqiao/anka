@@ -27,6 +27,7 @@ from .api import (apps, chat, health, plugins, runs, sessions, settings_api,
 from .logging_conf import setup_logging
 from .rooms import api as room_api, pages as room_pages
 from .rooms.security import guest_asset
+from .devices import api as device_api, pages as device_pages
 from .startup_trace import phase
 
 log = logging.getLogger('agentos')
@@ -58,7 +59,7 @@ app = FastAPI(title='Anka', lifespan=lifespan)
 # M18：应用层鉴权 —— 放行登录相关、健康检查（版本巡检需要且无敏感数据）、
 # 壳静态资源（登录页在壳内渲染）；保护其余 /api/* 与插件产物。
 # 注意：HTTP 中间件不覆盖 WebSocket，sync_api.py 单独校验。
-_PUBLIC = ('/api/auth/', '/api/health', '/api/rooms/')
+_PUBLIC = ('/api/auth/', '/api/health', '/api/rooms/', '/api/devices/')
 _PROTECTED = ('/api/', '/plugins/', '/plugin-dist/')
 
 
@@ -87,6 +88,8 @@ app.include_router(settings_api.router, prefix='/api')
 app.include_router(sync_api.router, prefix='/api')
 app.include_router(room_api.router)
 app.include_router(room_pages.router)
+app.include_router(device_api.router)
+app.include_router(device_pages.router)
 
 _DIST = settings.DIST_DIR
 if (_DIST / 'assets').is_dir():

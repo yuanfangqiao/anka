@@ -1,0 +1,152 @@
+{
+  "date": "2026-10-28",
+  "version": "0.2.8",
+  "chip": "esp32s31",
+  "sensor": "SC101IOT 1280x720",
+  "artifacts": {
+    "device/esp32/build/anka_handpad.bin": {
+      "bytes": 2007488,
+      "sha256": "c8f94e532433233470a438daffbc5d333f2340987c3fc2c3a3c439e9d890b0a4"
+    },
+    "device/esp32/build/anka_handpad-system-update.irisfw": {
+      "bytes": 1258383,
+      "sha256": "13bd6cbdf133a1aa3b9f3248cd683f9c987f57cd2d6b09a93090eb9fac634d7d"
+    }
+  },
+  "install": {
+    "validated": true,
+    "healthy": true,
+    "elf_sha256": "b22f5b3fd5361051a34f56b2c51b4cfccbe6542fa0fe5e392ebd45ae667a18ed",
+    "bootloader_unchanged": true,
+    "bootloader_sha256": "a25d9cfa91948ad265a349de820443232ecde92c34c0e523ae9dc00fd79df8eb"
+  },
+  "saved_app": {
+    "saved_to_my_ideas": true,
+    "relaunch_verified": true,
+    "old_test_copies_removed": [
+      "0.2.3",
+      "0.2.7"
+    ],
+    "remaining_ideas": 1
+  },
+  "preview": {
+    "window_seconds": 5.00945229199715,
+    "captureFps": 15.570564495565494,
+    "displayFps": 13.77396089992332
+  },
+  "optical": {
+    "method": "real camera reads QR in user Chrome after launching saved My Ideas app; no USB URL injection",
+    "first": [
+      {
+        "elapsed": 0.004,
+        "stage": "SCANNING",
+        "opticalReads": 0,
+        "bound": false,
+        "handpadVisible": false
+      },
+      {
+        "elapsed": 46.803,
+        "stage": "QR FOUND",
+        "opticalReads": 1,
+        "bound": false,
+        "handpadVisible": false
+      },
+      {
+        "elapsed": 47.432,
+        "stage": "CONNECTED",
+        "opticalReads": 1,
+        "bound": true,
+        "handpadVisible": false
+      },
+      {
+        "elapsed": 47.75,
+        "stage": "CONNECTED",
+        "opticalReads": 1,
+        "bound": true,
+        "handpadVisible": true
+      }
+    ],
+    "rescan_method": "fresh QR after actual unbind, top-edge gesture, real optical scan; no USB URL injection",
+    "rescan": [
+      {
+        "elapsed": 0.005,
+        "stage": "SCANNING",
+        "opticalReads": 1,
+        "bound": false,
+        "handpadVisible": false
+      },
+      {
+        "elapsed": 47.435,
+        "stage": "QR FOUND",
+        "opticalReads": 2,
+        "bound": false,
+        "handpadVisible": false
+      },
+      {
+        "elapsed": 48.066,
+        "stage": "CONNECTED",
+        "opticalReads": 2,
+        "bound": true,
+        "handpadVisible": false
+      },
+      {
+        "elapsed": 48.375,
+        "stage": "CONNECTED",
+        "opticalReads": 2,
+        "bound": true,
+        "handpadVisible": true
+      }
+    ],
+    "automatically_verified_pairings": 2,
+    "timer_note": "Elapsed timers begin BEFORE browser QR generation, include setup/tool delays and are not scan latency; no latency SLA claimed.",
+    "actual_browser": "User Chrome localhost:5173; QR advertises192.168.0.102:5173; connected badge after both pairings."
+  },
+  "real_image_regression": {
+    "source_sha256": "6fb3052f11f622acfe417702646bc0de72a209bfafd4da8021484ac65c497135",
+    "before": "actual45-module QR guessed as49; format ECC failure",
+    "after": "same actual frame using shared C qr_pixels480 box: grid45,payload121bytes;640 reverse also passes",
+    "retention": "local ignored QA files only; no URL logged"
+  },
+  "tests": {
+    "server_unittest_passed": 26,
+    "host_c": "passed: UYVY crop, URLs, gestures,320/480/640 sampling and rotation",
+    "unbind_browser": "revoked device no longer returns to waiting; new pairing succeeds",
+    "wireless_ui_flow": "0.2.7 hardware Wi-Fi: QR FOUND/CONNECTING/CONNECTED,same-code resume,15s connection failure stays scanner; see previous report"
+  },
+  "final": {
+    "project": "anka_handpad",
+    "version": "0.2.8",
+    "crash_count": 0,
+    "boot_id": "2197602157217461666",
+    "diagnostics": {
+      "wifiConnected": true,
+      "wifiSource": "system_shared",
+      "scanActive": false,
+      "scanBootAttempted": true,
+      "cameraFrames": 3680,
+      "cameraError": 0,
+      "bound": true,
+      "exiting": false,
+      "stage": "CONNECTED",
+      "generation": 3,
+      "decodeCount": 1042,
+      "decodeUs": 434549,
+      "previewUs": 12180,
+      "displayedFrames": 3271,
+      "opticalReads": 4,
+      "handpadVisible": true
+    }
+  },
+  "concurrent_use_note": "After test generation2, a later screenshot observed LINK FAILED in scanner. Subsequent read without agent touch or reset found generation3,opticalReads4,bound=true. Browser was in active game. This observation is not attributed to a cause without further evidence.",
+  "intermediate_diagnostic_failure": {
+    "cause": "5th diagnostic handler exceeded SDK default8RPC slots; startup assertion",
+    "evidence": "matched ELF coredump/controller_debug_start",
+    "fix": "12 configured slots plus compile-time check; final install/relaunch crash_count0"
+  },
+  "remaining_physical_acceptance": [
+    "IMU axis/drift and physical button feel",
+    "LED order/haptic strength",
+    "long duration and varied distance/light scanning",
+    "iOS/Android actual sensors and lifecycle"
+  ]
+}

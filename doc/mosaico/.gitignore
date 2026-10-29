@@ -1,0 +1,4 @@
+# Vendor documentation and source caches stay local; keep original licenses.
+sources/
+upstream/
+__pycache__/

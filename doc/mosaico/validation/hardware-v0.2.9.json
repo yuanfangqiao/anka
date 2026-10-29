@@ -1,0 +1,464 @@
+{
+  "method": "Actual ESP Wi-Fi/WS with isolated test player; USB supplies decoded URL, not optical scan",
+  "version": "0.2.9",
+  "boundBeforeCalibration": {
+    "wifiConnected": true,
+    "wifiSource": "system_shared",
+    "scanActive": false,
+    "scanBootAttempted": true,
+    "cameraFrames": 3738,
+    "cameraError": 0,
+    "bound": true,
+    "exiting": false,
+    "stage": "CONNECTED",
+    "generation": 1,
+    "decodeCount": 1041,
+    "decodeUs": 567142,
+    "previewUs": 14564,
+    "displayedFrames": 3337,
+    "opticalReads": 0,
+    "handpadVisible": false,
+    "sessionLocked": true,
+    "calibration": {
+      "phase": "WAIT",
+      "progress": 0,
+      "physicalButtons": 0,
+      "screenButtons": 0,
+      "presses": [
+        70,
+        69
+      ],
+      "moduleOnline": true,
+      "moduleError": 0,
+      "buttonMode": "gpio",
+      "imuAvailable": true,
+      "up": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "right": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "bias": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "armed": false,
+    "aim": false,
+    "fire": false
+  },
+  "singleScreenButtonDoesNotCalibrate": true,
+  "bothHeldUntilRelease": {
+    "wifiConnected": true,
+    "wifiSource": "system_shared",
+    "scanActive": false,
+    "scanBootAttempted": true,
+    "cameraFrames": 3738,
+    "cameraError": 0,
+    "bound": true,
+    "exiting": false,
+    "stage": "CONNECTED",
+    "generation": 1,
+    "decodeCount": 1041,
+    "decodeUs": 567142,
+    "previewUs": 14564,
+    "displayedFrames": 3337,
+    "opticalReads": 0,
+    "handpadVisible": false,
+    "sessionLocked": true,
+    "calibration": {
+      "phase": "RELEASE",
+      "progress": 100,
+      "physicalButtons": 0,
+      "screenButtons": 3,
+      "presses": [
+        70,
+        69
+      ],
+      "moduleOnline": true,
+      "moduleError": 0,
+      "buttonMode": "gpio",
+      "imuAvailable": true,
+      "up": [
+        -0.007,
+        0.9994,
+        0.0347
+      ],
+      "right": [
+        1.0,
+        0.007,
+        0.0
+      ],
+      "bias": [
+        0.0243,
+        0.1835,
+        -0.337
+      ]
+    },
+    "armed": false,
+    "aim": false,
+    "fire": false
+  },
+  "readyAfterBothReleased": {
+    "wifiConnected": true,
+    "wifiSource": "system_shared",
+    "scanActive": false,
+    "scanBootAttempted": true,
+    "cameraFrames": 3738,
+    "cameraError": 0,
+    "bound": true,
+    "exiting": false,
+    "stage": "CONNECTED",
+    "generation": 1,
+    "decodeCount": 1041,
+    "decodeUs": 567142,
+    "previewUs": 14564,
+    "displayedFrames": 3337,
+    "opticalReads": 0,
+    "handpadVisible": true,
+    "sessionLocked": true,
+    "calibration": {
+      "phase": "READY",
+      "progress": 100,
+      "physicalButtons": 0,
+      "screenButtons": 0,
+      "presses": [
+        70,
+        69
+      ],
+      "moduleOnline": true,
+      "moduleError": 0,
+      "buttonMode": "gpio",
+      "imuAvailable": true,
+      "up": [
+        -0.007,
+        0.9994,
+        0.0347
+      ],
+      "right": [
+        1.0,
+        0.007,
+        0.0
+      ],
+      "bias": [
+        0.0243,
+        0.1835,
+        -0.337
+      ]
+    },
+    "armed": true,
+    "aim": false,
+    "fire": false
+  },
+  "edgesAndRescanRpcIgnored": {
+    "wifiConnected": true,
+    "wifiSource": "system_shared",
+    "scanActive": false,
+    "scanBootAttempted": true,
+    "cameraFrames": 3738,
+    "cameraError": 0,
+    "bound": true,
+    "exiting": false,
+    "stage": "CONNECTED",
+    "generation": 1,
+    "decodeCount": 1041,
+    "decodeUs": 567142,
+    "previewUs": 14564,
+    "displayedFrames": 3337,
+    "opticalReads": 0,
+    "handpadVisible": true,
+    "sessionLocked": true,
+    "calibration": {
+      "phase": "READY",
+      "progress": 100,
+      "physicalButtons": 0,
+      "screenButtons": 0,
+      "presses": [
+        70,
+        69
+      ],
+      "moduleOnline": true,
+      "moduleError": 0,
+      "buttonMode": "gpio",
+      "imuAvailable": true,
+      "up": [
+        -0.007,
+        0.9994,
+        0.0347
+      ],
+      "right": [
+        1.0,
+        0.007,
+        0.0
+      ],
+      "bias": [
+        0.0243,
+        0.1835,
+        -0.337
+      ]
+    },
+    "armed": true,
+    "aim": false,
+    "fire": false
+  },
+  "physicalKeysToRealWebsocket": {
+    "pressesBefore": [
+      70,
+      69
+    ],
+    "pressesAfter": [
+      71,
+      70
+    ],
+    "aim": true,
+    "fire": true,
+    "state": {
+      "wifiConnected": true,
+      "wifiSource": "system_shared",
+      "scanActive": false,
+      "scanBootAttempted": true,
+      "cameraFrames": 3738,
+      "cameraError": 0,
+      "bound": true,
+      "exiting": false,
+      "stage": "CONNECTED",
+      "generation": 1,
+      "decodeCount": 1041,
+      "decodeUs": 567142,
+      "previewUs": 14564,
+      "displayedFrames": 3337,
+      "opticalReads": 0,
+      "handpadVisible": true,
+      "sessionLocked": true,
+      "calibration": {
+        "phase": "READY",
+        "progress": 100,
+        "physicalButtons": 1,
+        "screenButtons": 0,
+        "presses": [
+          71,
+          70
+        ],
+        "moduleOnline": true,
+        "moduleError": 0,
+        "buttonMode": "gpio",
+        "imuAvailable": true,
+        "up": [
+          -0.007,
+          0.9994,
+          0.0347
+        ],
+        "right": [
+          1.0,
+          0.007,
+          0.0
+        ],
+        "bias": [
+          0.0243,
+          0.1835,
+          -0.337
+        ]
+      },
+      "armed": true,
+      "aim": true,
+      "fire": false
+    }
+  },
+  "finalConnected": {
+    "wifiConnected": true,
+    "wifiSource": "system_shared",
+    "scanActive": false,
+    "scanBootAttempted": true,
+    "cameraFrames": 3738,
+    "cameraError": 0,
+    "bound": true,
+    "exiting": false,
+    "stage": "CONNECTED",
+    "generation": 1,
+    "decodeCount": 1041,
+    "decodeUs": 567142,
+    "previewUs": 14564,
+    "displayedFrames": 3337,
+    "opticalReads": 0,
+    "handpadVisible": true,
+    "sessionLocked": true,
+    "calibration": {
+      "phase": "READY",
+      "progress": 100,
+      "physicalButtons": 0,
+      "screenButtons": 0,
+      "presses": [
+        74,
+        73
+      ],
+      "moduleOnline": true,
+      "moduleError": 0,
+      "buttonMode": "gpio",
+      "imuAvailable": true,
+      "up": [
+        -0.007,
+        0.9994,
+        0.0347
+      ],
+      "right": [
+        1.0,
+        0.007,
+        0.0
+      ],
+      "bias": [
+        0.0243,
+        0.1835,
+        -0.337
+      ]
+    },
+    "armed": true,
+    "aim": false,
+    "fire": false
+  },
+  "device": {
+    "device_id": "4553502d4952495301001c2904d088dc",
+    "boot_id": 10108377994287941698,
+    "session_id": 1095174593,
+    "endpoint": "usb:location=0-1.3:1.0",
+    "transport": 1,
+    "project_name": "anka_handpad",
+    "app_version": "0.2.9",
+    "idf_version": "7b9cc1ac-dirty",
+    "firmware_sha256": "925a43defaf162b3e5d5afb7b7ff18102ef2658e61a1884602a589bc4023f1ce",
+    "reset_reason": 3,
+    "capabilities": 466783,
+    "auth_mode": 0,
+    "max_payload": 4000,
+    "firmware_mode": "normal",
+    "product_contract": "esp-mosaico/v2",
+    "chip_target": "esp32s31",
+    "board_id": "esp-mosaico",
+    "layout_id": "mosaico-retained-test-2m-v2",
+    "recovery_abi": 2,
+    "required_features": 0,
+    "health_timeout_ms": 45000,
+    "hardware_mac": "1c:29:04:d0:88:dc",
+    "link_role": "control",
+    "boot_id_text": "10108377994287941698",
+    "capability_names": [
+      "log",
+      "events",
+      "status",
+      "time_sync",
+      "screen",
+      "crash",
+      "rpc",
+      "jobs",
+      "image",
+      "audio",
+      "mirror",
+      "system_inventory",
+      "restart",
+      "input"
+    ],
+    "ota_project_name_match_required": false,
+    "uptime_us": 397579059,
+    "free_internal": 102519,
+    "min_free_internal": 52268,
+    "total_internal": 415603,
+    "total_spiram": 14843136,
+    "free_spiram": 10663444,
+    "min_free_spiram": 4866216,
+    "log_dropped_bytes": 0,
+    "rx_frames": 426,
+    "tx_frames": 827,
+    "invalid_frames": 0,
+    "link_count": 2,
+    "task_stack_free_min_bytes": 1060,
+    "worker_active_max_us": 30958,
+    "lifecycle_state": 2,
+    "internal_heap_used_bytes": 14316,
+    "static_internal_bytes": 2773,
+    "internal_total_bytes": 17089,
+    "crash_count": 0,
+    "crash_limit": 3,
+    "crash_loop_triggered": false,
+    "crash_recovery_pending": false,
+    "crash_origin_reset_reason": 0,
+    "crash_failed_app_address": 0,
+    "crash_failed_boot_id": 0,
+    "crash_failed_firmware_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "crash_state_error": 0,
+    "clock_offset_us": 94797271190.6455,
+    "clock_uncertainty_us": 389.6455,
+    "crash_failed_boot_id_text": "0",
+    "stale": false,
+    "mode": "develop",
+    "queue": {
+      "device_id": "4553502d4952495301001c2904d088dc",
+      "running": [],
+      "queued": []
+    },
+    "state": "idle",
+    "present": true,
+    "busy_reasons": [],
+    "owner_session_id": "53a72d87-b311-490d-b4e3-46880969620a"
+  },
+  "gameClosedKeepsHandpad": {
+    "wifiConnected": true,
+    "wifiSource": "system_shared",
+    "scanActive": false,
+    "scanBootAttempted": true,
+    "cameraFrames": 3738,
+    "cameraError": 0,
+    "bound": false,
+    "exiting": false,
+    "stage": "GAME CLOSED",
+    "generation": 1,
+    "decodeCount": 1041,
+    "decodeUs": 567142,
+    "previewUs": 14564,
+    "displayedFrames": 3337,
+    "opticalReads": 0,
+    "handpadVisible": true,
+    "sessionLocked": true,
+    "calibration": {
+      "phase": "READY",
+      "progress": 100,
+      "physicalButtons": 0,
+      "screenButtons": 0,
+      "presses": [
+        74,
+        73
+      ],
+      "moduleOnline": true,
+      "moduleError": 0,
+      "buttonMode": "gpio",
+      "imuAvailable": true,
+      "up": [
+        -0.007,
+        0.9994,
+        0.0347
+      ],
+      "right": [
+        1.0,
+        0.007,
+        0.0
+      ],
+      "bias": [
+        0.0243,
+        0.1835,
+        -0.337
+      ]
+    },
+    "armed": false,
+    "aim": false,
+    "fire": false
+  },
+  "date": "2026-10-29",
+  "notes": [
+    "Physical left/right presses were explicitly performed by the user and verified as aim/fire over actual ESP Wi-Fi.",
+    "Calibration and session locking use real IMU plus USB-driven LVGL multi-pointer events; this is not a claim that physical two-finger touch was automatically pressed.",
+    "User observed reversed button-underlight positions after this test; corrected in0.2.10."
+  ]
+}

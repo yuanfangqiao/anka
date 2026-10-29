@@ -1,5 +1,7 @@
 """Browser origin checks and narrowly scoped guest static access."""
 from urllib.parse import urlsplit
+import ipaddress
+import os
 
 from fastapi import HTTPException
 
@@ -26,7 +28,18 @@ def check_origin(request):
     origin = request.headers.get('origin')
     expected = urlsplit(public_origin(request))
     actual = urlsplit(origin or '')
-    if not origin or (actual.scheme, actual.netloc) != (expected.scheme, expected.netloc):
+    same_origin = (actual.scheme, actual.netloc) == (expected.scheme, expected.netloc)
+    # Local development can advertise a LAN URL for devices while the developer
+    # keeps the same-origin game tab on localhost. Never extend this to remote hosts.
+    direct = urlsplit(str(request.base_url))
+    loopback = direct.hostname == 'localhost'
+    try:
+        loopback = loopback or ipaddress.ip_address(direct.hostname or '').is_loopback
+    except ValueError:
+        pass
+    local_dev = (os.environ.get('AGENTOS_DEV') == '1' and loopback and
+                 (actual.scheme, actual.netloc) == (direct.scheme.replace('ws', 'http', 1), direct.netloc))
+    if not origin or not (same_origin or local_dev):
         raise HTTPException(403, '请求来源不受信任')
     if request.headers.get('sec-fetch-site') == 'cross-site':
         raise HTTPException(403, '不允许跨站房间操作')

@@ -1,0 +1,175 @@
+{
+  "date": "2026-10-28",
+  "release": "0.2.1",
+  "target": "esp32s31",
+  "compiled": true,
+  "installation": {
+    "workflow": "official Iris system-update",
+    "status": "succeeded",
+    "healthy": true,
+    "validated": true,
+    "bootloaderUnchanged": true,
+    "applicationOffset": 2162688,
+    "applicationElfSha256": "bff41915ae0626640d503d6b7171611b1487d2921247d6f7c72155672bf3fc19"
+  },
+  "systemWifiAndBootCamera": {
+    "wifiConnected": true,
+    "wifiSource": "system_shared",
+    "scanActive": true,
+    "scanBootAttempted": true,
+    "cameraFrames": 262,
+    "cameraError": 0,
+    "bound": false,
+    "exiting": false,
+    "labels": 0
+  },
+  "icons": "Real device RGB565 screenshot inspected: icons only, red offline jump border, no text labels",
+  "navigation": {
+    "method": "Official Iris USB pointer events into actual LVGL UI, not physical finger",
+    "gridSwipeBefore": {
+      "project_name": "anka_handpad",
+      "app_version": "0.2.1",
+      "firmware_mode": "normal",
+      "boot_id_text": "581778274667226388",
+      "reset_reason": 3,
+      "crash_count": 0,
+      "uptime_us": 107715146
+    },
+    "gridSwipeAfter": {
+      "project_name": "anka_handpad",
+      "app_version": "0.2.1",
+      "firmware_mode": "normal",
+      "boot_id_text": "581778274667226388",
+      "reset_reason": 3,
+      "crash_count": 0,
+      "uptime_us": 108184708
+    },
+    "topEdgeAfter": {
+      "project_name": "vibe-mode",
+      "app_version": "0.2.1",
+      "firmware_mode": "recovery",
+      "boot_id_text": "13244538897882739491",
+      "reset_reason": 3,
+      "crash_count": 0,
+      "uptime_us": 10943113
+    },
+    "bottomEdgeAfter": {
+      "project_name": "vibe-mode",
+      "app_version": "0.2.1",
+      "firmware_mode": "recovery",
+      "boot_id_text": "11866652216805594415",
+      "reset_reason": 3,
+      "crash_count": 0,
+      "uptime_us": 9242623
+    }
+  },
+  "savedIdea": {
+    "savedLocally": true,
+    "launcher": "My Ideas / anka_handpad",
+    "reopenedState": {
+      "project_name": "anka_handpad",
+      "app_version": "0.2.1",
+      "firmware_mode": "normal",
+      "boot_id_text": "10955558694766190475",
+      "reset_reason": 3,
+      "crash_count": 0,
+      "uptime_us": 29502032
+    },
+    "reopenedDiagnostics": {
+      "wifiConnected": true,
+      "wifiSource": "system_shared",
+      "scanActive": true,
+      "scanBootAttempted": true,
+      "cameraFrames": 207,
+      "cameraError": 0,
+      "bound": false,
+      "exiting": false,
+      "labels": 0
+    }
+  },
+  "screenshotRegression": {
+    "issue": "0.2.0 LVGL snapshot from USB worker caused one WDT reset",
+    "fix": "0.2.1 copies the already rendered full RGB565 frame instead of redrawing from USB worker",
+    "observed": "Repeated screenshots and navigation successful with unchanged boot ID until deliberate exit",
+    "longRunVerified": false
+  },
+  "notVerified": [
+    "camera aimed at real pairing QR and live game binding",
+    "physical finger and held hardware buttons",
+    "gyro axes and drift",
+    "LED order and motor feel",
+    "long-duration wireless latency and thermal behavior"
+  ],
+  "artifacts": [
+    {
+      "path": "device/esp32/build/anka_handpad.bin",
+      "bytes": 1979632,
+      "sha256": "c1b4824382a4450336819d1fe05e387d7d0f362877c3e44b4c0d83d6f80f12df"
+    },
+    {
+      "path": "device/esp32/build/anka_handpad-system-update.irisfw",
+      "bytes": 1243672,
+      "sha256": "0b82154c6418935d1c1675c61532772c05afc1f7fe0595546880a2eecbef5190"
+    }
+  ],
+  "sourceSha256": {
+    "CMakeLists.txt": "1f1ebe3d95c3d8694ee1bd7181b82ed5cb3bb9775a5437d4f1b71dd0395990d9",
+    "dependencies.lock": "f751bc74f8250674a03f6bb09632359586926312faa8285fe6b23973a4c064bc",
+    "main/CMakeLists.txt": "de3493e602f621a261f3d9a7d03f3b5fbf69995243561eeb4e58f785721384bf",
+    "main/Kconfig.projbuild": "343e35126e2dee09db53c4ee8fd88412e62768b64fa17dd2daf6f0c34e5a558a",
+    "main/app_main.c": "aa4d0d09e5c866e956929ae8f9a755fa76a24d62f88e97e1d2138365a98c99e5",
+    "main/controller.c": "8e3cda2b4155bf1928014008ca48e94515b454be160d13708efddeb5b5a1e2df",
+    "main/controller.h": "6d840fbef5778e78c96ec520d4ca9b86ced59c953c2e99ffa738e78ff0d6708f",
+    "main/controller_debug.c": "708f2430e946cb30a70892f3881705ac49320c06264682cdd906feccb480adbf",
+    "main/controller_icons.c": "a5271558322a71d22fa35409894fa056c811722cd1a88e0fd2366512ad843c4d",
+    "main/controller_link.c": "75d23421358b3b939d950b20c0b0111544e9a632493b7073352f45dc5c3d7b24",
+    "main/controller_scan.c": "f7e6dd84cfb5b2a4ed2d8fbd8e37cb1b368bc74b9991e10a4a9acb828f143c3c",
+    "main/controller_sensors.c": "2899729d8a2ccb7c3b66e40efa1ffe2e1cb61c90014df3348e960aa1b19cc545",
+    "main/controller_system.c": "b5f5486f77cae98a2eab1894d91c74d79f8cab3994e423e07546573743d6baef",
+    "main/controller_ui.c": "e17965abaa1487d6768695a12e36f0670023ea83d91a80036832d0f2b2834f7f",
+    "main/controller_url.c": "8ae7159fdbb68b7131b64df39286ede96ceb6d4e9c403c7f6e1ae285019d9014",
+    "main/controller_url.h": "031dfcbab59bf57142716c0733cf829729a2f672beed668d7c1922fb956a4ee7",
+    "main/controller_wifi.c": "475e86782602292f598ec32f1dd942911fd70fda7047e53317e094b8e92fa0c1",
+    "main/gesture.c": "859ecee3d7330a7e144f55bf84737cfb2e23e5dbdf85acf1fbb8c08913b6f702",
+    "main/gesture.h": "9134b0a76479ea0b1d476f7334ad81eeddc6a9653a86378c1a80b4ef0cee219a",
+    "main/idf_component.yml": "7b3f6330f7db811035e495e5a1f618844ba59a2dd6ceb925824307285118dc79",
+    "main/navigation.c": "0002fb576df82b1f9f7427b146db363cf90cdcc8e42bc3cdeb73d0c1dc93c3e3",
+    "main/navigation.h": "62b07ad987d9c2e199fd1e7f1e1a3779313ea3fc1eb16414ac654f26bd08ff9d",
+    "sdkconfig.defaults": "122e48842456f8ab9dd6067395c545003cb51c0cfab2c1615e41b76b30708d18"
+  },
+  "finalRunningState": {
+    "project_name": "anka_handpad",
+    "app_version": "0.2.1",
+    "firmware_mode": "normal",
+    "boot_id_text": "18143279004161646674",
+    "reset_reason": 3,
+    "crash_count": 0,
+    "uptime_us": 38312093
+  },
+  "finalBootDiagnostics": {
+    "wifiConnected": true,
+    "wifiSource": "system_shared",
+    "scanActive": true,
+    "scanBootAttempted": true,
+    "cameraFrames": 271,
+    "cameraError": 0,
+    "bound": false,
+    "exiting": false,
+    "labels": 0
+  },
+  "offlineCenterTapRescan": {
+    "method": "Actual LVGL UI via official Iris USB pointer",
+    "diagnostics": {
+      "wifiConnected": true,
+      "wifiSource": "system_shared",
+      "scanActive": true,
+      "scanBootAttempted": true,
+      "cameraFrames": 3,
+      "cameraError": 0,
+      "bound": false,
+      "exiting": false,
+      "labels": 0
+    }
+  },
+  "finalScreenshotBootStable": true
+}

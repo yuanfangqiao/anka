@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 import fs from 'node:fs'
@@ -6,6 +6,9 @@ import path from 'node:path'
 import { execSync } from 'node:child_process'
 
 const APP_PLUGINS_DIR = path.resolve(__dirname, '../plugins')
+const devEnv = {...loadEnv('development', path.resolve(__dirname, '..'), 'ANKA_'), ...process.env}
+const tlsCert = devEnv.ANKA_DEV_TLS_CERT, tlsKey = devEnv.ANKA_DEV_TLS_KEY
+if (!!tlsCert !== !!tlsKey) throw new Error('ANKA_DEV_TLS_CERT and ANKA_DEV_TLS_KEY must be configured together')
 
 /** M17.10 构建号：git sha 优先，回退时间戳。
  *  前端经 define 注入（__APP_BUILD__），并写入 dist/version.json 供后端下发，
@@ -157,11 +160,12 @@ export default defineConfig({
         // → 壳在 iframe 里递归启动（多层内嵌）。denylist 放行插件/接口路径。
         // M18：/login 由后端直出静态登录页，绝不能被 SW 的 navigateFallback
         // 用缓存的 SPA 壳顶掉（否则未登录看不到登录页）
-        navigateFallbackDenylist: [/^\/api\//, /^\/plugins\//, /^\/plugin-dist\//, /^\/login/, /^\/join\//, /^\/play\//],
+        navigateFallbackDenylist: [/^\/api\//, /^\/plugins\//, /^\/plugin-dist\//, /^\/login/, /^\/join\//, /^\/play\//, /^\/v1\/device\//, /^\/controller(?:\/|\?|$)/],
         cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         globIgnores: ['**/plugins/**'],
         runtimeCaching: [
+          { urlPattern: /\/(?:api\/devices|v1\/device|controller)(?:\/|\?|$)/i, handler: 'NetworkOnly', method: 'GET' },
           { urlPattern: /\/api\/rooms\//i, handler: 'NetworkOnly', method: 'GET' },
           {
             urlPattern: /\/api\/.*/i,
@@ -220,6 +224,7 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
+    https: tlsCert && tlsKey ? { cert: fs.readFileSync(tlsCert), key: fs.readFileSync(tlsKey) } : undefined,
     port: 5173,
     allowedHosts: true,
     // 插件目录在项目根（web/ 之外），编译产物以 /@fs/ 绝对 URL 引用，需放行项目根
@@ -241,7 +246,9 @@ export default defineConfig({
         changeOrigin: true
       },
       '/join': { target: 'http://localhost:8000', changeOrigin: false },
-      '/play': { target: 'http://localhost:8000', changeOrigin: false }
+      '/play': { target: 'http://localhost:8000', changeOrigin: false },
+      '/v1/device': { target: 'http://localhost:8000', changeOrigin: false, ws: true },
+      '/controller': { target: 'http://localhost:8000', changeOrigin: false }
     }
   }
 })
