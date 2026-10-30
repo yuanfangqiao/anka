@@ -43,6 +43,7 @@ try{
  await host.evaluate(engineInPage);
  await host.evaluate(()=>{window.__controllerQAGame.invulnerable=100;});
  await host.getByRole('button',{name:'手柄设备接入',exact:true}).click();
+ if(await host.getByRole('tab',{name:'扫码接入',exact:true}).count())await host.getByRole('tab',{name:'扫码接入',exact:true}).click();
  await host.locator('.controller-qr').waitFor();
  const wsUrl=await host.getByLabel('手柄WebSocket地址').inputValue();
  assert.ok(wsUrl.includes('/v1/device/join?bindKey='));

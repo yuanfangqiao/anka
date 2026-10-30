@@ -2,6 +2,12 @@
 
 记录每次核心修改。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，最新在上。
 
+## [M20] 自定义 BLE GATT 设备接入 · 2026-10-30
+
+- 新增独立ESP32-S31原生应用 `device/anka-gatt-gamepad`，复用现有控制/校准/扫码核心；固定原生NimBLE依赖，保留WS应用。
+- devices服务新增GATT控制平面，沿用User/Share归属和独立Device绑定；精确receiver、单设备、传输隔离与短租约。
+- 宿主提供共享浏览器GATT编解码/接收模块，输入和反馈走本机BLE；增加协议、安装文档、跨C/JS与服务端回归。
+
 ## 静态资源压缩与缓存 · 2026-10-30
 
 - 宿主构建默认生成 Brotli/Gzip；生产 FastAPI 和开发 Vite 协商压缩插件及宿主静态资源，无副本时回退动态 Gzip。

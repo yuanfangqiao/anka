@@ -464,8 +464,16 @@ Device v1补充完整相对四元数pose（latest-wins）；接收端临时断�
 
 0.4.0手势按起点分流：中央圆移动、顶排超过一格横滑转身、其余仅短点。C/JS同规则、门槛反馈和单指所有权。input.turn为归一化累计转角快照，持久于抬手/重连，队列取最新值；neutral不将其当保持输入。游戏对最新turn取圆周差值并更新体感观察基准，重连/暂停后首个neutral仅重建基线，避免重复或回放转身。
 
-0.4.1将C/JS顶排手势统一为半格激活、门槛后每格180°；激活锚点在本次按住期间锁定，反向滑动不重复死区。新增可选turnTotal未取模累计快照，宿主校验并保留最新值，游戏1.4.1优先求完整角度差，避免快滑跨180°反向混叠；旧turn客户端继续兼容。两端功能与平台差异见doc/mosaico/design/10-controller-parity-and-live-turn.md，蓝牙仍未实施。
+0.4.1将C/JS顶排手势统一为半格激活、门槛后每格180°；激活锚点在本次按住期间锁定，反向滑动不重复死区。新增可选turnTotal未取模累计快照，宿主校验并保留最新值，游戏1.4.1优先求完整角度差，避免快滑跨180°反向混叠；旧turn客户端继续兼容。两端功能与平台差异见doc/mosaico/design/10-controller-parity-and-live-turn.md，蓝牙直连现已在独立工程实施，见下文。
 
 ### 静态资源传输（2026-10-30）
 
 宿主和插件静态资源默认协商 Brotli/Gzip，构建预压缩、缺省动态 Gzip；保留原鉴权、Range 和实时接口行为。带内容哈希的资源使用浏览器私有不可变缓存，入口继续检查更新。开发 Vite 与生产 FastAPI 均覆盖，结构与验证见 `docs/STATIC-ASSETS.md`。
+
+### BLE GATT 独立应用（2026-10-30）
+
+`device/anka-gatt-gamepad` 是独立ESP32-S31原生Idea，保留原 `device/esp32` WS应用；编译时复用校准、控制状态与姿态核心，独立 NimBLE/sensors/wire 适配。SDK/BSP使用原固定版本缓存，新增 BLE gitlink 锁版，不引入Arduino。设备不启动Wi-Fi，系统Wi-Fi/NVS保持；蓝牙配对密钥独立保存，游戏Device凭证仅RAM。
+
+浏览器共享模块 `web/controller/gatt-{client,codec}.js` 由游戏运行时导入；显式用户点击选择设备。原devices infra插件新增GATT授权适配，经已有User/Share receiver控制通道绑定/续约/撤权；精确玩家、单设备、传输类型与Device秘密验证保持独立。输入/反馈直接走本机BLE，复用游戏原InputRouter；服务不转发其高频数据。150ms游戏watchdog、1500ms设备租约、断线/隐藏释放、原页退避重连和重启重新连接规则见 [GATT协议](docs/GATT-GAMEPAD.md)。
+
+BLE接入按用户最新要求不扫码：页面已有User/Share身份，显式选择外设后创建Device绑定；设备不启动摄像头，启动即显示蓝牙等待页。加密Control Read提供应用内随机配对证明，首次bound校验，绑定后不再公开。手机和原WS路线保留二维码。

@@ -5,13 +5,14 @@ import threading
 import time
 
 from .protocol import INPUT_TIMEOUT, fail
+from .gatt import GattBindings
 
 
 def digest(value):
     return hashlib.sha256(value.encode()).hexdigest()
 
 
-class DeviceService:
+class DeviceService(GattBindings):
     def __init__(self, clock=time.time):
         self.clock, self.lock = clock, threading.RLock()
         self.apps, self.receivers, self.pairings, self.bindings = {}, {}, {}, {}
@@ -94,7 +95,7 @@ class DeviceService:
                                       receiver=receiver, used=False)
             return key, token, expires
 
-    def join(self, key, token, channel):
+    def join(self, key, token, channel, *, transport='websocket', receiver=None):
         with self.lock:
             item = self.pairings.get(key)
             if not item or item['expires'] <= self.clock():
@@ -103,23 +104,33 @@ class DeviceService:
                 fail('invalid_token', '设备配对凭证无效', 403)
             if item['used']:
                 fail('pair_used', '二维码已使用，请重新生成', 409)
+            if receiver is not None and receiver is not item['receiver']:
+                fail('wrong_principal', '二维码不属于当前玩家或游戏', 403)
             receiver = item['receiver']
             self.check(receiver)
             if receiver['key'] in self.bindings:
                 fail('player_already_bound', '当前玩家已连接一个手柄', 409)
-            secret = secrets.token_urlsafe(32)
-            binding = dict(deviceId='dev_'+secrets.token_urlsafe(12), receiver=receiver,
-                           hash=digest(secret), expires=min(receiver['expires'], self.clock()+43200),
-                           channel=channel, armed=False, last_input=0., seq=0, fire=False)
-            self.bindings[receiver['key']] = binding
+            binding, secret = self.create_binding(receiver, channel, transport=transport)
             item['used'] = True
-            self.publish(binding)
             return binding, secret
 
-    def reconnect(self, device, token, channel):
+    def create_binding(self, receiver, channel, *, transport):
+        self.check(receiver)
+        if receiver['key'] in self.bindings:
+            fail('player_already_bound', '当前玩家已连接一个手柄', 409)
+        secret = secrets.token_urlsafe(32)
+        binding = dict(deviceId='dev_'+secrets.token_urlsafe(12), receiver=receiver,
+                       hash=digest(secret), expires=min(receiver['expires'], self.clock()+43200),
+                       channel=channel, transport=transport, armed=False, last_input=0., seq=0, fire=False)
+        self.bindings[receiver['key']] = binding
+        self.publish(binding)
+        return binding, secret
+
+    def reconnect(self, device, token, channel, *, transport='websocket'):
         with self.lock:
             binding = next((b for b in self.bindings.values() if b['deviceId'] == device), None)
-            if not binding or not secrets.compare_digest(binding['hash'], digest(token)):
+            if (not isinstance(token, str) or not binding or binding.get('transport', 'websocket') != transport
+                    or not secrets.compare_digest(binding['hash'], digest(token))):
                 fail('invalid_token', '手柄会话已失效，请重新扫码', 403)
             self.check_binding(binding)
             old = binding['channel']
@@ -138,7 +149,8 @@ class DeviceService:
 
     def publish(self, binding):
         binding['receiver']['channel'].put({'type': 'binding',
-            'deviceId': binding['deviceId'], 'connected': bool(binding['channel'])})
+            'deviceId': binding['deviceId'], 'connected': bool(binding['channel']),
+            'transport': binding.get('transport', 'websocket')})
 
     def release(self, binding, reason):
         binding.update(armed=False, fire=False, last_input=0.)

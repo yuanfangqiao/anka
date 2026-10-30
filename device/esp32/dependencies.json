@@ -1,9 +1,0 @@
-{
-  "target": "esp32s31",
-  "esp-idf": "7b9cc1ac79f865983f59bb8ff3ff43eb74ff1dbe",
-  "esp-mosaico-bsp": "5f88b91e1be055d1d3674364123b2779a1758377",
-  "quirc": "927d680904dc95fdff4cd9d022eb374b438ff8f2",
-  "esp-mosaico-utils": "be151ae047014e79a9c7ae0092dd203844499003",
-  "cmake": "3.31.10",
-  "ninja": "1.13.0"
-}

@@ -70,7 +70,7 @@ SSE 流式输出，AgengLoop 消费 `llm` + `tools` 两个服务
 | **M14** | **Harness 自我插件开发**：Agent 经工具读/写 `plugins/` → 脚手架 → 隔离试载校验 → 无重启安装/重载 → 回滚；护栏限可写区仅 `plugins/`；会话日志 append-only 权威事件源 | scaffold→verify→install→reload→uninstall 全链路通过；越界写入被护栏拦截；日志可投影模型历史 | ✅ 完成 |
 | **M15** | **对话 UI 真实化**：真会话列表（`/api/sessions` 日志投影）、多轮上下文（`derive_messages`）、SSE 有序 blocks（文本+工具卡）、**可终止**（`AbortController` + 后端 `cancel`）、删除会话；移除全部 Mock | 侧栏会话可新建/切换/删除并持久；同一对话多轮记忆；发送中可一键终止且 UI 即时解锁；无硬编码消息/兜底回声 | ✅ 完成 |
 | **M17** | **Run 常驻化 + 过程可视化 + 创造模式**：RunManager（断连不取消、重放续传、stop 才终止）；全局悬浮过程面板（思考/工具步骤流，可拖拽可终止）；截屏创造模式（对角双指 / Ctrl+点击左下角 → 截图+指令发给 Agent 当场改插件）；安卓刷新拉伸修复（fixed 钉死视口） | 切应用/刷新/切后台 run 不中断且面板跨页可见；刷新后自动重挂进行中会话；创造模式带图消息全链路；移动端刷新布局稳定 | ✅ 完成 |
-| **M20** | **扫码设备手柄**：独立 User / Share / Device 鉴权、单玩家单设备、JSON WebSocket、手机手柄与 ESP32-S31 独立固件 | 软件真实 HTTP/WS 与生产游戏浏览器链路通过；ESP 完整构建和 Iris 打包通过，硬件端验收分别记录 | 🟨 0.4.1两端实时转身：半格激活、之后每格180°/1/3格60°、反复回滑及完整累计角度；30项宿主、真实Chrome与ESP Wi-Fi输入通过，已安装；待真实手持与iPhone HTTPS验收，GATT仅文档 |
+| **M20** | **扫码设备手柄**：独立 User / Share / Device 鉴权、单玩家单设备、JSON WebSocket、手机手柄与 ESP32-S31 独立固件 | 软件真实 HTTP/WS 与生产游戏浏览器链路通过；ESP 完整构建和 Iris 打包通过，硬件端验收分别记录 | 🟨 0.4.1两端实时转身：半格激活、之后每格180°/1/3格60°、反复回滑及完整累计角度；30项宿主、真实Chrome与ESP Wi-Fi输入通过，已安装；待真实手持与iPhone HTTPS验收，GATT独立应用0.1.0实施中，验收见docs/GATT-GAMEPAD.md |
 
 > M2 与 M1 可并行：后端移植不依赖前端壳。
 

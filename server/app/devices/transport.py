@@ -152,6 +152,7 @@ async def receiver_socket(ws, principal, app):
                 with service.lock:
                     service.check(receiver)
                     binding = service.bindings.get(receiver['key'])
+                    service.gatt_expire(binding)
                     if binding and binding['armed'] and time.monotonic()-binding['last_input'] > INPUT_TIMEOUT:
                         service.release(binding, 'input_timeout')
                 value = await reader.read()
@@ -162,7 +163,14 @@ async def receiver_socket(ws, principal, app):
                 with service.lock:
                     service.check(receiver)
                     binding = service.bindings.get(receiver['key'])
-                if kind == 'receiver':
+                if kind in ('gatt_bind', 'gatt_resume', 'gatt_lease', 'gatt_detach'):
+                    try:
+                        with service.lock:
+                            channel.put(service.gatt(receiver, channel, value))
+                    except ERRORS as exc:
+                        channel.put({'type': 'gatt_error', 'requestId': value.get('requestId'),
+                                     'code': getattr(exc, 'code', 'invalid_message'), 'message': str(exc)})
+                elif kind == 'receiver':
                     if type(value.get('active')) is not bool:
                         fail('invalid_message', '无效游戏前台状态')
                     receiver.update(active=value['active'], seen=time.monotonic())
@@ -182,4 +190,6 @@ async def receiver_socket(ws, principal, app):
     finally:
         channel.closed = True
         if receiver and service:
+            with service.lock:
+                service.gatt_lost(receiver, channel)
             service.detach_receiver(receiver, channel)

@@ -42,6 +42,12 @@ PYTHONPATH=server .venv/bin/python -m unittest discover -s server/tests -v
 ```
 
 
+## Mosaico 蓝牙手柄
+
+新增独立原生应用 [anka-gatt-gamepad](device/anka-gatt-gamepad/README.md)，原 Wi-Fi/手机手柄保留。
+游戏里的「连接蓝牙手柄」使用电脑 Chrome/Edge、可信 HTTPS 或 localhost。
+构建/安装命令、固定依赖及平台限制见应用说明，接口见 [GATT协议](docs/GATT-GAMEPAD.md)。
+
 ## 依赖清单
 
 ### 后端 `server/requirements.txt`
