@@ -17,11 +17,11 @@ _IMPORT_STARTED = perf_counter()
 from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
+from fastapi.responses import (HTMLResponse, JSONResponse,
                                RedirectResponse)
-from fastapi.staticfiles import StaticFiles
 
 from . import auth, deps, settings
+from .static_assets import CompressedStaticFiles, StaticCompressionMiddleware, static_file
 from .api import (apps, chat, health, plugins, runs, sessions, settings_api,
                  sync_api)
 from .logging_conf import setup_logging
@@ -55,6 +55,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title='Anka', lifespan=lifespan)
+app.add_middleware(StaticCompressionMiddleware)
 
 # M18：应用层鉴权 —— 放行登录相关、健康检查（版本巡检需要且无敏感数据）、
 # 壳静态资源（登录页在壳内渲染）；保护其余 /api/* 与插件产物。
@@ -93,18 +94,18 @@ app.include_router(device_pages.router)
 
 _DIST = settings.DIST_DIR
 if (_DIST / 'assets').is_dir():
-    app.mount('/assets', StaticFiles(directory=_DIST / 'assets'), name='assets')
+    app.mount('/assets', CompressedStaticFiles(directory=_DIST / 'assets'), name='assets')
 
 # M9：插件前端「安装时编译」产物（.plugin-dist/<id>/index.js）
 settings.PLUGIN_DIST_DIR.mkdir(parents=True, exist_ok=True)
-app.mount('/plugin-dist', StaticFiles(directory=settings.PLUGIN_DIST_DIR),
+app.mount('/plugin-dist', CompressedStaticFiles(directory=settings.PLUGIN_DIST_DIR),
           name='plugin-dist')
 
 # M11：插件目录静态伺服（dev 由 vite 中间件承担，prod 走这里；
 # 与 dev URL 契约一致，page 类静态页应用的入口即 /plugins/<id>/index.html）
 
-@app.get('/plugins/{plugin_id}/{page_path:path}', include_in_schema=False)
-async def serve_plugin_html(plugin_id: str, page_path: str):
+@app.api_route('/plugins/{plugin_id}/{page_path:path}', methods=['GET', 'HEAD'], include_in_schema=False)
+async def serve_plugin_html(plugin_id: str, page_path: str, request: Request):
     """page 类插件 HTML 伺服：改写绝对路径，适配构建时 base="/" 的产物。
 
     场景：第三方打包好的静态页（如 excalidraw）构建时默认 base="/"，
@@ -120,7 +121,7 @@ async def serve_plugin_html(plugin_id: str, page_path: str):
         if not target.is_relative_to(root):
             raise HTTPException(status_code=404)
         if target.is_file():
-            return FileResponse(target)
+            return static_file(target, request)
         raise HTTPException(status_code=404, detail=f'{plugin_id}/{page_path}')
 
     root = (settings.APP_PLUGINS_DIR / plugin_id).resolve()
@@ -144,10 +145,10 @@ async def serve_plugin_html(plugin_id: str, page_path: str):
             return m.group(0)
         return f'{attr}={quote}{url_prefix}{path.lstrip("/")}{quote}'
     html = re.sub(r'(src|href)=(["\'])(/[^"\']*)\2', _rewrite, html)
-    return HTMLResponse(html)
+    return HTMLResponse(html, headers={'Cache-Control': 'no-cache'})
 
 
-app.mount('/plugins', StaticFiles(directory=settings.APP_PLUGINS_DIR),
+app.mount('/plugins', CompressedStaticFiles(directory=settings.APP_PLUGINS_DIR),
           name='plugins')
 
 # M17.10：SW 入口文件禁用 HTTP 缓存（见 spa_fallback）
@@ -174,11 +175,11 @@ async def spa_fallback(full_path: str, request: Request):
                 # sw.js 就永远检测不到新版本；hash 资源（/assets/*）不受影响
                 if (target.name in ('sw.js', 'index.html', 'manifest.webmanifest')
                         or target.name.startswith('workbox-')):
-                    return FileResponse(target, headers=_NO_CACHE)
-                return FileResponse(target)
+                    return static_file(target, request, cache_control=_NO_CACHE['Cache-Control'])
+                return static_file(target, request)
         index = _DIST / 'index.html'
         if index.is_file():
-            return FileResponse(index, headers=_NO_CACHE)
+            return static_file(index, request, cache_control=_NO_CACHE['Cache-Control'])
     return JSONResponse({
         'detail': '前端未构建：cd web && npm run build；开发态请用 vite dev（localhost:5173）',
     })

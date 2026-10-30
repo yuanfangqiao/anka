@@ -165,3 +165,7 @@ anka/
 游戏中点击“手柄设备接入”，手机扫码自动控制当前玩家；ESP-Mosaico 打开已保存的手柄 Idea 后沿用系统 Wi-Fi 自动进入扫码，无需手机配网或输入 host。用已有 `ANKA_PUBLIC_URL` 配置对外地址（如局域网 `http://192.168.1.100:5173` 或域名 `https://anka.example.com`）；`HOST`/`PORT` 仍只控制后端监听。项目根 `.env` 会在启动时读取，Shell 环境优先。权限、JSON 调试与验证命令见 [设备接入](docs/DEVICES.md)，固件依赖和构建见 [ESP32 手柄](device/esp32/README.md)。
 
 手机手柄体感需要可信HTTPS：二维码地址继续配置`ANKA_PUBLIC_URL`；Vite本地TLS可同时设置`ANKA_DEV_TLS_CERT`和`ANKA_DEV_TLS_KEY`为受信任证书/私钥路径。无TLS时ESP与手机触控可用，iPhone网页体感受浏览器限制。完整协议与验证命令见[设备文档](docs/DEVICES.md)。
+
+### 静态资源压缩
+
+前端 `npm run build` 自动生成 Brotli/Gzip 副本；Anka 开发和生产环境默认压缩游戏等静态资源，带哈希的文件使用浏览器私有长期缓存。无需客户端配置，详见 [静态资源传输](docs/STATIC-ASSETS.md)。

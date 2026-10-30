@@ -3,6 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 import fs from 'node:fs'
 import path from 'node:path'
+import { sendAsset } from './scripts/http-assets.mjs'
 import { execSync } from 'node:child_process'
 
 const APP_PLUGINS_DIR = path.resolve(__dirname, '../plugins')
@@ -117,7 +118,7 @@ function serveAppPlugins(): Plugin {
           }
         }
         res.setHeader('Content-Type', mime[ext] ?? 'application/octet-stream')
-        fs.createReadStream(file).pipe(res)
+        sendAsset(req, res, file)
       })
     },
   }

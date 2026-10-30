@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/build-shared.mjs && vite build",
+    "build": "node scripts/build-shared.mjs && vite build && node scripts/precompress.mjs dist",
     "preview": "vite preview"
   },
   "dependencies": {
