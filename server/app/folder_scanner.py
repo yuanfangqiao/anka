@@ -13,6 +13,7 @@ import logging
 import shlex
 from dataclasses import dataclass, field
 from pathlib import Path
+from .runtime_policy import parse_runtime
 
 log = logging.getLogger('agentos.scanner')
 
@@ -48,6 +49,7 @@ class FolderManifest:
     manifest_version: int = 1
     build: dict = field(default_factory=dict)
     permissions: list[str] = field(default_factory=list)
+    runtime: dict = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
@@ -161,6 +163,7 @@ def _parse(plugin_json: Path) -> FolderManifest:
     # ─── 类型/互斥校验 ───
     if m.kind == 'page' and (m.backend_entry or m.ui_entry):
         m.fail('E_MANIFEST_FIELD', 'page 类不得声明 backend 或 ui', field='kind')
+    m.runtime = parse_runtime(m, data.get('runtime'))
     perms = data.get('permissions', [])
     if perms and (not isinstance(perms, list)
                   or not all(isinstance(p, str) for p in perms)):

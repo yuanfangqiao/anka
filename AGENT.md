@@ -162,3 +162,13 @@ npm run build                           # 产出 web/dist（含 manifest + sw）
 | inject / provide | 依赖声明 / 提供的服务名，Loader 据此拓扑排序 |
 | 级联卸载 | 卸载某插件时，所有 inject 其 provide 服务的插件被一起卸载 |
 | dock / sidebar | 手机底部栏 / 桌面左侧栏，均由应用注册表驱动 |
+
+
+## 8. 应用运行时开发（2026-10-31）
+
+- 应用切换必须保留 ApplicationWorkspace 的稳定父节点与实例键，不能通过 v-if 重建活跃 iframe。
+- 原生后台组件须使用自己的路由上下文；跨应用打开经 switchApp/apps.open，不能改写别的应用内部栈。
+- 先读 docs/APP-RUNTIME.md；关闭/重启遵循 beforeClose，父级关闭同时检查嵌套子级。
+- body 弹层使用 AppPortal 或主动响应生命周期；后台暂停是协作式契约。
+- 验证增加 npm run typecheck、check-app-runtime（dev/prod）与原有导航回归，截图遵循第 3.4 节。
+- 本次用户显式允许在 reference/ 添加新的参考材料；既有上游项目继续只读，禁止运行时 import。

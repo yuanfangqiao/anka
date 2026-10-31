@@ -94,7 +94,7 @@ function serveAppPlugins(): Plugin {
           html = html.replace(
             /(src|href)=(["'])(\/[^"']*)\2/g,
             (m, attr, q, p) =>
-              p.startsWith('//') || p.startsWith('/plugins/') || p.startsWith('/api/')
+              p.startsWith('//') || p.startsWith('/plugins/') || p.startsWith('/api/') || p.split('?')[0] === '/anka-sdk.js'
                 ? m
                 : `${attr}=${q}${urlPrefix}${p.slice(1)}${q}`,
           )

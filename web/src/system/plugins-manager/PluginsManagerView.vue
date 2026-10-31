@@ -14,6 +14,8 @@ import { isMobile } from '../../composables/useBreakpoint'
 import BasePanel from '../../components/ui/BasePanel.vue'
 import PluginsManagerSidebar from './PluginsManagerSidebar.vue'
 import { pmState } from './store'
+import { usePluginInstall } from './usePluginInstall'
+import AppPortal from '../../runtime/AppPortal.vue'
 
 const router = useRouter()
 const toast = useToast()
@@ -72,45 +74,7 @@ async function togglePlugin(p: PluginInfo, next: boolean) {
   }
 }
 
-async function install(a: AvailablePlugin) {
-  if (busy.value) return
-  busy.value = a.id
-  try {
-    const res = await api.installPlugin(a.id)
-    if (res.requires_restart) {
-      toast.warn(res.message ?? '需重启后端后再安装')
-    } else if (res.ok) {
-      toast.ok(`${a.name} 已安装`)
-      await syncInstalled()
-      await refresh()
-    } else {
-      toast.err(res.message ?? '安装失败')
-    }
-  } catch (e) {
-    console.error(e)
-    toast.err('安装失败')
-  } finally {
-    busy.value = ''
-  }
-}
-
-/** 源码型 page 插件：拉取源码后重跑 build.steps，再重挂 iframe（入口带产物 mtime） */
-async function rebuild(p: PluginInfo) {
-  if (busy.value) return
-  busy.value = p.name
-  try {
-    await api.buildPlugin(p.name)
-    unloadApp(p.name)
-    await syncInstalled()
-    await refresh()
-    toast.ok(`${p.name}${p.version ? ` v${p.version}` : ''} 已重新构建并加载`)
-  } catch (e) {
-    console.error(e)
-    toast.err(e instanceof Error ? `构建失败：${e.message}` : '构建失败')
-  } finally {
-    busy.value = ''
-  }
-}
+const { install, rebuild } = usePluginInstall(busy, refresh)
 
 async function uninstall() {
   const p = confirming.value
@@ -294,7 +258,7 @@ async function uninstall() {
       </section>
     </div>
 
-    <Teleport to="body">
+    <AppPortal>
       <div
         v-if="confirming"
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm"
@@ -313,7 +277,7 @@ async function uninstall() {
           </div>
         </BaseCard>
       </div>
-    </Teleport>
+    </AppPortal>
       </component>
     </div>
     </div>

@@ -1,149 +1,136 @@
-/**
- * pluginHost —— 应用插件的动态加载宿主。
- * - kind='app'：fetch /api/apps → import(entry) → setup(uiCtx)
- * - kind='page'（M11）：静态页应用，无需 setup——注册通用 WebViewPage 并指向静态入口
- * 已加载的 id 记录去重；卸载 = unregisterApp（刷新后彻底干净）。
- */
+/** Catalog discovery is cheap; plugin setup runs only on demand or explicit pre-execution. */
 import type { UiCtx } from '../registry/uiCtx'
-import { isLucideIconName, registry } from '../registry/appRegistry'
+import { registry } from '../registry/appRegistry'
 import WebViewPage from '../components/WebViewPage.vue'
-import { api } from './api'
+import { api, type AppInfo } from './api'
+import { appRuntime } from '../runtime/appRuntime'
+import { disposeOwner } from '../runtime/channels'
+import { ensureAppStyle, removeAppStyle } from '../runtime/pluginStyles'
+import { cancelPreloads, schedulePreloads } from '../runtime/preload'
+import { shallowReactive } from 'vue'
 
-const loadedIds = new Set<string>()
-const teardowns = new Map<string, () => void>()
-let _uiCtx: UiCtx | null = null
+interface PluginRecord {
+  info: AppInfo
+  alive: boolean
+  done: boolean
+  loading?: Promise<void>
+  teardown?: () => void
+}
+const records = new Map<string, PluginRecord>()
+let host: UiCtx | null = null
+const Pending = { render: () => null }
+export interface SyncResult { loaded: string[]; failed: string[] }
 
-/**
- * 插件自带样式（/plugin-dist/<id>/index.css）：插入 <link> 并等它生效再加载模块，
- * 避免首帧「无样式 → 尺寸为 0」的闪断。同 URL 只插一次（syncInstalled 会重复触发）。
- * 样式失败不判插件失败——只警告；3s 超时兜底，网络抖动不阻塞启动。
- */
-const styleLoads = new Map<string, { promise: Promise<void>; link: HTMLLinkElement }>()
-/** appId → 样式 URL（卸载时据此摘掉 <link>） */
-const appStyles = new Map<string, string>()
-
-function ensureAppStyle(href: string): Promise<void> {
-  const cached = styleLoads.get(href)
-  if (cached) return cached.promise
-  const link = document.createElement('link')
-  const load = new Promise<void>((resolve) => {
-    link.rel = 'stylesheet'
-    link.href = href
-    link.dataset.pluginStyle = '1'
-    link.onload = () => resolve()
-    link.onerror = () => {
-      console.warn(`插件样式加载失败: ${href}`)
-      resolve()
-    }
-  })
-  document.head.appendChild(link)
-  const timed = Promise.race([
-    load,
-    new Promise<void>((resolve) => setTimeout(resolve, 3000)),
-  ])
-  styleLoads.set(href, { promise: timed, link })
-  return timed
+function register(record: PluginRecord) {
+  const app = record.info
+  const ctx = host!
+  if (app.kind === 'page') {
+    const Page = ctx.vue.defineComponent({
+      name: `page:${app.id}`,
+      setup: () => () => ctx.vue.h(WebViewPage, { entry: app.entry, title: app.title, appId: app.id }),
+    })
+    ctx.registerApp({ id: app.id, title: app.title, icon: app.icon, route: app.route,
+      order: app.dock_order, component: Page, fullscreen: true, system: false, inDock: true, runtime: app.runtime })
+    record.done = true
+    return
+  }
+  ctx.registerApp({ id: app.id, title: app.title, icon: app.icon,
+    // The placeholder also recognizes deep links before the plugin defines its real route.
+    route: app.route.includes(':') ? app.route : app.route + '/:ankaPathMatch(.*)*',
+    order: app.dock_order, component: Pending, system: false, inDock: true, runtime: app.runtime,
+    load: () => ensureAppLoaded(app.id) })
 }
 
-/** 卸载插件时摘掉它的样式表，避免重装后新旧两份 CSS 并存 */
-function removeAppStyle(href: string) {
-  const rec = styleLoads.get(href)
-  if (!rec) return
-  rec.link.remove()
-  styleLoads.delete(href)
+export async function ensureAppLoaded(id: string): Promise<void> {
+  const record = records.get(id)
+  if (!record) {
+    if (registry.byId(id)?.system) return
+    throw new Error(`应用 ${id} 未安装`)
+  }
+  if (record.done) return
+  if (record.loading) return record.loading
+  const attempt = { active: true }
+  let timer: ReturnType<typeof setTimeout>
+  const setup = async () => {
+    if (record.info.style) await ensureAppStyle(record.info.style)
+    const mod = await import(/* @vite-ignore */ record.info.entry)
+    if (!record.alive || !attempt.active) return
+    if (typeof mod.setup !== 'function') throw new Error('插件缺少 setup(uiCtx) 入口')
+    const base = host!.forApp(id, () => record.alive && attempt.active)
+    const scoped = { ...base, registerApp(meta: any) {
+      base.registerApp({ ...meta, runtime: { ...record.info.runtime, ...meta.runtime } })
+    } }
+    const result = await mod.setup(scoped)
+    if (!record.alive || !attempt.active) { result?.teardown?.(); return }
+    if (registry.byId(id)?.load) throw new Error('插件没有注册应用组件')
+    record.teardown = typeof result?.teardown === 'function' ? () => result.teardown() : undefined
+    const icon = registry.byId(id)?.icon
+    if (record.info.icon && typeof icon === 'string' && registry.isLucideIconName(record.info.icon)) registry.setIcon(id, record.info.icon)
+    record.done = true
+  }
+  record.loading = Promise.race([
+    setup(),
+    new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('应用初始化超时，可重新启动')), 20000) }),
+  ]).catch(error => {
+    attempt.active = false
+    if (record.alive) { disposeOwner(id); host?.navigation.removeApp(id); register(record) }
+    throw error
+  }).finally(() => { clearTimeout(timer); record.loading = undefined })
+  return record.loading
 }
 
-/** page 类应用：用内核 WebViewPage 包裹静态入口 */
-function registerPageApp(uiCtx: UiCtx, app: {
-  id: string; title: string; icon: string;
-  route: string; entry: string; dock_order: number;
-}): void {
-  const { defineComponent, h } = uiCtx.vue
-  const Page = defineComponent({
-    name: `page:${app.id}`,
-    setup: () => () => h(WebViewPage, { entry: app.entry, title: app.title }),
-  })
-  uiCtx.registerApp({
-    id: app.id, title: app.title, icon: app.icon,
-    route: app.route, order: app.dock_order, component: Page,
-    fullscreen: true,
-  })
-}
-
-export interface SyncResult {
-  /** 本次新加载出来的应用标题（用于提示「已加载新插件」） */
-  loaded: string[]
-  failed: string[]
-}
-
-/** 同步已安装应用：加载未加载过的插件（安装后调用可增量生效） */
 export async function syncAppPlugins(uiCtx: UiCtx): Promise<SyncResult> {
-  _uiCtx = uiCtx
+  host = uiCtx
+  appRuntime.setLoader(ensureAppLoaded)
   const loaded: string[] = []
-  const failed: string[] = []
-  let apps
-  try {
-    apps = await api.apps()
-  } catch (e) {
-    console.error('获取应用清单失败（后端离线？）', e)
-    return { loaded, failed: ['__apps_fetch_failed__'] }
-  }
-  for (const app of apps) {
-    if (loadedIds.has(app.id)) continue
-    try {
-      if (app.kind === 'page') {
-        registerPageApp(uiCtx, app)        // M11：静态页应用
-      } else {
-        // 先上样式再上代码：插件自带的工具类必须在首帧就位（漏了就是 0×0 的空元素）
-        if (app.style) {
-          appStyles.set(app.id, app.style)
-          await ensureAppStyle(app.style)
-        }
-        const mod = await import(/* @vite-ignore */ app.entry)
-        const lifecycle = await mod.setup(uiCtx)
-        // 图标以 plugin.json 为准：插件 registerApp 里写的是另一份副本，不覆盖就会出现
-        // 「改了清单、dock 不变」。两种插件自定义例外，清单字符串无法表达，保留插件的：
-        // 1) 插件注册的是自绘组件（emoji/SVG）；2) 清单值不是合法 lucide 名（如 🍅）
-        const ownIcon = registry.byId(app.id)?.icon
-        if (
-          app.icon && typeof ownIcon === 'string'
-          && ownIcon !== app.icon && isLucideIconName(app.icon)
-        ) {
-          registry.setIcon(app.id, app.icon)
-        }
-        if (typeof lifecycle?.teardown === 'function') {
-          teardowns.set(app.id, () => lifecycle.teardown())
-        }
+  let apps: AppInfo[]
+  try { apps = await api.apps() }
+  catch (error) { console.error('[app-catalog]', error); return { loaded, failed: ['__apps_fetch_failed__'] } }
+  const ids = new Set(apps.map(app => app.id))
+  for (const id of records.keys()) if (!ids.has(id)) unloadApp(id)
+  for (const info of apps) {
+    const previous = records.get(info.id)
+    if (previous) {
+      // Do not destroy a running draft when the server advertises a new build.
+      if (previous.info.entry !== info.entry || previous.info.style !== info.style) {
+        pendingUpdates.set(info.id, info)
+        if (!appRuntime.runs.has(info.id)) applyPendingUpdate(info.id)
       }
-      loadedIds.add(app.id)
-      loaded.push(app.title || app.id)
-    } catch (e) {
-      console.error(`插件 ${app.id} 前端加载失败`, e)
-      failed.push(app.id)
+      continue
     }
+    const record = { info, alive: true, done: false }
+    records.set(info.id, record)
+    register(record)
+    loaded.push(info.title || info.id)
   }
-  return { loaded, failed }
+  schedulePreloads(apps, ensureAppLoaded)
+  return { loaded, failed: [] }
 }
 
-export function unloadApp(appId: string) {
-  loadedIds.delete(appId)
-  const teardown = teardowns.get(appId)
-  teardowns.delete(appId)
-  try { teardown?.() } catch (e) { console.error(`插件 ${appId} teardown 失败`, e) }
-  _uiCtx?.unregisterApp(appId)
-  const styleHref = appStyles.get(appId)
-  if (styleHref) {
-    appStyles.delete(appId)
-    removeAppStyle(styleHref)
-  }
+export const pendingUpdates = shallowReactive(new Map<string, AppInfo>())
+export function applyPendingUpdate(id: string) {
+  const info = pendingUpdates.get(id)
+  if (!info) return
+  unloadApp(id)
+  const record = { info, alive: true, done: false }
+  records.set(id, record)
+  register(record)
 }
 
-/** 安装后增量加载新应用（不重载已加载的） */
+export function unloadApp(id: string) {
+  cancelPreloads(id)
+  const record = records.get(id)
+  if (!record) return
+  record.alive = false
+  records.delete(id)
+  pendingUpdates.delete(id)
+  try { record.teardown?.() } catch (error) { console.error('[app-teardown]', id, error) }
+  disposeOwner(id)
+  host?.unregisterApp(id)
+  if (record.info.style) removeAppStyle(record.info.style)
+}
+
 export async function syncInstalled(): Promise<SyncResult> {
-  if (!_uiCtx) return { loaded: [], failed: [] }
-  return syncAppPlugins(_uiCtx)
+  return host ? syncAppPlugins(host) : { loaded: [], failed: [] }
 }
-
-export function isLoaded(appId: string): boolean {
-  return loadedIds.has(appId)
-}
+export function isLoaded(id: string) { return Boolean(records.get(id)?.done) }

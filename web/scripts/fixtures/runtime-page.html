@@ -1,0 +1,23 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><script src="/anka-sdk.js"></script></head>
+<body style="margin:0;padding:24px;font-family:sans-serif">
+<h1>网页应用</h1><textarea aria-label="网页草稿"></textarea><p id="path"></p><p id="state"></p><p id="message"></p>
+<button id="detail">进入详情</button><button id="send">发送消息</button>
+<script>
+window.pageIdentity = crypto.randomUUID();
+anka.ready.then(async () => {
+  const renderRoute = route => document.querySelector('#path').textContent = route.path;
+  renderRoute(anka.navigation.current); anka.navigation.on(renderRoute);
+  anka.lifecycle.on('state', state => document.querySelector('#state').textContent = state.foreground ? 'front' : 'back');
+  document.querySelector('#state').textContent = anka.lifecycle.state.foreground ? 'front' : 'back';
+  document.querySelector('#detail').onclick = () => anka.navigation.push('/detail/42');
+  document.querySelector('#send').onclick = () => anka.events.emit('test:message', 'hello');
+  await anka.events.on('test:message', event => document.querySelector('#message').textContent = event.source + ':' + event.data);
+  await anka.commands.register('double', value => value * 2);
+  await anka.lifecycle.beforeClose(() => {
+    window.guardCalls = (window.guardCalls || 0) + 1;
+    return window.protectDraft ? '请先保存网页草稿' : true;
+  });
+  window.sdkReady = true;
+});
+</script></body></html>

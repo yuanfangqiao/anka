@@ -64,6 +64,8 @@ class AppInfo(BaseModel):
     dock_order: int
     has_sidebar: bool
     kind: str = 'app'               # M11：app（setup(uiCtx)）| page（iframe 静态页）
+    version: str = ''
+    runtime: dict = {}
 
 
 class AppCallRequest(BaseModel):

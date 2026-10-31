@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "node scripts/build-shared.mjs && vite build && node scripts/precompress.mjs dist",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "check:runtime": "node scripts/check-app-runtime.mjs",
+    "check:navigation": "node scripts/check-navigation.mjs",
+    "check:capacity": "node scripts/check-runtime-capacity.mjs"
   },
   "dependencies": {
     "html-to-image": "^1.11.13",

@@ -175,3 +175,29 @@ anka/
 ### 静态资源压缩
 
 前端 `npm run build` 自动生成 Brotli/Gzip 副本；Anka 开发和生产环境默认压缩游戏等静态资源，带哈希的文件使用浏览器私有长期缓存。无需客户端配置，详见 [静态资源传输](docs/STATIC-ASSETS.md)。
+
+
+## 应用保活与运行管理（M21）
+
+打开应用后，切换只改变显示状态，原生组件、草稿、滚动与 iframe 文档保持原样。
+Dock 图标下，当前应用显示长线，后台应用显示小点，未运行应用不显示标记。
+桌面右键或手机长按图标，可显示、关闭、重新启动应用或在桌面选择第二个应用分屏。
+手机继续单窗口显示；常驻界面上限为 10 个，满额优先回收最久未使用且允许关闭的后台应用。
+关闭保护或声明继续运行的应用不自动回收；全部受保护时提示先保存/关闭，预执行满额跳过。
+关闭应用不卸载插件，刷新或回收后的草稿恢复需应用接入持久化。
+
+插件首次打开才初始化；manifest.runtime 可控制保活、资源预取、选择性预执行与后台策略。
+静态页面无需改造即可保活，引入 `/anka-sdk.js` 可接入虚拟路由、返回、通信、存储和主题。
+完整说明与边界见 [应用运行时与 SDK](docs/APP-RUNTIME.md)。
+
+```sh
+cd web
+npm run typecheck
+npm run check:capacity
+npm run check:runtime
+ANKA_RUNTIME_PRODUCTION=1 npm run check:runtime
+npm run check:navigation
+```
+
+浏览器回归依赖可选 Playwright 和本机 Chrome；外部安装通过 ANKA_PLAYWRIGHT_MODULE 指定入口。
+回归使用隔离数据，不操作用户后端。手机 PWA 手势、浏览器回收和设备连接须另行真机验收。

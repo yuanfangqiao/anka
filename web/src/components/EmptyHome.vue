@@ -18,6 +18,7 @@ const resolving = ref(true)
 // 偏好应用（仍注册且在 dock）→ 对话 → 首个 dock 应用 → 停留本空态页。
 // 未设置偏好时沿用原逻辑：装了应用插件才跳，只剩系统插件则停留空态引导。
 onMounted(async () => {
+  if (router.currentRoute.value.query.desktop === '1') { resolving.value = false; return }
   await ensureHomeApp()
   const preferredId = homeApp.value
   if (preferredId) {
@@ -51,9 +52,11 @@ onMounted(async () => {
       </div>
     </div>
     <div>
-      <h1 class="text-2xl font-semibold tracking-tight">你的 Anka 还是空的</h1>
+      <h1 class="text-2xl font-semibold tracking-tight">{{ registry.dockApps.value.length > 2 ? '应用已关闭' : '你的 Anka 还是空的' }}</h1>
       <p class="mx-auto mt-2 max-w-xs text-sm leading-relaxed text-ink-1">
-        系统现在只有内核和系统插件。去插件管理安装应用，让系统「长」出来。
+        {{ registry.dockApps.value.length > 2
+          ? '从底部 Dock 打开应用，已保存的数据会保留。'
+          : '系统现在只有内核和系统插件。去插件管理安装应用，让系统「长」出来。' }}
       </p>
     </div>
     <BaseButton @click="router.push('/settings/plugins')">

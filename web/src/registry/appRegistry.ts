@@ -4,6 +4,7 @@
  */
 import { computed, markRaw, reactive, type Component } from 'vue'
 import * as LucideIcons from 'lucide-vue-next'
+import type { RuntimePolicy } from '../runtime/contracts'
 
 export interface AppMeta {
   id: string
@@ -16,6 +17,8 @@ export interface AppMeta {
   /** page 类全屏应用：壳层不渲染顶部栏、不预留 56px 空位 */
   fullscreen?: boolean
   component: Component
+  runtime?: RuntimePolicy
+  load?: () => Promise<void>
 }
 
 /** 应用 id → 稳定色相：page 类应用图标同为 package，靠颜色区分身份 */
@@ -51,7 +54,7 @@ export function isLucideIconName(icon: string): boolean {
 
 export function resolveIcon(icon: string | Component): Component {
   if (typeof icon !== 'string') return icon
-  return (LucideIcons as Record<string, Component>)[toPascal(icon)] ?? LucideIcons.Package
+  return (LucideIcons as unknown as Record<string, Component>)[toPascal(icon)] ?? LucideIcons.Package
 }
 
 const dockApps = computed(() =>

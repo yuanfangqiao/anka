@@ -1,6 +1,6 @@
 # 插件契约（Plugin Spec）
 
-更新：2026-10-17。本文件是插件体系的**正典契约**：manifest 字段、kind 判定、
+更新：2026-10-31。本文件是插件体系的**正典契约**：manifest 字段、kind 判定、
 生命周期状态、错误码。代码与本文件冲突时，以本文件为准并同步修订代码。
 
 相关：`ARCHITECTURE.md` §8（App 插件模型）、`AGENT.md`（开发红线）、
@@ -60,6 +60,7 @@
 | `ui` | object | 否 | — | 见 §2.3 |
 | `page` | object | 否 | — | 见 §2.4 |
 | `build` | object | 否 | — | 见 §2.5，app / page 安装与更新时执行 |
+| `runtime` | object | 否 | `{}` | 前端运行策略：keepAlive / preload / background，见 [应用运行时](APP-RUNTIME.md) |
 | `permissions` | list[string] | 否 | `[]` | 安装授权声明，仅展示，不参与鉴权（P2 落地） |
 
 **`icon` 的优先级**：app 类插件优先用本字段——宿主在 `setup(uiCtx)` 返回后用该值覆盖
@@ -228,6 +229,10 @@ page 类参照 `plugins/anka-quickdraw/`：上游 monorepo 原样保留，只补
 ---
 
 ## 4. 生命周期状态机
+
+本节记录安装/后端生命周期。前端“未打开 / 前台 / 后台保留 / 已关闭 / 异常”
+另由应用运行时管理，不写入安装 ledger。切应用不卸载插件，不调用插件 setup 的 teardown。
+
 
 ```
 DISCOVERED → AVAILABLE → INSTALLED ─┬→ DISABLED → INSTALLED

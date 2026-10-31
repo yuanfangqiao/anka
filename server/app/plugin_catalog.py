@@ -27,7 +27,8 @@ def apps(self) -> list[AppInfo]:
             result.append(AppInfo(
                 id=m.id, title=m.name, icon=m.icon, route=m.route,
                 entry=entry,
-                dock_order=m.dock_order, has_sidebar=False, kind='page'))
+                dock_order=m.dock_order, has_sidebar=False, kind='page',
+                version=m.version, runtime=m.runtime))
             continue
         if not m.ui_entry:
             continue
@@ -47,7 +48,8 @@ def apps(self) -> list[AppInfo]:
         result.append(AppInfo(
             id=m.id, title=m.name, icon=m.icon, route=m.route,
             entry=entry, style=style,
-            dock_order=m.dock_order, has_sidebar=m.has_sidebar))
+            dock_order=m.dock_order, has_sidebar=m.has_sidebar,
+            version=m.version, runtime=m.runtime))
     result.sort(key=lambda a: a.dock_order)
     return result
 

@@ -11,6 +11,7 @@ const webDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 await build({
   configFile: false,
+  publicDir: false,
   define: {
     // vue esm-bundler 构建需要显式定义环境与特性开关
     'process.env.NODE_ENV': '"production"',

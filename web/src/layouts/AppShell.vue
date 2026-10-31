@@ -7,6 +7,7 @@ import { registry } from '../registry/appRegistry'
 import { useToast } from '../composables/useToast'
 import { detectStandalone } from '../system/useInstallPrompt'
 import { isMobile } from '../composables/useBreakpoint'
+import ApplicationWorkspace from '../runtime/ApplicationWorkspace.vue'
 
 const route = useRoute()
 const { warn } = useToast()
@@ -55,15 +56,11 @@ watch(isMobile, (mobile) => {
   >
     <TopBar v-if="needsChrome" :collapsed="collapsed" />
     <main
-      class="relative min-h-0 flex-1 overflow-y-auto"
+      class="relative min-h-0 flex-1 overflow-hidden"
       :class="{ 'pt-14': needsChrome, 'glass-panel rounded-2xl shadow-card': !isMobile }"
-      @scroll.passive="onScroll"
+      @scroll.capture.passive="onScroll"
     >
-      <RouterView v-slot="{ Component }">
-        <Transition name="page">
-          <component :is="Component" />
-        </Transition>
-      </RouterView>
+      <ApplicationWorkspace />
     </main>
     <div
       v-if="!isLogin"

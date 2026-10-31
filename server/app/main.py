@@ -141,7 +141,7 @@ async def serve_plugin_html(plugin_id: str, page_path: str, request: Request):
     # 把 src="/X" href="/X" 改写为 src="{prefix}X" —— 跳过 /plugins/、/api/、http(s)
     def _rewrite(m):
         attr, quote, path = m.group(1), m.group(2), m.group(3)
-        if path.startswith(('//', '/plugins/', '/api/')):
+        if path.startswith(('//', '/plugins/', '/api/')) or path.split('?', 1)[0] == '/anka-sdk.js':
             return m.group(0)
         return f'{attr}={quote}{url_prefix}{path.lstrip("/")}{quote}'
     html = re.sub(r'(src|href)=(["\'])(/[^"\']*)\2', _rewrite, html)

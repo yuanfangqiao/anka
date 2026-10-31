@@ -2,7 +2,8 @@
  * node scripts/check-navigation.mjs
  * Playwright 不在项目依赖中时，设置 ANKA_PLAYWRIGHT_MODULE 为其 ESM 入口。 */
 import assert from 'node:assert/strict'
-import { mkdir, readFile, stat } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createServer } from 'vite'
@@ -28,8 +29,16 @@ function apiResponse(pathname) {
 }
 const demoSource = `
 export function setup(ctx) {
-  window.__ankaNavigation = ctx.navigation;
   const id = new URL(import.meta.url).searchParams.get('id');
+  window.__navigationContexts ??= {};
+  window.__navigationContexts[id] = ctx;
+  window.__ankaNavigation = { ...ctx.navigation,
+    push(to) { const id = new URL(to, location.origin).pathname.split('/')[1], target = window.__navigationContexts[id];
+      return target ? target.navigation.push(to) : ctx.apps.open(id, to); },
+    replace(to) { const id = new URL(to, location.origin).pathname.split('/')[1], target = window.__navigationContexts[id];
+      return target ? target.navigation.replace(to) : ctx.apps.open(id, to); },
+    register(handler) { return window.__navigationContexts[handler.appId].navigation.register(handler); }
+  };
   const state = ctx.vue.reactive({ depth: 1 });
   const component = ctx.vue.defineComponent({ setup: () => () => ctx.vue.h('div', {
     'data-demo': id, style: 'padding:24px'
@@ -45,7 +54,9 @@ export function setup(ctx) {
   });
   return { teardown() { window.__fixtureTeardowns = (window.__fixtureTeardowns || 0) + 1 } };
 }`
+const cacheDir = await mkdtemp(path.join(tmpdir(), 'anka-navigation-vite-'))
 const server = await createServer({
+  cacheDir,
   root, server: { host: '127.0.0.1', port: 0 },
   plugins: [{ name: 'navigation-check-fixture', configureServer(vite) {
     vite.middlewares.use(async (req, res, next) => {
@@ -104,9 +115,17 @@ try {
     page.on('console', msg => console.log('[browser]', msg.text()))
     page.on('framenavigated', frame => console.log('[url]', frame.url()))
   }
-  const navigate = (method, ...args) => page.evaluate(async ({ method, args }) => {
-    return window.__ankaNavigation[method](...args)
-  }, { method, args })
+  const navigate = async (method, ...args) => {
+    // A reload no longer eagerly executes every plugin. Open the test control app only when needed.
+    if (!await page.evaluate(() => Boolean(window.__ankaNavigation))) {
+      const previous = new URL(page.url())
+      await page.getByRole('button', { name: 'demo2', exact: true }).first().click()
+      await page.waitForFunction(() => Boolean(window.__ankaNavigation))
+      await page.evaluate(path => window.__navigationContexts.demo2.apps.open(new URL(path, location.origin).pathname.split('/')[1], path),
+        previous.pathname + previous.search + previous.hash)
+    }
+    return page.evaluate(async ({ method, args }) => window.__ankaNavigation[method](...args), { method, args })
+  }
   const checkPath = expected => page.waitForFunction(
     expected => location.pathname + location.hash === expected, expected)
   const back = async () => {
@@ -206,6 +225,7 @@ try {
   await checkPath('/anka-jot#/home')
   console.log('PASS Jot 内部返回、应用切回与深链刷新恢复')
 
+  await navigate('replace', '/anka-jot#/home')
   await page.evaluate(async () => {
     window.__overlayOpen = true
     window.__removeOverlay = window.__ankaNavigation.registerOverlay({
@@ -222,6 +242,9 @@ try {
   assert.equal(await navigate('back'), false)
   console.log('PASS 弹层优先、根页面连续返回与历史长度稳定')
 
+  // Lazy plugins initialize only when opened, including after a full-page reload.
+  await navigate('switchApp', 'demo2')
+  await navigate('switchApp', 'anka-jot')
   await page.evaluate(async () => {
     window.__oldCalls = 0
     window.__ankaNavigation.register({ appId: 'demo2', canGoBack: () => true,
@@ -262,4 +285,5 @@ try {
 } finally {
   await browser?.close()
   await server.close()
+  await rm(cacheDir, { recursive: true, force: true })
 }

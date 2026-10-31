@@ -54,3 +54,4 @@ design/
 | `architecture/plugin-ledger.md` | 草案（样例） | `server/app/ledger.py` |
 | `ui/shell-layout.md` | 草案（样例） | `web/src/App.vue`、`web/src/components/DockBar.vue` |
 | `settings-master-detail.html` | 已实现 | `web/src/system/settings/` |
+| `architecture/app-runtime.md` | 已定稿（M21） | `web/src/runtime/`，契约见 `docs/APP-RUNTIME.md` |

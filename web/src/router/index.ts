@@ -2,6 +2,9 @@ import { createRouter, type RouteRecordRaw } from 'vue-router'
 import { ensureAuthed } from '../composables/useAuth'
 import { createAppHistory } from './appHistory'
 import { createAppNavigation } from '../services/navigation'
+import { appRuntime } from '../runtime/appRuntime'
+import { registry } from '../registry/appRegistry'
+import { useToast } from '../composables/useToast'
 
 /**
  * M6：路由分两类——
@@ -28,14 +31,29 @@ export function createAppRouter() {
     routes,
   })
   const navigation = createAppNavigation(router)
+  appRuntime.configure(router, navigation.remember)
   // M18：登录守卫——未登录整页跳后端登录页（登录不在 SPA 内进行，避免路由竞态）
   router.beforeEach(async (to) => {
-    if (await ensureAuthed()) return true
+    if (await ensureAuthed()) {
+      const app = registry.byId(to.meta.appId as string)
+      if (app) {
+        const needsRoute = Boolean(app.load)
+        try {
+          await appRuntime.prepare(app.id, to.fullPath)
+          if (needsRoute && !registry.byId(app.id)?.load) return to.fullPath
+        } catch (error) {
+          useToast().warn(error instanceof Error ? error.message : String(error))
+          return false
+        }
+      }
+      return true
+    }
     const redirect = encodeURIComponent(to.fullPath)
     window.location.replace(`/login?redirect=${redirect}`)
     return false
   })
   router.afterEach((to, from, failure) => {
+    if (!failure) void appRuntime.syncRoute(to).catch(error => console.error('[app-runtime]', error))
     if (!failure && to.meta.appId !== from.meta.appId) appHistory.alignBoundary()
   })
   // 初始路由完成后再建立同文档返回边界，保留深链与登录守卫语义。

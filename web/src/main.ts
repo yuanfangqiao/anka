@@ -107,7 +107,9 @@ async function bootstrap() {
   // M17.10：版本巡检仅生产启用（dev 无 SW，且 dist 可能是旧构建会误报）
   if (import.meta.env.PROD) startUpdateWatch()
 
-  createApp(App).use(router).mount('#app')
+  const app = createApp(App).use(router)
+  await router.isReady()
+  app.mount('#app')
 }
 
 bootstrap()

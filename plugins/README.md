@@ -355,3 +355,13 @@ python -m app.cli doctor --all         # 扫描与 ledger 交叉校验，确认�
 | [`plugins/demo/README.md`](./demo/README.md) | 官方样本逐文件说明 |
 | [`docs/NAVIGATION.md`](../docs/NAVIGATION.md) | 应用内跳转与历史栈约定（`uiCtx.navigation`） |
 | `ARCHITECTURE.md` §8 | App 插件模型与内核分工 |
+
+
+## 应用保活与 SDK（2026-10-31）
+
+原生插件 setup 按需执行，界面实例在切应用时保留；不要依赖切走时触发 onUnmounted。
+使用 uiCtx.lifecycle 处理前后台，使用 beforeClose 保护未保存编辑/录音/房间等操作。
+iframe 页面自动获得文档保活；引入 /anka-sdk.js 后可接入导航、通信和系统存储。
+body 弹层改用 uiCtx.components.AppPortal；嵌套应用使用 AppEmbed，禁止循环嵌套。
+安装/后端生命周期和界面生命周期相互独立，关闭 UI 不停用后端，也不驱逐 ESM 模块。
+完整接口、预热策略和兼容边界以 [APP-RUNTIME](../docs/APP-RUNTIME.md) 为准。

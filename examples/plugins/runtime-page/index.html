@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>网页 SDK 示例</title><script src="/anka-sdk.js"></script>
+<style>body{margin:0;padding:24px;font:15px system-ui;background:#f6f7fb;color:#222}textarea{box-sizing:border-box;width:100%;height:180px;padding:16px;border-radius:12px}button{padding:10px 16px;margin:10px 8px 0 0;border:0;border-radius:10px;background:#5865ed;color:white}#status{opacity:.6}</style>
+</head><body><h1>网页应用 SDK</h1><p id="status">正在连接 Anka</p><p id="route"></p>
+<textarea aria-label="网页草稿" placeholder="输入后切换应用，回来继续编辑"></textarea>
+<div><button id="save">保存草稿</button><button id="detail">打开详情</button><button id="back">应用内返回</button></div>
+<p id="message"></p><script>
+anka.ready.then(async () => {
+  const input = document.querySelector('textarea');
+  input.value = (await anka.storage.get('draft'))?.text || '';
+  let saved = input.value;
+  const showState = state => document.querySelector('#status').textContent = state.foreground ? '前台使用中' : '后台保留';
+  const showRoute = route => document.querySelector('#route').textContent = '当前虚拟路径：' + route.path;
+  showState(anka.lifecycle.state); showRoute(anka.navigation.current);
+  anka.lifecycle.on('state', showState); anka.navigation.on(showRoute);
+  const save = async () => { await anka.storage.set('draft', { text: input.value }); saved = input.value; document.querySelector('#message').textContent = '已保存到本机'; return { saved: true }; };
+  document.querySelector('#save').onclick = save;
+  document.querySelector('#detail').onclick = () => anka.navigation.push('/detail/42');
+  document.querySelector('#back').onclick = () => anka.navigation.back();
+  await anka.lifecycle.beforeClose(() => input.value === saved || '网页草稿尚未保存');
+  await anka.commands.register('save', save);
+}).catch(error => document.querySelector('#status').textContent = error.message);
+</script></body></html>

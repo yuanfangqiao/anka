@@ -1,0 +1,18 @@
+{
+  "manifest_version": 2,
+  "id": "runtime-notes",
+  "name": "保活笔记示例",
+  "version": "1.0.0",
+  "kind": "app",
+  "icon": "notebook-pen",
+  "runtime": {
+    "apiVersion": 1,
+    "keepAlive": true,
+    "preload": "resources",
+    "background": "pause"
+  },
+  "ui": {
+    "entry": "web/index.js",
+    "route": "/runtime-notes"
+  }
+}

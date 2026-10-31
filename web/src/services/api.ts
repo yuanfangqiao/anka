@@ -56,6 +56,8 @@ export interface AppInfo {
   dock_order: number
   has_sidebar: boolean
   kind?: 'app' | 'page'      // M11：page = 静态页 iframe 应用（无需 setup）
+  version?: string
+  runtime?: import('../runtime/contracts').RuntimePolicy
 }
 
 export interface PluginActionResult {

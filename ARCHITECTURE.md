@@ -1,12 +1,12 @@
 # ARCHITECTURE.md · 技术架构
 
-> 最后更新：2026-10-04 ｜ 对应阶段 M15（对话真实化：多会话 / 多轮 / 可终止）｜ 与 `PROJECT.md` 里程碑对齐
+> 最后更新：2026-10-31 ｜ M21 应用运行时（保活 / 按需加载 / SDK / 分屏与嵌套），与 `PROJECT.md` 对齐
 
 ## 1. 总览
 
 ```
 ┌────────────────────── web (Vue 3 + Vite, PWA) ──────────────────────┐
-│ App.vue ── AppShell（单一 RouterView，布局切换保留页面实例）          │
+│ App.vue ── AppShell → ApplicationWorkspace（按 appId 常驻窗口）          │
 │              └── useBreakpoint ── <640px: 手机顶栏 + 内容 + Dock     │
 │                                  ≥640px: 圆角主窗口 + 居中 Dock      │
 │ useAppRegistry（应用元数据）── 驱动 dock（双端共用）与 sidebar        │
@@ -182,10 +182,10 @@ DELETE /api/sessions/{id}       # M15：删除会话日志文件
 
 - **手机形态**：非 dock、非全屏应用显示 `TopBar`；独立滚动内容区 + 带安全区的底部 dock。
 - **桌面形态**：圆角玻璃主窗口 + 居中 dock；应用自己的工作栏由应用渲染。
-- `RouterView → Transition → 当前应用` 在两种布局中共用同一 DOM 位置；跨断点只改
-  容器样式、顶栏显隐与 Dock 的 `desktop` 属性，不按布局替换组件或移动内容节点。
+- `ApplicationWorkspace → ApplicationSurface` 按 appId 保留独立界面与路由上下文；跨断点只改
+  容器样式、顶栏显隐与 Dock 的 `desktop` 属性，不移动已创建的 iframe 节点。
   Android 游戏请求全屏并锁横屏时，也必须保留 iframe 元素、文档和运行中状态。
-- 普通路由切换与插件卸载仍按原生命周期执行。
+- 应用切换仅显隐；主动关闭或插件卸载销毁界面。具体见 §8.16 与 `docs/APP-RUNTIME.md`。
 
 ### 4.2 应用注册表（前端版「一切皆插件」）
 
@@ -299,14 +299,14 @@ infra 扁平插件与 folder 插件是两类插件源，共存于同一个 `_plu
 
 ```
 main.ts → 静态注册系统插件（同一 uiCtx，dogfooding）
-  → GET /api/apps → 逐个 import(entry) → setup(uiCtx)
+  → GET /api/apps → 注册轻量路由/图标 → 目标应用首次打开时 import(entry) → setup(scopedUiCtx)
   → registerApp: 注册表 + router.addRoute；registerSidebar: 工作栏组件
   → '/' 路由：有 app 插件 → 重定向首个 dock 应用；无 → EmptyHome 空态
 ```
 
 ### 8.5 壳层渲染模型（M7 修订：布局权下放）
 
-内核壳层只提供两样东西：**macOS 风格 dock + 主窗口**，其余全部由 App 自绘。
+内核提供 **Dock + 应用运行管理 + 主窗口/桌面分屏**，业务布局仍由 App 自绘。
 
 - **DockBar（macOS 化）**：悬浮玻璃胶囊，图标为 44px 渐变圆角方块；悬停放大 1.35/相邻 1.18/次相邻 1.06（transform-origin: bottom，160ms cubic-bezier）；图标下方运行/活动指示点；桌面 hover tooltip；>5 个横滑 + 渐隐；手机端无 hover，保留文字标签与安全区
 - **AppShell**：手机为可选 `TopBar` + 内容区 + 带安全区的 dock；桌面为圆角玻璃主窗口
@@ -377,7 +377,7 @@ main.ts → 静态注册系统插件（同一 uiCtx，dogfooding）
 - `services/navigation.ts` 维护每个 `appId` 的逻辑路由栈与返回处理器；`uiCtx.navigation` 提供 `switchApp / push / replace / back / register / setHash`。切应用恢复其栈顶；根页面不回到其他插件。
 - 壳层弹层优先，再处理当前插件的内部栈，最后处理本插件路由栈。未接入自绘导航的插件保持当前应用。
 - Jot 接入内部栈；控制台接入手机二级返回；Dock/后台任务/创造模式统一切应用。插件宿主等待异步 setup，并在卸载时执行 teardown、清理导航。
-- 导航位置保存于页面内存，刷新依当前 URL 恢复。iframe 内部返回尚无消息桥，不承诺任意 iframe 的联合历史行为。
+- 导航位置保存于页面内存，刷新依当前 URL 恢复。SDK v1 提供 iframe 虚拟路由/返回桥；未接入 SDK 的任意第三方页面仍不承诺联合历史行为。
 - 具体协议、插件示例、生命周期与验证方式见 [`docs/NAVIGATION.md`](docs/NAVIGATION.md)。此节取代旧章节中基于全局浏览器历史的应用切换说明。
 
 ### 8.11 Jot 媒体恢复与同步（2026-10-17）
@@ -477,3 +477,27 @@ Device v1补充完整相对四元数pose（latest-wins）；接收端临时断�
 浏览器共享模块 `web/controller/gatt-{client,codec}.js` 由游戏运行时导入；显式用户点击选择设备。原devices infra插件新增GATT授权适配，经已有User/Share receiver控制通道绑定/续约/撤权；精确玩家、单设备、传输类型与Device秘密验证保持独立。输入/反馈直接走本机BLE，复用游戏原InputRouter；服务不转发其高频数据。150ms游戏watchdog、1500ms设备租约、断线/隐藏释放、原页退避重连和重启重新连接规则见 [GATT协议](docs/GATT-GAMEPAD.md)。
 
 BLE接入按用户最新要求不扫码：页面已有User/Share身份，显式选择外设后创建Device绑定；设备不启动摄像头，启动即显示蓝牙等待页。加密Control Read提供应用内随机配对证明，首次bound校验，绑定后不再公开。手机和原WS路线保留二维码。
+
+
+### 8.16 应用运行时（M21，2026-10-31）
+
+- `runtime/appRuntime.ts` 是前端实例与前后台状态的唯一来源；安装事实仍属于服务端 ledger。
+- `ApplicationWorkspace` 按 appId 创建稳定窗口，只改变显示；`ApplicationSurface` 提供每个应用自己的 Vue Router 上下文、异常兜底与重新启动。iframe 不分离、不改父节点。
+- `pluginHost` 发现与 setup 解耦：启动只注册元数据/占位路由，首次打开才加载；后台预热按 manifest.runtime 选择资源预取或预执行。新产物不强制替换运行中界面。
+- `UiCtx.forApp` 绑定注册身份，提供生命周期、前后台状态、关闭保护、事件、命令、按用户和 appId 分区的存储及主题。组件作用域结束自动注销订阅，卸载兜底撤销模块注册。
+- Dock 图标下当前应用为长线、后台为小点；`components/dock/` 拆分双端渲染、手势、指示和图标菜单，右键/长按提供关闭、重启、桌面分屏；手机单窗口。每个 appId 当前只有一个实例。`AppEmbed` 支持不同应用嵌套，拒绝循环与重复占用，父级关闭级联子级。
+- `frameBridge` 校验 origin/source/nonce 后建立专属 MessageChannel；`public/anka-sdk.js` 提供 page 应用的路由、事件、存储、命令、主题和生命周期。SDK 不直接操纵 iframe 物理历史。
+- `frameNavigation` 维护虚拟栈，将根应用位置镜像到宿主 `__app` 参数；嵌套应用不覆写父级 URL，系统返回按焦点交给子应用。
+- `AppPortal` 让 body 弹层随应用隐藏。旧插件直接 Teleport 到 body 的弹层需接入该组件或生命周期。后台 pause 是协作式策略，不是强制冻结 JS。
+- UI 关闭不等于 Python 后端停用，也不能驱逐浏览器原生 ESM 缓存；持久草稿由插件经存储接口保存。当前同源插件是受信任代码，未引入恶意代码沙箱或后台常驻保证。
+- 契约与示例：[`docs/APP-RUNTIME.md`](docs/APP-RUNTIME.md)；设计取舍：[`design/architecture/app-runtime.md`](design/architecture/app-runtime.md)。
+
+
+### 8.17 Dock 状态与 10 个实例上限（2026-10-31）
+
+- `DockBar` 仅在电脑桌面布局按 2/3 缩放，并同步压缩布局占位；手机和平板使用原始尺寸。设备平台沿用 `detectPlatform()`（含桌面 UA 的 iPad），不以布局宽度代替设备判断；全屏展开遮罩与图标菜单位于缩放层外。
+- 电脑折叠 Dock 的可见图标仍为 24px，图标净间距 8px、两端留白 10px；分页沿用相同间距，并按图标、间距、留白和边框一起计算容量。iPad/手机沿用原间距。
+- 删除数量徽标/运行列表入口，应用操作收敛到图标菜单；保留 Dock 翻页、展开和收窄手势。
+- `runtime/capacity.ts` 串行预留实例，上限 10，含系统应用、加载、分屏、嵌套和预执行；路由提交前完成准入，满额失败不离开当前应用。
+- 后台根窗口按 lastUsed/key 排序，按整组检查关闭保护后回收；可见窗口、继续运行策略、加载中的实例、新子应用的父级和检查期间重新使用的窗口跳过。全部受保护则拒绝新增，预执行满额直接跳过。
+- 回收使用现有界面销毁与清理路径；保留插件安装/原生模块注册和逻辑导航位置，不承诺未持久化内存或后端任务的资源上限。

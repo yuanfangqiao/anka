@@ -1,6 +1,7 @@
 import type { RouteLocationRaw, Router } from 'vue-router'
 import { registry } from '../registry/appRegistry'
 import { NAV_ACTION } from '../router/appHistory'
+import { appRuntime } from '../runtime/appRuntime'
 
 export interface BackHandler {
   appId: string
@@ -14,12 +15,13 @@ export interface AppNavigation {
   switchApp: (appId: string) => Promise<void>
   push: (to: RouteLocationRaw) => Promise<void>
   replace: (to: RouteLocationRaw) => Promise<void>
-  back: () => Promise<boolean>
+  back: (appId?: string) => Promise<boolean>
   register: (handler: BackHandler) => () => void
   registerOverlay: (handler: Omit<BackHandler, 'appId'>) => () => void
   setHash: (appId: string, hash: string) => Promise<void>
   /** 宿主卸载应用时清理栈与处理器。 */
   removeApp: (appId: string) => void
+  remember: (appId: string, path: string, replace: boolean) => void
 }
 
 let navigation: AppNavigation | null = null
@@ -34,7 +36,7 @@ export function createAppNavigation(router: Router) {
   const handlers = new Set<BackHandler>()
   const overlays = new Set<Omit<BackHandler, 'appId'>>()
   let backing = false
-  const appId = () => router.currentRoute.value.meta.appId as string | undefined
+  const appId = () => appRuntime.state.activeId || router.currentRoute.value.meta.appId as string | undefined
 
   router.afterEach((to, from, failure) => {
     if (failure) return
@@ -54,21 +56,23 @@ export function createAppNavigation(router: Router) {
     }
   })
 
-  async function back(): Promise<boolean> {
+  async function back(requestedId?: string): Promise<boolean> {
     if (backing) return false
     backing = true
     try {
-      const candidates = [...overlays].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
-      const local = [...handlers].filter(h => h.appId === appId())
+      const targetId = requestedId ?? appId()
+      const candidates = requestedId && requestedId !== appId() ? []
+        : [...overlays].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
+      const local = [...handlers].filter(h => h.appId === targetId)
         .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
       for (const h of [...candidates, ...local]) {
         if (h.canGoBack()) { await h.back(); return true }
       }
-      const stack = stacks.get(appId() ?? '')
+      const stack = stacks.get(targetId ?? '')
       if (!stack || stack.length <= 1) return false
       const current = stack.pop()!
       try {
-        const failure = await router.replace(stack[stack.length - 1])
+        const failure = await appRuntime.route(targetId!, stack[stack.length - 1], true)
         if (failure) { stack.push(current); return false }
       } catch (e) { stack.push(current); throw e }
       return true
@@ -79,7 +83,8 @@ export function createAppNavigation(router: Router) {
     async switchApp(id) {
       const app = registry.byId(id)
       if (!app) throw new Error(`应用 ${id} 未注册`)
-      if (appId() === id) return
+      if (appRuntime.runs.get(id)?.parentId) { await appRuntime.open(id); return }
+      if (router.currentRoute.value.meta.appId === id) { appRuntime.focus(id); return }
       const stack = stacks.get(id)
       await router.replace(stack?.[stack.length - 1] ?? app.route.replace(/\/:.*$/, ''))
     },
@@ -103,6 +108,13 @@ export function createAppNavigation(router: Router) {
     removeApp(id: string) {
       stacks.delete(id)
       for (const handler of handlers) if (handler.appId === id) handlers.delete(handler)
+    },
+    remember(id, path, replace) {
+      const stack = stacks.get(id) ?? []
+      if (stack[stack.length - 1] === path) return
+      if (replace && stack.length) stack[stack.length - 1] = path
+      else stack.push(path)
+      stacks.set(id, stack)
     },
   }
   return navigation
