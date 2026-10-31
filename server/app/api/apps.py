@@ -6,10 +6,11 @@ App 插件接口：GET /api/apps（前端宿主加载清单）+
 import asyncio
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
-from .. import deps
+from .. import deps, settings
 from ..schemas import AppCallRequest, AppInfo
+from ..static_assets import static_file
 
 log = logging.getLogger('agentos.api.apps')
 router = APIRouter(tags=['apps'])
@@ -18,6 +19,19 @@ router = APIRouter(tags=['apps'])
 @router.get('/apps', response_model=list[AppInfo])
 async def list_apps() -> list[AppInfo]:
     return await asyncio.to_thread(deps.manager.apps)
+
+
+@router.api_route('/apps/{app_id}/files/{relative:path}', methods=['GET', 'HEAD'])
+async def app_file(app_id: str, relative: str, request: Request):
+    """登录用户读取应用 files 中的附件，保留媒体 Range，禁止访问库和源码。"""
+    try:
+        root = (settings.app_data_dir(app_id) / 'files').resolve()
+    except ValueError:
+        raise HTTPException(404)
+    target = (root / relative).resolve()
+    if not target.is_relative_to(root) or not target.is_file():
+        raise HTTPException(404)
+    return static_file(target, request)
 
 
 def _service_or_404(app_id: str):

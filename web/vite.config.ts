@@ -6,8 +6,8 @@ import path from 'node:path'
 import { sendAsset } from './scripts/http-assets.mjs'
 import { execSync } from 'node:child_process'
 
-const APP_PLUGINS_DIR = path.resolve(__dirname, '../plugins')
 const devEnv = {...loadEnv('development', path.resolve(__dirname, '..'), 'ANKA_'), ...process.env}
+const APP_PLUGINS_DIR = path.resolve(__dirname, '..', devEnv.ANKA_PLUGINS_DIR || 'plugins')
 const tlsCert = devEnv.ANKA_DEV_TLS_CERT, tlsKey = devEnv.ANKA_DEV_TLS_KEY
 if (!!tlsCert !== !!tlsKey) throw new Error('ANKA_DEV_TLS_CERT and ANKA_DEV_TLS_KEY must be configured together')
 
@@ -230,7 +230,7 @@ export default defineConfig({
     allowedHosts: true,
     // 插件目录在项目根（web/ 之外），编译产物以 /@fs/ 绝对 URL 引用，需放行项目根
     fs: {
-      allow: [path.resolve(__dirname, '..')],
+      allow: [path.resolve(__dirname, '..'), APP_PLUGINS_DIR],
     },
     proxy: {
       // M16：多端同步走 /api/sync/ws/{room_id}，Vite 默认不代理 WebSocket

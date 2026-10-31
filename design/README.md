@@ -55,3 +55,4 @@ design/
 | `ui/shell-layout.md` | 草案（样例） | `web/src/App.vue`、`web/src/components/DockBar.vue` |
 | `settings-master-detail.html` | 已实现 | `web/src/system/settings/` |
 | `architecture/app-runtime.md` | 已定稿（M21） | `web/src/runtime/`，契约见 `docs/APP-RUNTIME.md` |
+| `architecture/local-storage.md` | 已定稿，现有功能已实施 | 设计记录；完整目录树与开发契约统一见 [docs/STORAGE.md](../docs/STORAGE.md)，登录鉴权保留 ~/.anka，同步备份待定 |

@@ -13,7 +13,7 @@ from pathlib import Path
 from app import settings
 
 _ID_RE = re.compile(r'^[a-z0-9-]+$')
-_BACKUP_ROOT = settings.PROJECT_ROOT / '.plugin-backup'
+_BACKUP_ROOT = settings.PLUGIN_BACKUP_DIR
 
 # 只读文档白名单：Agent 开发插件前需要读规范，但**永远不可写**。
 # key 是工具视角的路径（fs_read 的 path 原样比较），value 是真实文件。
@@ -21,6 +21,7 @@ _READONLY_DOCS = {
     'README.md': settings.APP_PLUGINS_DIR / 'README.md',
     'plugins/README.md': settings.APP_PLUGINS_DIR / 'README.md',
     'docs/PLUGIN-SPEC.md': settings.PROJECT_ROOT / 'docs' / 'PLUGIN-SPEC.md',
+    'docs/STORAGE.md': settings.PROJECT_ROOT / 'docs' / 'STORAGE.md',
     'docs/NAVIGATION.md': settings.PROJECT_ROOT / 'docs' / 'NAVIGATION.md',
 }
 
@@ -71,7 +72,7 @@ def plugin_id_of(rel: str) -> str:
 
 
 def backup_plugin(plugin_id: str) -> Path | None:
-    """把 plugins/<id>/ 整目录快照到 .plugin-backup/<id>/<ts>/"""
+    """把 plugins/<id>/ 快照到 data/system/state/plugin-backups/<id>/<ts>/。"""
     src = settings.APP_PLUGINS_DIR / plugin_id
     if not src.is_dir():
         return None

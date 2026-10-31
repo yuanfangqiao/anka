@@ -10,7 +10,7 @@ provide = ['rooms']
 
 class RoomsPlugin(Service, RoomService):
     def __init__(self, ctx):
-        RoomService.__init__(self, settings.DATA_DIR / 'rooms.sqlite3')
+        RoomService.__init__(self, settings.ROOMS_DB)
         self.bus = RoomBus(self)
         Service.__init__(self, ctx, 'rooms')
         ctx.fiber.effect(lambda: self.close, label='rooms capabilities and connections')

@@ -132,8 +132,10 @@ class MyPluginService(Service):
 - `snapshot()` → `GET /api/apps/<id>/state`，返回首屏整块状态。
 - 其余公开方法 → `POST /api/apps/<id>/call`，请求体 `{"method": "...", "args": {...}}`。
 - 方法参数用普通 Python 类型，返回值必须 JSON 可序列化；异常会让前端收到失败响应。
-- 不写 FastAPI `router`、不直接读写 `server/data/`、不持久化安装状态
-  （安装状态只由 ledger 记录）。
+- 不写 FastAPI `router`，不持久化宿主安装状态（只由 ledger 记录）。
+- 业务数据遵循宿主 `docs/STORAGE.md`：用 `app.settings.app_data_dir(name)` 取得
+  `data/apps/<id>/`，按实际需要创建 `databases/files/config/state`，禁止写入插件源码目录。
+  附件经宿主 `/api/apps/<id>/files/<相对路径>` 读取；登录鉴权仍由宿主管理。
 
 ---
 

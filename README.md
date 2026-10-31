@@ -80,6 +80,8 @@ vite-plugin-pwa ^0.20    lucide-vue-next        @vueuse/core ^11
 本机健康检查直连 `127.0.0.1`，绕过代理；进程退出或超时会报错并返回非零状态。
 `logs/startup.log` 记录启动各阶段与总耗时，`logs/server.log` 记录模块导入、
 插件初始化、缓存复用和构建步骤耗时，`logs/web.log` 记录 Vite 启动。
+运行 PID 保存在 `run/`。持久数据默认位于根 `data/`；可用 `ANKA_DATA_DIR`、`ANKA_PLUGINS_DIR` 指定数据与插件代码位置。
+新功能和插件开发遵循 [存储目录规范](docs/STORAGE.md)，只创建实际使用的目录；用户登录文件继续在 `~/.anka/`。
 长构建每 5 秒记录一次进度；可运行 `tail -f logs/startup.log logs/server.log logs/web.log` 定位等待位置。
 游戏等 App 的独立运行时已有 `build.output.entry` 时，重启直接复用；
 缺失时才补构建，主动安装或「加载更新」会执行构建配方（包含声明的 `npm ci`）。
@@ -131,8 +133,8 @@ anka/
 ## 配置模型
 
 1. 打开「设置」→「模型服务」分区，粘贴 TokenHub API Key（`sk-tp-...`）→「保存」→「测试连通性」
-2. 对话页顶栏下拉切换 13 个模型，选择会即时生效并持久到服务端 `server/data/settings.json`
-3. 未配 Key 时对话自动回退 Echo 假模型，不会报错；Key 存 `server/data/credentials.json`（只写、不回读明文、不入日志），API 只回脱敏 `sk-tp-***`
+2. 对话页顶栏下拉切换 13 个模型，选择会即时生效并持久到服务端 `data/system/config/settings.json`
+3. 未配 Key 时对话自动回退 Echo 假模型，不会报错；Key 存 `data/system/config/credentials.json`（只写、不回读明文、不入日志），API 只回脱敏 `sk-tp-***`
 
 ## 应用插件的装与卸
 

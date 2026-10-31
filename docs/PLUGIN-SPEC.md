@@ -6,6 +6,9 @@
 相关：`ARCHITECTURE.md` §8（App 插件模型）、`AGENT.md`（开发红线）、
 `docs/NAVIGATION.md`（`uiCtx.navigation` 契约）。
 
+应用存储遵循 `docs/STORAGE.md`：后端通过 `app.settings.app_data_dir(name)` 取得 `data/apps/<id>/`，按实际使用创建 `databases/files/config/state`，禁止向插件源码内写业务数据。
+附件使用登录保护的 `GET/HEAD /api/apps/<id>/files/<相对路径>`，与插件程序静态资源分开。
+
 ---
 
 ## 1. 三种 kind
@@ -256,7 +259,7 @@ DISCOVERED → AVAILABLE → INSTALLED ─┬→ DISABLED → INSTALLED
 
 ### 4.1 ledger 是唯一事实来源
 
-`server/data/ledger.jsonl` 为 append-only 事件流，启动时投影出已安装集合：
+`data/system/state/ledger.jsonl` 为 append-only 事件流，启动时投影出已安装集合：
 
 | 事件 | 含义 | 投影效果 |
 |------|------|----------|

@@ -25,6 +25,8 @@ cd web && npm run build          # → web/dist（SW 已含 M11.1 denylist 修�
 rsync -avz \
   --exclude node_modules --exclude .venv --exclude reference \
   --exclude 'plugins/' \
+  --exclude '/data/' --exclude '/logs/' --exclude '/run/' \
+  --exclude '/cache/' --exclude '/workspace/' --exclude '/.env' \
   ./ ubuntu@<IP>:/home/ubuntu/anka
 ```
 

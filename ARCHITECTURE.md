@@ -30,6 +30,9 @@
 
 ## 2. 目录结构（目标态）
 
+持久数据、日志、缓存与运行目录的完整结构见 [存储目录规范](docs/STORAGE.md#目录结构)。
+涉及存储的实现必须遵循该规范；本节主要描述程序源码结构。
+
 ```
 anka/
 ├── IDEA.md  PROJECT.md  ARCHITECTURE.md  AGENT.md  README.md
@@ -288,7 +291,7 @@ infra 扁平插件与 folder 插件是两类插件源，共存于同一个 `_plu
 - 分层：`PluginService`（扫描 / 安装决策 / ledger / 前端清单）+ `PluginManager`（装载 / 启停 / 重载），
   后者保留同名 facade；`docs/PLUGIN-SPEC.md` §1.1 是唯一的 kind 判定规则
 - 发现：`FolderScanner` 扫描 `plugins/*/plugin.json` → 可安装清单（Service 缓存，装卸后失效重建）
-- 持久化：`server/data/ledger.jsonl`（append-only 事件 + `ledger.snapshot.json` 投影，
+- 持久化：`data/system/state/ledger.jsonl`（append-only 事件 + `ledger.snapshot.json` 投影，
   默认首次运行导入 `["notes","explore"]`）；`installed.json` 仅在迁移时读取，之后改名 `.json.bak`
 - 安装：校验 → import → `extract_plugin_meta` → 注册进 `_plugin_metas` → `_load` → 追加 `installed` 事件；**同名曾加载过 → `requires_restart: true`**（in-memory `_ever_loaded` 判定，重启后清零）
 - 卸载：`disable`（含级联记录）→ 摘除 meta 与 fiber（`remove_fiber` + `discard_fiber`）→ 追加 `uninstalled` 事件；前端 `unregisterApp`（removeRoute + 注册表摘除），**刷新后彻底干净**
@@ -397,7 +400,7 @@ main.ts → 静态注册系统插件（同一 uiCtx，dogfooding）
 - 邀请 600 秒、一个客人席位、SQL 事务加服务锁原子兑换；凭证只存哈希。
   `anka_guest_session` 从兑换起有效 86400 秒，独立于邀请期限，Cookie 使用 HttpOnly、
   SameSite=Lax，HTTPS 下 Secure。创建/兑换限流、Origin 与 WS 消息权限均由宿主执行。
-- 房间状态和连接在单 worker 内存中，能力存储在 `DATA_DIR/rooms.sqlite3`；
+- 房间状态和连接在单 worker 内存中，能力存储在 `DATA_DIR/system/databases/rooms.sqlite3`；
   房间结束/插件停用撤销权限，服务器重启不恢复活跃比赛。API/访客入口绕过 SW 离线回退。
 - App 自定义构建 recipe 在后端激活前执行；原生入口暂存构建后替换，失败保留旧版本。
   游戏运行时由插件独立 Vite 编译，iframe 只承载渲染和依赖，服务端承担权限边界。
@@ -416,10 +419,10 @@ main.ts → 静态注册系统插件（同一 uiCtx，dogfooding）
 
 ### 9.2 自我插件开发（M14：Harness）
 
-- **工具集**（`harness-tools`）：`fs_list/fs_read/fs_write`（写前备份 `.plugin-backup/<id>/<ts>/`）、`plugin_scaffold/verify/install/uninstall/reload/list`；`plugin_verify` 在**子进程 + 一次性上下文**里 `apply()` 跑 smoke，通过才允许 install（隔离试载，不污染主进程）
+- **工具集**（`harness-tools`）：`fs_list/fs_read/fs_write`（写前保存在 `data/system/state/plugin-backups/<id>/<ts>/`）、`plugin_scaffold/verify/install/uninstall/reload/list`；`plugin_verify` 在**子进程 + 一次性上下文**里 `apply()` 跑 smoke，通过才允许 install（隔离试载，不污染主进程）
 - **护栏**（`harness-guard`，挂 `tools/pre-execute` 单调守卫）：路径 containment 限制写区仅 `plugins/`；拒绝 `server/app/plugins/`（infra）与护栏/日志/审批源码；bash 危险命令黑名单——**一旦 denied 不可被后续放行**
 - **无重启 reload**：`folder_loader.evict_module()` 驱逐模块 + `PluginManager.reload_plugin()` 备份→级联卸载→摘 meta/fiber→重载→失败回滚；`deps.kernel_rlock`（`threading.RLock`）跨线程串行化
-- **会话日志**（`session-log`）：append-only JSONL（`server/data/sessions/`），hook `llm/stream` 与 `tools/post-execute`；`derive_messages()` 投影模型历史——「模型可见即已记录」的权威事件源
+- **会话日志**（`session-log`）：append-only JSONL（`data/ai/sessions/`），hook `llm/stream` 与 `tools/post-execute`；`derive_messages()` 投影模型历史——「模型可见即已记录」的权威事件源
 - **可编辑边界**：可编辑 = `plugins/`（app 插件）；不可编辑 = 评估器/审批/日志/护栏/回归集（`server/app/`）
 
 ### 9.3 对话真实化与终止（M15）
@@ -501,3 +504,12 @@ BLE接入按用户最新要求不扫码：页面已有User/Share身份，显式�
 - `runtime/capacity.ts` 串行预留实例，上限 10，含系统应用、加载、分屏、嵌套和预执行；路由提交前完成准入，满额失败不离开当前应用。
 - 后台根窗口按 lastUsed/key 排序，按整组检查关闭保护后回收；可见窗口、继续运行策略、加载中的实例、新子应用的父级和检查期间重新使用的窗口跳过。全部受保护则拒绝新增，预执行满额直接跳过。
 - 回收使用现有界面销毁与清理路径；保留插件安装/原生模块注册和逻辑导航位置，不承诺未持久化内存或后端任务的资源上限。
+
+## 项目存储目录（现有功能已实施，2026-10-31）
+
+- 完整目录树、内容归属与开发契约统一见 [docs/STORAGE.md](docs/STORAGE.md)，后续开发均按此规范存储，只创建已启用功能需要的目录。[原设计稿](design/architecture/local-storage.md) 保留为决策记录；存储规范变更统一更新 docs/STORAGE.md。
+- `settings` 统一解析默认项目根 data 和可覆盖的 ANKA_DATA_DIR/ANKA_PLUGINS_DIR。宿主 config/databases/state、AI sessions 分别有明确路径常量；应用用 `settings.app_data_dir(id)`。
+- Jot 业务库迁至 data/apps/anka-jot/databases，媒体迁至 files/media；番茄库迁至 data/apps/anka-pomodoro/databases。应用代码与数据分离。
+- `/api/apps/<id>/files/<相对路径>` 为登录用户提供媒体 GET/HEAD/Range，限制在 files 内。Jot 的逻辑媒体引用不变，访问由前端映射到该接口。
+- 日志仍在 logs，启动 PID 移至 run；插件源码副本在 data/system/state/plugin-backups。cache/workspace 和未来 AI 目录尚无对应写入时不创建。
+- 用户登录账号和签名密钥继续使用 ~/.anka/users.json 与 ~/.anka/auth_secret，原有覆盖方式保持现状。同步和备份方案待定，插件构建机制保持现状。

@@ -55,7 +55,7 @@ WS 首帧为 `{type:'hello', build, protocol:1, round}`。大厅快照由服务�
 刷新页面不复原整场物理世界，双方回大厅重新准备。房主离线超时关闭房间；
 客人离线超时释放席位并撤销其授权。移除客人后需房主生成新邀请。
 
-邀请与访客凭证持久化在 `server/data/rooms.sqlite3`（可用 `ANKA_DATA_DIR` 指定目录）；
+邀请与访客凭证持久化在 `data/system/databases/rooms.sqlite3`（`ANKA_DATA_DIR` 指定 data 根）；
 活跃房间与连接在内存中，当前按**单实例、单 worker**运行。
 服务器重启后旧房间不可恢复，需要重新建房；不把旧凭证升级为站点账号。
 

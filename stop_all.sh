@@ -4,6 +4,7 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$ROOT/logs"
+RUN_DIR="$ROOT/run"
 GREEN='\033[32m'; YELLOW='\033[33m'; RESET='\033[0m'
 say() { printf "%b\n" "$1"; }
 
@@ -24,8 +25,8 @@ stop_pidfile() { # stop_pidfile <pidfile> <name>
 }
 
 # 1) 按 PID 文件停止
-stop_pidfile "$LOG_DIR/server.pid" "后端"
-stop_pidfile "$LOG_DIR/web.pid" "前端"
+stop_pidfile "$RUN_DIR/server.pid" "后端"
+stop_pidfile "$RUN_DIR/web.pid" "前端"
 
 # 2) 兜底：按端口清理残留（uvicorn 8000 / vite 5173）
 for port in 8000 5173; do

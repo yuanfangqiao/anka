@@ -10,11 +10,12 @@ STARTUP_STARTED=$SECONDS
 source "$ROOT/scripts/startup-common.sh"
 
 LOG_DIR="$ROOT/logs"
-mkdir -p "$LOG_DIR"
+RUN_DIR="$ROOT/run"
+mkdir -p "$LOG_DIR" "$RUN_DIR"
 # 同时保留终端与脚本阶段日志；子进程继续分别写 server.log / web.log。
 exec > >(tee "$LOG_DIR/startup.log") 2>&1
-SERVER_PID="$LOG_DIR/server.pid"
-WEB_PID="$LOG_DIR/web.pid"
+SERVER_PID="$RUN_DIR/server.pid"
+WEB_PID="$RUN_DIR/web.pid"
 
 GREEN='\033[32m'; YELLOW='\033[33m'; RED='\033[31m'; RESET='\033[0m'
 say() { startup_log "$(printf '%b' "$1")"; }

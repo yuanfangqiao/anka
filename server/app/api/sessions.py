@@ -1,7 +1,7 @@
 """
 会话管理 API（M15）。
 
-数据源是 session-log 插件的 append-only 日志（server/data/sessions/*.jsonl）：
+数据源是 session-log 插件的 append-only 日志（data/ai/sessions/*.jsonl）：
 - GET    /api/sessions            会话摘要列表（按最近更新倒序）
 - GET    /api/sessions/{id}       会话完整气泡历史
 - DELETE /api/sessions/{id}       删除会话

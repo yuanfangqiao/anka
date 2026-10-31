@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -38,18 +39,38 @@ PORT = int(os.environ.get('PORT', '8000'))
 
 # web/dist 相对 server/app/settings.py：parents[2] = 项目根
 DIST_DIR = PROJECT_ROOT / 'web' / 'dist'
-DATA_DIR = Path(os.environ.get('ANKA_DATA_DIR') or PROJECT_ROOT / 'server' / 'data')
+
+
+def _project_path(variable: str, default: Path) -> Path:
+    path = Path(os.environ.get(variable) or default).expanduser()
+    return (path if path.is_absolute() else PROJECT_ROOT / path).resolve()
+
+
+DATA_DIR = _project_path('ANKA_DATA_DIR', PROJECT_ROOT / 'data')
+SYSTEM_CONFIG_DIR = DATA_DIR / 'system' / 'config'
+SYSTEM_DATABASES_DIR = DATA_DIR / 'system' / 'databases'
+SYSTEM_STATE_DIR = DATA_DIR / 'system' / 'state'
+SESSIONS_DIR = DATA_DIR / 'ai' / 'sessions'
 ROOM_PUBLIC_URL = os.environ.get('ANKA_PUBLIC_URL', '')
 
+
+def app_data_dir(app_id: str) -> Path:
+    """应用持久数据根；只解析路径，实际写入时再创建需要的子目录。"""
+    if not re.fullmatch(r'[a-z0-9][a-z0-9_-]*', app_id):
+        raise ValueError('无效应用 ID')
+    return DATA_DIR / 'apps' / app_id
+
+
 # App 插件模型（M6）
-APP_PLUGINS_DIR = PROJECT_ROOT / 'plugins'            # 应用插件（前后端一体，可装卸）
+APP_PLUGINS_DIR = _project_path('ANKA_PLUGINS_DIR', PROJECT_ROOT / 'plugins')
 SYSTEM_PLUGINS_DIR = PROJECT_ROOT / 'system-plugins'  # 系统插件标记（UI 静态捆入内核）
-INSTALLED_FILE = PROJECT_ROOT / 'server' / 'data' / 'installed.json'  # 仅作迁移来源
+INSTALLED_FILE = SYSTEM_STATE_DIR / 'installed.json'  # 仅作旧安装记录导入来源
 DEFAULT_INSTALLED = ['notes', 'explore']              # 首次运行的默认安装集
 
 # 插件安装事件源（P1）：JSONL append-only + 快照，唯一事实来源
-LEDGER_FILE = DATA_DIR / 'ledger.jsonl'
-LEDGER_SNAPSHOT = DATA_DIR / 'ledger.snapshot.json'
+LEDGER_FILE = SYSTEM_STATE_DIR / 'ledger.jsonl'
+LEDGER_SNAPSHOT = SYSTEM_STATE_DIR / 'ledger.snapshot.json'
+PLUGIN_BACKUP_DIR = SYSTEM_STATE_DIR / 'plugin-backups'
 LEDGER_COMPACT_EVERY = int(os.environ.get('ANKA_LEDGER_COMPACT_EVERY', '500'))
 PACKAGE_DIR = PROJECT_ROOT / 'dist-packages'          # CLI pack 产物目录
 
@@ -67,12 +88,13 @@ SHELL_CONFIG = {
 
 # ─── TokenHub 模型服务（M13）──────────────────────────────
 # 凭据 seam：Key 只写存储 + 脱敏视图 + 每次请求解析（轮换下一请求即时生效）
-CREDENTIALS_FILE = DATA_DIR / 'credentials.json'   # API Key（不入日志、不回传明文）
-USER_SETTINGS_FILE = DATA_DIR / 'settings.json'    # 用户偏好（默认模型等）
+CREDENTIALS_FILE = SYSTEM_CONFIG_DIR / 'credentials.json'
+USER_SETTINGS_FILE = SYSTEM_CONFIG_DIR / 'settings.json'
 
 # ─── 多端同步（M16）────────────────────────────────────
 # 单文件 SQLite（WAL）：快照 + op-log，支持追帧与回放
-SYNC_DB = DATA_DIR / 'agentos.db'
+SYNC_DB = SYSTEM_DATABASES_DIR / 'agentos.db'
+ROOMS_DB = SYSTEM_DATABASES_DIR / 'rooms.sqlite3'
 SYNC_LOG_KEEP = 500          # op-log 保留条数，超出则压缩进快照
 # 入站护栏：图片走独立上传接口，WS 只传引用（不做这条上线必炸）
 SYNC_MAX_MSG = 256 * 1024    # 单条 WS 入站消息上限（字节）
@@ -121,7 +143,7 @@ def get_api_key() -> str | None:
 
 def set_api_key(value: str) -> None:
     """只写存储（不回读），写入独立凭据文件。"""
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    CREDENTIALS_FILE.parent.mkdir(parents=True, exist_ok=True)
     CREDENTIALS_FILE.write_text(
         json.dumps({'tokenhub_api_key': value}, ensure_ascii=False),
         encoding='utf-8')
@@ -145,7 +167,7 @@ def load_user_settings() -> dict:
 
 
 def save_user_settings(data: dict) -> None:
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    USER_SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
     USER_SETTINGS_FILE.write_text(
         json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
 

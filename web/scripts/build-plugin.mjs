@@ -18,7 +18,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { build } from 'vite'
+import { build, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import postcss from 'postcss'
 import tailwindcss from 'tailwindcss'
@@ -32,7 +32,8 @@ if (!pluginId) {
   process.exit(1)
 }
 
-const pluginDir = path.join(root, 'plugins', pluginId)
+const env = { ...loadEnv('development', root, 'ANKA_'), ...process.env }
+const pluginDir = path.join(path.resolve(root, env.ANKA_PLUGINS_DIR || 'plugins'), pluginId)
 const manifestPath = path.join(pluginDir, 'plugin.json')
 if (!fs.existsSync(manifestPath)) {
   console.error(`[build-plugin] ${pluginId}: plugin.json 不存在`)

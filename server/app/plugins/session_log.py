@@ -4,7 +4,7 @@
 append-only 会话事件日志（DSH 式「模型可见即已记录」）：
 - 挂 llm/stream（waterfall）记录每次发给模型的完整 messages（权威快照）与流式响应
 - 挂 tools/post-execute（emit）记录工具调用与结果
-- 按会话分文件（server/data/sessions/<id>.jsonl），只追加不修改
+- 按会话分文件（data/ai/sessions/<id>.jsonl），只追加不修改
 
 会话绑定：chat worker 在起跑前调用 bind(session_id)，同一线程内所有
 LLM 调用（含多轮 function calling）都记到同一会话；未绑定时兜底新建。
@@ -28,7 +28,7 @@ log = logging.getLogger('agentos.session_log')
 name = 'session-log'
 inject = []
 
-_SESSIONS_DIR = settings.DATA_DIR / 'sessions'
+_SESSIONS_DIR = settings.SESSIONS_DIR
 _tls = threading.local()
 
 

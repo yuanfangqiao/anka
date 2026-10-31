@@ -29,7 +29,7 @@ def reload_plugin(self, name: str) -> PluginActionResult:
         raise KeyError(name)
 
     ts = time.strftime('%Y%m%d-%H%M%S')
-    backup_dir = settings.PROJECT_ROOT / '.plugin-backup' / name / f'reload-{ts}'
+    backup_dir = settings.PLUGIN_BACKUP_DIR / name / f'reload-{ts}'
     shutil.copytree(manifest.root, backup_dir, dirs_exist_ok=True)
 
     def _reload_from_disk():

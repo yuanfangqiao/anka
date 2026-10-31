@@ -1,21 +1,22 @@
 # AGENT.md · AI Agent 工作守则
 
 > 本仓库的使用者是人 + AI Agent。修改代码前先读这份文件，再读 `ARCHITECTURE.md` 与 `PROJECT.md`。
-> 最后更新：2026-10-17（新增 plugins 独立仓库 / design 设计目录与提交边界）
+> 最后更新：2026-10-31（新增本地存储目录开发规范，登录鉴权保持原路径）
 
 ## 1. 仓库真相表（Ground Truth）
-
 | 路径 | 性质 | 说明 |
 |------|------|------|
 | `IDEA.md` | 需求源头 | 原始想法 + 已确认决策；**不得改写「一、原始想法」原文** |
 | `PROJECT.md` | 范围与里程碑 | 决定「做什么 / 不做什么」的唯一依据 |
 | `ARCHITECTURE.md` | 技术方案 | 决定「怎么做」的唯一依据（含依赖版本与目录约定） |
+| [`docs/STORAGE.md`](docs/STORAGE.md) | 存储规范 | 完整目录树、内容归属和路径用法；涉及存储的开发必读 |
 | `CHANGELOG.md` | 变更记录 | 每次核心修改追加一条，最新在上 |
 | `README.md` | 启动方式 | 命令以它为准 |
 | `AGENT.md` | 本文件 | Agent 行为规范 |
 | `reference/**` | **只读** | 参考资料（`cordis-mini` / `ComfyUI` / `ComfyUI_frontend`），禁止修改，禁止运行时 import |
 | `plugins/**` | **独立仓库** | 每个插件自带 `.git`（如 `anka-jot`、`anka-quickdraw`），独立提交与远程；核心仓库已忽略，不纳入核心提交 |
 | `design/**` | 设计过程 | 方案草案 / UI 线框 / 交互原型的**已提交**目录（`design/README.md` 为索引）；**非事实来源**，定稿后并入 `ARCHITECTURE.md` / `docs/`；**临时/未定稿的设计方案一律写 `design/tmp-design/`**，该目录已被忽略、不入库 |
+| `data/**` | 运行数据 | 宿主/应用/AI 持久数据，不入库；规范见 `docs/STORAGE.md` |
 | `server/**` | 后端 | FastAPI + 移植的 cordis 内核 |
 | `web/**` | 前端 | Vue 3（PWA 交付形态） |
 
@@ -47,7 +48,8 @@
 ### 3.1 开工前
 1. 读 `PROJECT.md` 确认当前里程碑与验收清单
 2. 读 `ARCHITECTURE.md` 确认目录、接口契约、依赖版本
-3. 有歧义先问人，不要靠猜；猜了也要在总结里明确说出假设
+3. 涉及数据、文件、数据库或运行目录，先读 [`docs/STORAGE.md`](docs/STORAGE.md) 的目录树和开发用法；新增路径同时更新该规范
+4. 有歧义先问人，不要靠猜；猜了也要在总结里明确说出假设
 
 ### 3.2 实现中
 - 后端先：内核/插件 → `PluginManager` → 路由 → 验收脚本
@@ -172,3 +174,14 @@ npm run build                           # 产出 web/dist（含 manifest + sw）
 - body 弹层使用 AppPortal 或主动响应生命周期；后台暂停是协作式契约。
 - 验证增加 npm run typecheck、check-app-runtime（dev/prod）与原有导航回归，截图遵循第 3.4 节。
 - 本次用户显式允许在 reference/ 添加新的参考材料；既有上游项目继续只读，禁止运行时 import。
+
+## 9. 存储目录开发规范（2026-10-31）
+
+- 先读 [`docs/STORAGE.md`](docs/STORAGE.md)。完整目录树和开发契约统一以该文件为准；`design/architecture/local-storage.md` 保留为设计记录。所有新功能和现有插件改动必须按该规范存储；同步和备份方案仍待定。
+- 宿主设置/API 凭据放 `data/system/config/`，宿主数据库放 `data/system/databases/`，安装事件等状态放 `data/system/state/`。
+- 应用用 `settings.app_data_dir(name)` 取得 `data/apps/<app-id>/`，按实际使用创建 `databases/files/config/state`；禁止在插件源码目录内写业务数据。
+- 平台 AI 历史与资源放 `data/ai/<类别>/`；当前只有 `sessions/`，未实现的能力不建空目录。
+- 路径从 `app.settings` 获取，不能按 cwd 或插件 `__file__` 拼业务数据位置；`ANKA_DATA_DIR` 和 `ANKA_PLUGINS_DIR` 相对项目根解析。
+- 媒体放应用 `files/`，通过 `/api/apps/<id>/files/<相对路径>` 读取；禁止通过插件静态目录暴露数据库或业务文件。
+- 诊断放 `logs/`，PID/运行锁放 `run/`，可重建内容放 `cache/`，临时工作放 `workspace/`；只在功能实际写入时创建目录。
+- 登录账号和会话签名密钥继续使用 `~/.anka/` 及原有 `ANKA_USERS_FILE`，不得随项目数据迁移。

@@ -63,7 +63,7 @@ def _conn() -> sqlite3.Connection:
     """线程本地连接（SQLite 连接不可跨线程共享）。"""
     c = getattr(_tls, 'conn', None)
     if c is None:
-        settings.DATA_DIR.mkdir(parents=True, exist_ok=True)
+        settings.SYNC_DB.parent.mkdir(parents=True, exist_ok=True)
         c = sqlite3.connect(
             str(settings.SYNC_DB), timeout=15.0, isolation_level=None,
         )
