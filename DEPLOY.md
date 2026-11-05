@@ -8,7 +8,7 @@ Caddy 已有成熟配置可参照。再确认两个影响部署方式的关键�
 
 ## 0. 前置（一次性）
 
-- **DNS**：`anka.vitcou.com` A 记录 → 服务器 IP
+- **DNS**：`anka.yuanfangqiao.com` A 记录 → 服务器 IP
 - 服务器装 **Python 3.10+**（代码用了 `tuple[...] | None` 新语法）+ 已有 Caddy ✓
 
 ## 1. 本地构建（不碰服务器，产物全在本地出）
@@ -74,7 +74,7 @@ WantedBy=multi-user.target
 追加到 `/etc/caddy/Caddyfile`：
 
 ```caddyfile
-anka.vitcou.com {
+anka.yuanfangqiao.com {
     reverse_proxy 127.0.0.1:8100 {
         flush_interval -1
     }
@@ -107,7 +107,7 @@ systemctl reload caddy
 ```bash
 cd /home/ubuntu/anka/server
 mkdir -p ~/.anka && chmod 700 ~/.anka
-.venv/bin/python -m app.auth adduser vitcou        # 交互输入密码（不回显）
+.venv/bin/python -m app.auth adduser yuanfangqiao        # 交互输入密码（不回显）
 .venv/bin/python -m app.auth list                  # 查看账号
 # 其他：deluser <name>（删号）
 ```
@@ -137,7 +137,7 @@ mkdir -p ~/.anka && chmod 700 ~/.anka
 ### 6.3 Caddy 侧（最终形态）
 
 ```caddyfile
-anka.vitcou.com {
+anka.yuanfangqiao.com {
     reverse_proxy 127.0.0.1:8100 {
         flush_interval -1
     }
@@ -155,7 +155,7 @@ anka.vitcou.com {
 ## 7. 上线验证清单
 
 ```text
-[ ] https://anka.vitcou.com 打开壳
+[ ] https://anka.yuanfangqiao.com 打开壳
 [ ] /api/health 正常
 [ ] 手机 Chrome/Safari →「安装应用」出现（PWA 生效）
 [ ] quickdraw / snake / notes 插件逐个打开

@@ -106,7 +106,7 @@ ESP 九宫格改为纯矢量图标、中心跳跃红绿边框；真实设备屏�
 
 扫码→绑定→校准页→同时按A+B→提示松手→手柄。校准前所有输入neutral；按实际游戏握姿稳定采集重力和陀螺仪偏置，用重力与屏幕法线建立up/right基准。屏幕A+B由CST9220全点快照判定，实体双键也可触发；单指和交替点击不算同时按。屏幕平放无法确定平面握持方向时提示立起，晃动时重试，松开双键才开放游戏输入。正常重连保持原校准。
 
-按用户链接重新下载官方BSP完整master到`upstream/esp-mosaico-bsp-latest`，提交`7cbfb390638dcb93522fc3cde094b2d43cf907c2`。直接网络失败后使用`github_vitcou`SSH及本机7890代理成功；示例主文件与现有锁定依赖一致，未替换运行时依赖。SDK AUTO优先触摸，现对机械双键显式配置GPIO，左aim/右fire，短按开火沿锁存到下一次发送。
+按用户链接重新下载官方BSP完整master到`upstream/esp-mosaico-bsp-latest`，提交`7cbfb390638dcb93522fc3cde094b2d43cf907c2`。直接网络失败后使用`github_yuanfangqiao`SSH及本机7890代理成功；示例主文件与现有锁定依赖一致，未替换运行时依赖。SDK AUTO优先触摸，现对机械双键显式配置GPIO，左aim/右fire，短按开火沿锁存到下一次发送。
 
 主机C验证六种握姿投影、偏置消除、双键/释放门控、移动/平放拒绝及重连保持通过。真实ESP用隔离玩家和Wi-Fi接收端验证校准流程、校准前neutral、上下边缘无操作、重扫RPC被锁定、游戏关闭后手柄红框保留。用户配合实际按压左右键，真实GPIO计数增加且WS接收aim/fire，链路通过。验证见[hardware-v0.2.9.json](validation/hardware-v0.2.9.json)。
 

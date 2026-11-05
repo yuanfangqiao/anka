@@ -1,6 +1,6 @@
 # 本地下载状态
 
-2026-10-28。已验证 `git@github_vitcou:esp-mosaico/esp-mosaico-vibe.git` 能连接，HEAD 为 `1872fd88c01d7807556d01fd2a19864e40a307c9`。当前无需要用户手动补下的仓库。
+2026-10-28。已验证 `git@github_yuanfangqiao:esp-mosaico/esp-mosaico-vibe.git` 能连接，HEAD 为 `1872fd88c01d7807556d01fd2a19864e40a307c9`。当前无需要用户手动补下的仓库。
 
 | 仓库/资料 | 固定版本 | 本地位置 |
 |---|---|---|
@@ -13,6 +13,6 @@
 | RISC-V GCC/GDB、OpenOCD、ROM ELF、clangd/configdep | SDK tools.json 精确版本及哈希 | 固件 `.sdk/tools` |
 | ESP 组件注册表依赖 | `device/esp32/dependencies.lock` | 固件 `managed_components/`，已下载与校验 |
 
-Git 仓库遇到网络波动时可用 `--github-host github_vitcou`；HTTPS 组件和 release 二进制不走 SSH，可在命令前按需设置 `HTTPS_PROXY=http://127.0.0.1:7890`。不要把个人代理地址写成产品运行要求。
+Git 仓库遇到网络波动时可用 `--github-host github_yuanfangqiao`；HTTPS 组件和 release 二进制不走 SSH，可在命令前按需设置 `HTTPS_PROXY=http://127.0.0.1:7890`。不要把个人代理地址写成产品运行要求。
 
 复现入口：`device/esp32/tools/bootstrap.py`；详细资料与许可见 [SOURCES.md](SOURCES.md)。
