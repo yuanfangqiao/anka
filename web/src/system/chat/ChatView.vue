@@ -10,6 +10,8 @@ import { useChat, type Block, type ChatMsg } from './useChat'
 import { isMobile } from '../../composables/useBreakpoint'
 import { downscaleImage } from '../../services/screenCapture'
 import type { ToolCard } from '../../services/api'
+import WebUseMode from './WebUseMode.vue'
+import { webUseEnabled } from '../../runtime/webUse/client'
 
 const {
   sending, tick, models, currentModel, displayMessages,
@@ -40,7 +42,8 @@ function submit() {
   draft.value = ''
   const images = [...pendingImages.value]
   pendingImages.value = []
-  send(text || '请根据这些图片进行修改', images)
+  send(text || (webUseEnabled.value ? '请根据这些图片操作网页' : '请根据这些图片进行修改'),
+    images, webUseEnabled.value)
 }
 
 // ─── 图片输入（M17.9 支持多张）：粘贴 / 「+」号选择，同一 vision 链路 ──
@@ -160,7 +163,8 @@ function segmentsOf(m: ChatMsg): Seg[] {
       </header>
 
       <!-- 头部：右上角紧凑模型选择（M17.6：删标题/契约文案，宽度 1/3、高度压缩） -->
-      <div class="flex shrink-0 justify-end">
+      <div class="flex shrink-0 items-center justify-end gap-2">
+        <WebUseMode />
         <BaseCard class="!rounded-full !p-1">
           <select
             v-model="currentModel"

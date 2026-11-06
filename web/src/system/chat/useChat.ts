@@ -13,6 +13,7 @@ import { computed, reactive, ref } from 'vue'
 import { api, type SessionMessage, type SessionSummary, type ToolCard } from '../../services/api'
 import { syncInstalled } from '../../services/pluginHost'
 import { useToast } from '../../composables/useToast'
+import { bindWebUseRun, connectWebUse, stopWebUseRun } from '../../runtime/webUse/client'
 
 const toast = useToast()
 
@@ -359,7 +360,7 @@ async function restoreRuns() {
 
 // ─── 发送与终止 ─────────────────────────────────────────────
 
-async function send(text: string, images?: string[]) {
+async function send(text: string, images?: string[], webUse = false) {
   const msg = text.trim()
   const pics = images ?? []
   if ((!msg && !pics.length) || sending.value) return
@@ -373,12 +374,15 @@ async function send(text: string, images?: string[]) {
 
   pending.value = true
   try {
+    const client = webUse ? await connectWebUse() : undefined
     const started = await api.startChat({
       message: msg || '请根据这些图片进行修改',
       model: currentModel.value || undefined,
       session_id: activeSessionId.value || undefined,
       images: pics.length ? pics : undefined,
+      web_client_id: client,
     })
+    if (client) bindWebUseRun(started.run_id, client)
     activeSessionId.value = started.session_id
     const run = newRunView(started.run_id, started.session_id, msg)
     runs.value.unshift(run)
@@ -399,11 +403,12 @@ async function send(text: string, images?: string[]) {
 
 function stop() {
   const run = activeRun.value
-  if (run) api.stopRun(run.id).catch(() => {})
+  if (run) stopRun(run.id)
 }
 
 /** 供过程面板终止任意 run（不限当前会话） */
 function stopRun(id: string) {
+  stopWebUseRun(id)
   api.stopRun(id).catch(() => {})
 }
 

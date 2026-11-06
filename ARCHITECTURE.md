@@ -132,6 +132,7 @@ MVP 阶段插件只在 `lifespan` 启动时 bootstrap 一次，热路径无 to_t
 | `agent-loop` | Service | `llm`, `tools` | `agents` |
 | `llm-logger` | 函数 | `llm` | —（waterfall 惰性包裹 stream） |
 | `harness-tools` | 函数 | `tools` | —（fs 读写/脚手架/校验/装卸） |
+| `web-use` | Service | `tools` | `web-use`（窗口绑定、插件观察和操作） |
 | `harness-guard` | 函数 | `tools` | —（`tools/pre-execute` 单调护栏） |
 | `session-log` | 函数 | `tools` | —（append-only 会话日志） |
 
@@ -513,3 +514,10 @@ BLE接入按用户最新要求不扫码：页面已有User/Share身份，显式�
 - `/api/apps/<id>/files/<相对路径>` 为登录用户提供媒体 GET/HEAD/Range，限制在 files 内。Jot 的逻辑媒体引用不变，访问由前端映射到该接口。
 - 日志仍在 logs，启动 PID 移至 run；插件源码副本在 data/system/state/plugin-backups。cache/workspace 和未来 AI 目录尚无对应写入时不创建。
 - 用户登录账号和签名密钥继续使用 ~/.anka/users.json 与 ~/.anka/auth_secret，原有覆盖方式保持现状。同步和备份方案待定，插件构建机制保持现状。
+
+## Web Use · 当前 Anka 窗口内的 Agent 操作
+
+对话显式选择网页操作，AgentLoop 仅暴露 Web Use 工具。WS 同源登录握手分配窗口凭证，
+POST /api/chat 绑定该窗口并占用单任务租约；浏览器宿主复用导航，执行插件内的受限 DOM 操作。
+操作不经过 SSE 重放；HTTP 按请求接收有上限的图像数据，图片在内存中进入下一轮模型。
+本地插件 DOM、同源 page iframe 和可读 Canvas 的能力边界见 [Web Use](docs/WEB-USE.md)。

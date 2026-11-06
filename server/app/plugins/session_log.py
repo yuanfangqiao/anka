@@ -42,13 +42,15 @@ def new_session_id() -> str:
     return uuid.uuid4().hex
 
 
-def bind(session_id: str) -> None:
+def bind(session_id: str, *, transient: bool = False) -> None:
     """把当前工作线程绑定到指定会话（chat worker 调用）。"""
     _tls.session_id = session_id
+    _tls.transient = transient
 
 
 def unbind() -> None:
     _tls.session_id = None
+    _tls.transient = False
 
 
 def _append(session_id: str, event: dict) -> None:
@@ -63,6 +65,9 @@ def _append(session_id: str, event: dict) -> None:
 
 def _record_stream(options, next_fn):
     """llm/stream waterfall：记请求（权威 messages 快照）+ 流式响应"""
+    if getattr(_tls, 'transient', False):
+        yield from next_fn()
+        return
     messages = options.get('messages', [])
     model = options.get('model', '?')
 
@@ -122,6 +127,8 @@ def _record_stream(options, next_fn):
 
 def _record_tool(exec_ctx, result):
     """tools/post-execute（emit）：记工具调用与结果"""
+    if getattr(_tls, 'transient', False):
+        return
     session = _current_session()
     if session is None:
         return
@@ -131,6 +138,20 @@ def _record_tool(exec_ctx, result):
         'args': exec_ctx.get('args'),
         'result': str(result),
     })
+
+
+def record_web_turn(session, model, history, user_input, images, events):
+    """Keep the requested task and final reply; observation context lives only in the run."""
+    content = user_input
+    if images:
+        content = [{'type': 'text', 'text': user_input}] + [
+            {'type': 'image_url', 'image_url': {'url': image}} for image in images]
+    _append(session, {'event': 'request', 'model': model,
+                      'messages': [*history, {'role': 'user', 'content': content}]})
+    # A text fragment before the final tool call may be a plan, not the final reply.
+    start = max((i for i, event in enumerate(events) if event['type'] == 'tool_result'), default=-1)
+    reply = ''.join(e.get('content', '') for e in events[start + 1:] if e['type'] == 'text_delta')
+    _append(session, {'event': 'response', 'text': reply, 'tool_calls': []})
 
 
 # ─── 读取与投影 ──────────────────────────────────────

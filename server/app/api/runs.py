@@ -11,10 +11,10 @@ import asyncio
 import json
 import queue
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from .. import run_manager
+from .. import auth, run_manager
 from ..schemas import RunInfo
 
 router = APIRouter(tags=['runs'])
@@ -25,14 +25,14 @@ def _sse(payload: dict) -> str:
 
 
 @router.get('/runs')
-async def list_runs() -> list[RunInfo]:
-    return run_manager.manager.list()
+async def list_runs(request: Request) -> list[RunInfo]:
+    return run_manager.manager.list(auth.current_user(request))
 
 
 @router.get('/runs/{run_id}/stream')
-async def stream_run(run_id: str, after: int = 0) -> StreamingResponse:
+async def stream_run(run_id: str, request: Request, after: int = 0) -> StreamingResponse:
     run = run_manager.manager.get(run_id)
-    if run is None:
+    if run is None or (run.owner is not None and run.owner != auth.current_user(request)):
         raise HTTPException(status_code=404, detail={
             'error': 'not_found', 'message': f'run {run_id} 不存在或已回收'})
 
@@ -64,9 +64,9 @@ async def stream_run(run_id: str, after: int = 0) -> StreamingResponse:
 
 
 @router.post('/runs/{run_id}/stop')
-async def stop_run(run_id: str) -> dict:
+async def stop_run(run_id: str, request: Request) -> dict:
     run = run_manager.manager.get(run_id)
-    if run is None:
+    if run is None or (run.owner is not None and run.owner != auth.current_user(request)):
         raise HTTPException(status_code=404, detail={
             'error': 'not_found', 'message': f'run {run_id} 不存在或已回收'})
     run.cancel.set()

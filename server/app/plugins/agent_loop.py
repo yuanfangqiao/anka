@@ -19,6 +19,8 @@ function calling 全链路（M13）：
 import json
 
 from app.cordis import Service
+from app.plugins.web_use import TOOLS as WEB_TOOLS
+from app.web_use.bridge import Observation
 
 name = 'agent-loop'
 inject = ['llm', 'tools']
@@ -66,7 +68,7 @@ class AgentLoop(Service):
         super().__init__(ctx, 'agents')
 
     def run(self, user_input, max_turns=100, on_event=None, model='default',
-            system=None, history=None, cancel=None, images=None):
+            system=None, history=None, cancel=None, images=None, allowed_tools=None):
         emit = on_event or (lambda _ev: None)
         messages = []
         if system is None:
@@ -88,19 +90,26 @@ class AgentLoop(Service):
         def cancelled() -> bool:
             return cancel is not None and cancel.is_set()
 
+        visual_context = []
         for turn in range(max_turns):
             if cancelled():
                 emit({'type': 'stopped'})
                 return STOPPED
 
-            tools = self.ctx.tools.defs() or None
+            tools = self.ctx.tools.defs()
+            if allowed_tools is not None:
+                tools = [tool for tool in tools if tool['function']['name'] in allowed_tools]
+            else:
+                tools = [tool for tool in tools if tool['function']['name'] not in WEB_TOOLS]
             text_parts = []
             tool_calls = []
             stopped = False
             # M17：过程可视化 —— 显式「思考中」相位事件（供前端过程面板）
             emit({'type': 'status', 'phase': 'thinking', 'turn': turn + 1})
 
-            for chunk in self.ctx.llm.stream(messages, model=model, tools=tools):
+            request_messages = messages + visual_context
+            visual_context = []
+            for chunk in self.ctx.llm.stream(request_messages, model=model, tools=tools or None):
                 if cancelled():
                     stopped = True
                     break
@@ -144,11 +153,25 @@ class AgentLoop(Service):
 
             # 2. 逐工具执行，结果带 tool_call_id 回填
             for tc in tool_calls:
+                if cancelled():
+                    emit({'type': 'stopped'})
+                    return STOPPED
+                name, args = tc['tool'], tc.get('args', {})
                 emit({'type': 'tool_call', 'tool': tc['tool'],
-                      'args': tc.get('args', {}), 'id': tc['id']})
-                result = self.ctx.tools.execute(tc['tool'], tc.get('args', {}))
+                      'args': {} if allowed_tools is not None else args, 'id': tc['id']})
+                result = ('error: 工具不在本轮授权范围内'
+                          if allowed_tools is not None and name not in allowed_tools
+                          else self.ctx.tools.execute(name, args))
+                if isinstance(result, Observation):
+                    visual_context = [{'role': 'user', 'content': [
+                        {'type': 'text', 'text': '下图是上一条 web_observe 返回的网页观察数据。'},
+                        {'type': 'image_url', 'image_url': {'url': result.image}},
+                    ]}]
+                display = str(result)
+                if allowed_tools is not None and name == 'web_observe' and not display.startswith('{"ok": false'):
+                    display = '已读取当前应用画面与交互元素' if isinstance(result, Observation) else '已读取当前应用交互元素'
                 emit({'type': 'tool_result', 'tool': tc['tool'],
-                      'result': str(result)})
+                      'result': display})
                 messages.append({
                     'role': 'tool',
                     'tool_call_id': tc['id'],

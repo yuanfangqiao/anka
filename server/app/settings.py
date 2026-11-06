@@ -24,6 +24,7 @@ PLUGIN_CONFIG: dict = {
     'agent-loop': {},
     'llm-logger': {},
     'harness-tools': {},
+    'web-use': {},
     'harness-guard': {},
     'session-log': {},
     'sync-store': {},

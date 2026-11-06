@@ -23,7 +23,7 @@ from fastapi.responses import (HTMLResponse, JSONResponse,
 from . import auth, deps, settings
 from .static_assets import CompressedStaticFiles, StaticCompressionMiddleware, static_file
 from .api import (apps, chat, health, plugins, runs, sessions, settings_api,
-                 sync_api)
+                 sync_api, web_use)
 from .logging_conf import setup_logging
 from .rooms import api as room_api, pages as room_pages
 from .rooms.security import guest_asset
@@ -87,6 +87,7 @@ app.include_router(runs.router, prefix='/api')
 app.include_router(sessions.router, prefix='/api')
 app.include_router(settings_api.router, prefix='/api')
 app.include_router(sync_api.router, prefix='/api')
+app.include_router(web_use.router, prefix='/api')
 app.include_router(room_api.router)
 app.include_router(room_pages.router)
 app.include_router(device_api.router)

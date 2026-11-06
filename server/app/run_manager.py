@@ -22,11 +22,12 @@ MAX_BUFFER = 5000      # 单 run 事件缓冲上限（防爆内存；正常任�
 class Run:
     """一次对话执行任务：事件缓冲 + 订阅者分发 + 取消令牌。"""
 
-    def __init__(self, session_id: str, message: str, model: str):
+    def __init__(self, session_id: str, message: str, model: str, owner: str | None = None):
         self.id = uuid.uuid4().hex[:12]
         self.session_id = session_id
         self.preview = message.strip().replace('\n', ' ')[:40]
         self.model = model
+        self.owner = owner
         self.created_at = time.time()
         self.events: list[dict] = []
         self.done = False
@@ -85,8 +86,8 @@ class RunManager:
         self._runs: dict[str, Run] = {}
         self._lock = threading.Lock()
 
-    def create(self, session_id: str, message: str, model: str) -> Run:
-        run = Run(session_id, message, model)
+    def create(self, session_id: str, message: str, model: str, owner: str | None = None) -> Run:
+        run = Run(session_id, message, model, owner)
         with self._lock:
             self._gc_locked()
             self._runs[run.id] = run
@@ -96,12 +97,12 @@ class RunManager:
         with self._lock:
             return self._runs.get(run_id)
 
-    def list(self) -> list[dict]:
+    def list(self, owner: str | None = None) -> list[dict]:
         with self._lock:
             self._gc_locked()
             runs = sorted(self._runs.values(),
                           key=lambda r: r.created_at, reverse=True)
-            return [r.summary() for r in runs]
+            return [r.summary() for r in runs if r.owner is None or r.owner == owner]
 
     def _gc_locked(self) -> None:
         now = time.time()

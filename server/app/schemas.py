@@ -87,6 +87,7 @@ class ChatRequest(BaseModel):
     max_turns: int = 100              # 插件开发类任务需要多轮工具调用（M16：5→20→100）
     session_id: str | None = None     # M15：多会话（缺省则新建）
     images: list[str] = []            # M17.9：随消息发送的图片（data URL，支持多张，vision）
+    web_client_id: str | None = None  # 显式网页操作模式；只能绑定此用户的在线窗口
 
 
 class ChatStarted(BaseModel):

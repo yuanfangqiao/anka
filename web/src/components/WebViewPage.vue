@@ -21,6 +21,7 @@ onUnmounted(() => stop?.())
   <div class="h-full w-full bg-white">
     <iframe
       ref="frame"
+      :data-web-use-frame="props.appId || owner"
       :src="entry"
       :title="title ?? 'WebView'"
       class="h-full w-full border-0"

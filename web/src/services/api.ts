@@ -236,6 +236,7 @@ export const api = {
     model?: string
     session_id?: string
     images?: string[]
+    web_client_id?: string
   }) =>
     request<ChatStarted>('/api/chat', {
       method: 'POST',

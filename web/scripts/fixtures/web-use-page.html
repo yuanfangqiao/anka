@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>找茬验收</title>
+<style>
+  body { font: 16px system-ui; color: #15233b; margin: 16px; background: #eef3ff; }
+  #levels { overflow: auto; height: 110px; border: 1px solid #7285a1; }
+  #levels p { height: 40px; }
+  canvas { width: min(100%, 440px); display: block; height: auto; }
+</style>
+<label>搜索关卡 <input id="search" type="search"></label>
+<input type="password" aria-label="私密字段">
+<div id="levels" aria-label="关卡列表">
+  <p>森林</p><p>街道</p><p>港口</p><p>海边</p><p>火山</p><p>村庄</p><p>车站</p>
+</div>
+<button id="start">打开关卡</button>
+<section id="game" hidden>
+  <canvas id="board" width="400" height="180" aria-label="左右对比画板"></canvas>
+  <output id="score">0/1</output>
+</section>
+<script>
+  const search = document.getElementById('search')
+  const start = document.getElementById('start')
+  const game = document.getElementById('game')
+  const canvas = document.getElementById('board')
+  const score = document.getElementById('score')
+  const ctx = canvas.getContext('2d')
+  search.addEventListener('input', () => { start.textContent = '打开' + search.value })
+  start.addEventListener('click', () => {
+    if (search.value !== '海边') return
+    game.hidden = false
+    ctx.fillStyle = '#8dd2ff'
+    ctx.fillRect(0, 0, 400, 180)
+    ctx.fillStyle = '#245a9c'
+    ctx.fillRect(0, 110, 400, 70)
+    ctx.fillStyle = '#ffdb40'
+    ctx.fillRect(291, 63, 18, 18)
+  })
+  canvas.addEventListener('click', event => {
+    const r = canvas.getBoundingClientRect()
+    const x = (event.clientX - r.left) / r.width
+    const y = (event.clientY - r.top) / r.height
+    if (Math.abs(x - .75) < .035 && Math.abs(y - .4) < .07) {
+      score.value = '1/1'
+      canvas.setAttribute('data-web-use-revision', 'found')
+    }
+  })
+</script>
+</html>

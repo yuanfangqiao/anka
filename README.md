@@ -152,6 +152,10 @@ anka/
 导航回归可运行 `cd web && node scripts/check-navigation.mjs`：需要可选 Playwright
 与已安装 Chrome；模块不在项目路径时设置 `ANKA_PLAYWRIGHT_MODULE`，详见导航文档。
 
+在对话页点击「网页操作」后发送指令，Agent 可打开本窗口内已安装的 Anka 插件、观察界面、
+点击、滚动和填写文字。使用支持工具调用的模型；分析画面需要同时支持图像输入。
+完整行为和验证命令见 [Web Use](docs/WEB-USE.md)。
+
 - `reference/` **只读**：不修改、不作为运行时 import 路径
 - 业务能力一律写成插件（后端 `server/app/plugins/`，前端 `useAppRegistry` 元数据）
 - 单文件 ≤300 行；改内核须同步记录 `server/app/cordis/PATCHES.md`
